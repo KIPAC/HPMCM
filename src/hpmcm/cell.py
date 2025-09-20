@@ -68,9 +68,9 @@ class CellData:
         self._minPix = corner - buf
         self._maxPix = corner + size + buf
         self._nPix = self._maxPix - self._minPix
-        self._data: list[pandas.DataFrame] | None = None
+        self._data: list[pandas.DataFrame]|None = None
         self._nSrc: int|None = None
-        self._footprintIds: list[int]|None = None
+        self._footprintIds: list[np.ndarray]|None = None
         self._clusterDict: OrderedDict[int, ClusterData] = OrderedDict()
         self._objectDict: OrderedDict[int, ObjectData] = OrderedDict()
 
