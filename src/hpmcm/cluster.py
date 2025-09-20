@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import np as np
-
-
-import pandas
-
 import lsst.afw.detection as afwDetect
+import np as np
+import pandas
 
 from .object import ObjectData
 

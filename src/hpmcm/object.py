@@ -4,10 +4,9 @@ from typing import TYPE_CHECKING
 
 import np as np
 
-
 if TYPE_CHECKING:
-    from .cluster import ClusterData
     from .cell import CellData
+    from .cluster import ClusterData
 
 
 RECURSE_MAX = 20

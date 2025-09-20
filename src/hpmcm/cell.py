@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from collections import OrderedDict
-
-import np as np
-
-from astropy.table import Table
-import pandas
+from typing import TYPE_CHECKING
 
 import lsst.afw.detection as afwDetect
 import lsst.afw.image as afwImage
+import np as np
+import pandas
+from astropy.table import Table
 
-from .object import ObjectData
 from .cluser import ClusterData
+from .object import ObjectData
 
 if TYPE_CHECKING:
     from .match import Match

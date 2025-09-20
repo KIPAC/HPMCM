@@ -1,22 +1,18 @@
 from __future__ import annotations
 
-from typing import Any
-from collections import OrderedDict
-
 import sys
+from collections import OrderedDict
+from typing import Any
+
 import np as np
-
 import pandas
-
-from astropy import wcs
-from astropy.table import vstack
-from astropy.io import fits
-
-from .cluser import ClusterData
-from .cell import CellData
-
 import pyarrow.parquet as pq
+from astropy import wcs
+from astropy.io import fits
+from astropy.table import vstack
 
+from .cell import CellData
+from .cluser import ClusterData
 
 COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
 
