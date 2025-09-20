@@ -1,3 +1,25 @@
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
+from collections import OrderedDict
+
+import np as np
+
+from astropy import wcs
+from astropy.table import Table
+from astropy.table import vstack
+from astropy.io import fits
+
+import pandas
+
+import lsst.afw.detection as afwDetect
+import lsst.afw.image as afwImage
+
+from .object import ObjectData
+
+if TYPE_CHECKING:
+    from .cell import CellData
+    from .match import Match
 
 
 class ClusterData:
@@ -24,7 +46,13 @@ class ClusterData:
     yCent : `float`
         Y-pixel value of cluster centroid (in WCS used to do matching)
     """
-    def __init__(self, iCluster, footprint, sources, origCluster=None):
+    def __init__(
+        self,
+        iCluster: int,
+        footprint: afwDetect.Footprint,
+        sources: tuple,
+        origCluster: int|None=None,
+    ):
         self._iCluster = iCluster
         self._footprint = footprint
         if origCluster is None:
@@ -36,17 +64,17 @@ class ClusterData:
         self._sourceIdxs = sources[2]
         self._nSrc =  self._catIndices.size
         self._nUnique = len(np.unique(self._catIndices))
-        self._objects = []
-        self._data = None
-        self._xCent = None
-        self._yCent = None
-        self._dist2 = None
-        self._rmsDist = None
-        self._xCell = None
-        self._yCell = None
-        self._snr = None
+        self._objects: list[ObjectData] = []
+        self._data: pandas.DataFrame|None = None
+        self._xCent: np.ndarray|None = None
+        self._yCent: np.ndarray|None = None
+        self._dist2: np.ndarray|None = None
+        self._rmsDist: np.ndarray|None = None
+        self._xCell: np.ndarray|None = None
+        self._yCell: np.ndarray|None = None
+        self._snr: np.ndarray|None = None
         
-    def extract(self, subRegionData):
+    def extract(self, cellData: CellData) -> None:
         """ Extract the xCell, yCell and snr data from
         the sources in this cluster
         """
@@ -57,8 +85,8 @@ class ClusterData:
         
         for i, (iCat, srcIdx) in enumerate(zip(self._catIndices, self._sourceIdxs)):
 
-            series_list.append(subRegionData.data[iCat].iloc[srcIdx])
-            icat_list.append(iCat)
+            series_list.append(cellData.data[iCat].iloc[srcIdx])
+            iCat_list.append(iCat)
             src_idx_list.append(srcIdx)
 
         self._data = pandas.DataFrame(series_list)
@@ -69,7 +97,7 @@ class ClusterData:
         self._yCell = self._data['ycell'].values()
         self._snr = self._data['snr'].values()
         
-    def clearTempData(self):
+    def clearTempData(self) -> None:
         """ Remove temporary data only used when making objects """
         self._data = None
         self._xCell = None
@@ -77,37 +105,37 @@ class ClusterData:
         self._snr = None
 
     @property
-    def iCluster(self):
+    def iCluster(self) -> int:
         """ Return the cluster ID """
         return self._iCluster
 
     @property
-    def nSrc(self):
+    def nSrc(self) -> int:
         """ Return the number of sources associated to the cluster """
         return self._nSrc
 
     @property
-    def nUnique(self):
+    def nUnique(self) -> int:
         """ Return the number of catalogs contributing sources to the cluster """
         return self._nUnique
 
     @property
-    def sourceIds(self):
+    def sourceIds(self) -> list[int]:
         """ Return the source IDs associated to this cluster """
         return self._sourceIds
 
     @property
-    def dist2(self):
+    def dist2(self) -> np.ndarray:
         """ Return an array with the distance squared (in cells)
         between each source and the cluster centroid """
         return self._dist2
 
     @property
-    def objects(self):
+    def objects(self) -> list[ObjectData]:
         """ Return the objects associated with this cluster """
         return self._objects
 
-    def processCluster(self, cellData, pixelR2Cut):
+    def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
         """ Function that is called recursively to
         split clusters until they:
 
@@ -121,7 +149,9 @@ class ClusterData:
         if self._nSrc == 0:
             print("Empty cluster", self._nSrc, self._nUnique)
             return self._objects
-        self.extract(subRegionData)
+        self.extract(cellData)
+        assert self._xCell and self._yCell
+        
         if self._nSrc == 1:
             self._xCent = self._xCell[0]
             self._yCent = self._yCell[0]
@@ -138,13 +168,13 @@ class ClusterData:
         self._dist2 = (self._xCent - self._xCell)**2 + (self._yCent - self._yCell)**2
         self._rmsDist = np.sqrt(np.mean(self._dist2))
         
-        initialObject = self.addObject(subRegionData)
-        initialObject.processObject(subRegionData, pixelR2Cut)
+        initialObject = self.addObject(cellData)
+        initialObject.processObject(cellData, pixelR2Cut)
         self.clearTempData()
         return self._objects
 
-    def addObject(self, subRegionData, mask=None):
+    def addObject(self, cellData: CellData, mask: np.ndarray|None=None) -> ObjectData:
         """ Add a new object to this cluster """
-        newObject = subRegionData.addObject(self, mask)
+        newObject = cellData.addObject(self, mask)
         self._objects.append(newObject)
         return newObject

@@ -1,9 +1,30 @@
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
+from collections import OrderedDict
+
+import np as np
+
+from astropy import wcs
+from astropy.table import Table
+from astropy.table import vstack
+from astropy.io import fits
+
+import lsst.afw.detection as afwDetect
+import lsst.afw.image as afwImage
+
+if TYPE_CHECKING:
+    from .cluster import ClusterData
+    from .cell import CellData
+    from .match import Match
 
 
+RECURSE_MAX = 20
+    
 class ObjectData:
     """ Small class to define 'Objects', i.e., sets of associated sources """
 
-    def __init__(self, cluster, objectId, mask):
+    def __init__(self, cluster: ClusterData, objectId: int, mask: np.ndarray):
         """ Build from `ClusterData`, an objectId and mask specifying with sources
         in the cluster are part of the object """
         self._parentCluster = cluster
@@ -16,10 +37,9 @@ class ObjectData:
         self._nSrc = self._catIndices.size
         self._nUnique = np.unique(self._catIndices).size
 
-        
+        self._dist2: np.ndarray | None = None
         self._xCent = None
         self._yCent = None
-        self._dist2 = None
         self._local_x = None
         self._local_y = None
         self._g1 = None
@@ -31,30 +51,30 @@ class ObjectData:
 
         
     @property
-    def nSrc(self):
+    def nSrc(self) -> int:
         """ Return the number of sources associated to the object """
         return self._nSrc
 
     @property
-    def nUnique(self):
+    def nUnique(self) -> int:
         """ Return the number of catalogs contributing sources to the object """
         return self._nUnique
 
     @property
-    def dist2(self):
+    def dist2(self) -> np.ndarray:
         """ Return an array with the distance squared (in cells)
         between each source and the object centroid """
         return self._dist2
 
-    def _updateCatIndices(self):
+    def _updateCatIndices(self) -> None:
         self._catIndices = self._parentCluster._catIndices[self._mask]
         self._nSrc = self._catIndices.size
         self._nUnique = np.unique(self._catIndices).size
 
-    def sourceIds(self):
+    def sourceIds(self) -> np.ndarray:
         return self._parentCluster.sourceIds[self._mask]
         
-    def processObject(self, subRegionData, pixelR2Cut, recurse=0):
+    def processObject(self, cellData: CellData, pixelR2Cut: float, recurse: int=0) -> None:
         """ Recursively process an object and make sub-objects """
         if recurse > RECURSE_MAX:
             print("Recursion limit: ", self._nSrc, self._nUnique)
@@ -66,7 +86,7 @@ class ObjectData:
         xCell = self._parentCluster.xCell[self._mask]
         yCell = self._parentCluster.yCell[self._mask]        
         snr = self._parentCluster.snr[self._mask]
-        self._parentCluster.extract(subRegionData)
+        self._parentCluster.extract(cellData)
         local_x = self._parentCluster._local_x[self._mask]        
         local_y = self._parentCluster._local_y[self._mask]        
         g1 = self._parentCluster._g1[self._mask]        
@@ -86,7 +106,7 @@ class ObjectData:
             self.xCell = np.array([xCell[0]])
             self.yCell = np.array([yCell[0]])
             self.snr = np.array([snr[0]])
-            self.updateCatIndices()
+            self._updateCatIndices()
             return
 
         sumSnr = np.sum(snr)
@@ -105,8 +125,8 @@ class ObjectData:
         subMask = self._dist2 < pixelR2Cut
         if subMask.all():
             if self._nSrc != self._nUnique:
-                self.splitObject(subRegionData, pixelR2Cut, recurse=recurse+1)
-            self.updateCatIndices()
+                self.splitObject(cellData, pixelR2Cut, recurse=recurse+1)
+            self._updateCatIndices()
             return
 
         if not subMask.any():
@@ -128,15 +148,15 @@ class ObjectData:
         newObjMask = self._mask.copy()
         newObjMask[newObjMask] *= subMask
 
-        newObject = self._parentCluster.addObject(subRegionData, newObjMask)
-        newObject.processObject(subRegionData, pixelR2Cut)
+        newObject = self._parentCluster.addObject(cellData, newObjMask)
+        newObject.processObject(cellData, pixelR2Cut)
 
         self._mask[self._mask] *= ~subMask
-        self.updateCatIndices()
-        self.processObject(subRegionData, pixelR2Cut, recurse=recurse+1)
+        self._updateCatIndices()
+        self.processObject(cellData, pixelR2Cut, recurse=recurse+1)
 
 
-    def splitObject(self, subRegionData, pixelR2Cut, recurse=0):
+    def splitObject(self, cellData: CellData, pixelR2Cut: float, recurse: int=0) -> None:
         """ Split up a cluster keeping only one source per input
         catalog, choosing the one closest to the cluster center """
         sortIdx = np.argsort(self._dist2)
@@ -153,10 +173,10 @@ class ObjectData:
         newObjMask = self._mask.copy()
         newObjMask[newObjMask] *= mask
 
-        newObject = self._parentCluster.addObject(subRegionData, newObjMask)
-        newObject.processObject(subRegionData, pixelR2Cut)
+        newObject = self._parentCluster.addObject(cellData, newObjMask)
+        newObject.processObject(cellData, pixelR2Cut)
 
         self._mask[self._mask] *= ~mask
-        self.updateCatIndices()        
-        self.processObject(subRegionData, pixelR2Cut, recurse=recurse+1)
+        self._updateCatIndices()        
+        self.processObject(cellData, pixelR2Cut, recurse=recurse+1)
 
