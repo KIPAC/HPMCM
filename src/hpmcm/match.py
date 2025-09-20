@@ -9,11 +9,9 @@ import np as np
 import pandas
 
 from astropy import wcs
-from astropy.table import Table
 from astropy.table import vstack
 from astropy.io import fits
 
-from .object import ObjectData
 from .cluser import ClusterData
 from .cell import CellData
 
@@ -249,7 +247,6 @@ class Match:
         Does not store source counts maps for the cells
         """
         self._clusters = OrderedDict()
-        nAssoc = 0
         clusterAssocTables = []
         objectAssocTables = []
         clusterStatsTables = []
