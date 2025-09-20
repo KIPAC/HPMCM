@@ -18,21 +18,23 @@ from .cell import CellData
 import pyarrow.parquet as pq
 
 
-COLUMNS = ['ra', 'dec', 'id', "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
+COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
 
 
-def createGlobalWcs(refDir: tuple[float, float], pixSize: float, nPix: tuple[int, int]) -> wcs.WCS:
-    """ Helper function to create the WCS used to project the
-    sources in a skymap """
+def createGlobalWcs(
+    refDir: tuple[float, float], pixSize: float, nPix: tuple[int, int]
+) -> wcs.WCS:
+    """Helper function to create the WCS used to project the
+    sources in a skymap"""
     w = wcs.WCS(naxis=2)
     w.wcs.cdelt = [-pixSize, pixSize]
-    w.wcs.crpix = [nPix[0]/2, nPix[1]/2]
+    w.wcs.crpix = [nPix[0] / 2, nPix[1] / 2]
     w.wcs.crval = [refDir[0], refDir[1]]
     return w
 
 
 def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
-    """ Helper function to get stats about the clusters
+    """Helper function to get stats about the clusters
 
     'Orphan'   means single source clusters (i.e., single detections)
     'Mixed`    means there is more that one source from at least one
@@ -52,9 +54,8 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
     return np.array([len(clusterDict), nOrphan, nMixed, nConfused])
 
 
-
 class Match:
-    """ Class to do N-way matching
+    """Class to do N-way matching
 
     Uses a provided WCS to define a Skymap that covers the full region
     begin matched.
@@ -71,7 +72,7 @@ class Match:
 
     Loops over clusters and processes each cluster to resolve confusion.
 
-       If there is not a unqiue source per-catalog redo the clustering with 
+       If there is not a unqiue source per-catalog redo the clustering with
        half-size pixels to try to split the cluster (down to minimum pixel scale)
 
     Parameters
@@ -90,20 +91,20 @@ class Match:
     ):
         self._wcs = matchWcs
         self._pixSize = self._wcs.wcs.cdelt[1]
-        self._nPixSide = np.ceil(2*np.array(self._wcs.wcs.crpix)).astype(int)
-        self._cellSize = kwargs.get('cellSize', 3000)
-        self._cellBuffer = kwargs.get('cellBuffer', 10)
-        self._cellMaxObject = kwargs.get('cellMaxObject', 100000)
-        self._pixelR2Cut = kwargs.get('pixelR2Cut', 1.0)
-        self._maxSubDivision = kwargs.get('maxSubDivision', 3)
-        self._catType =  kwargs.get('catalogType', "wmom")        
-        self._nCell = np.ceil(self._nPixSide/self._cellSize)
+        self._nPixSide = np.ceil(2 * np.array(self._wcs.wcs.crpix)).astype(int)
+        self._cellSize = kwargs.get("cellSize", 3000)
+        self._cellBuffer = kwargs.get("cellBuffer", 10)
+        self._cellMaxObject = kwargs.get("cellMaxObject", 100000)
+        self._pixelR2Cut = kwargs.get("pixelR2Cut", 1.0)
+        self._maxSubDivision = kwargs.get("maxSubDivision", 3)
+        self._catType = kwargs.get("catalogType", "wmom")
+        self._nCell = np.ceil(self._nPixSide / self._cellSize)
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._clusters: OrderedDict[tuple[int, int], ClusterData]|None = None
+        self._clusters: OrderedDict[tuple[int, int], ClusterData] | None = None
 
     def pixToArcsec(self) -> float:
         """Convert pixel size (in degrees) to arcseconds"""
-        return 3600. * self._pixSize
+        return 3600.0 * self._pixSize
 
     def pixToWorld(
         self,
@@ -112,7 +113,7 @@ class Match:
     ) -> tuple[float, float]:
         """Convert locals in pixels to world coordinates (RA, DEC)"""
         return self._wcs.wcs_pix2world(xPix, yPix, 0)
-    
+
     @classmethod
     def create(
         cls,
@@ -121,20 +122,20 @@ class Match:
         pixSize: float,
         **kwargs: Any,
     ) -> Match:
-        """ Make an `NWayMatch` object from inputs """
-        nPix = (np.array(regionSize)/pixSize).astype(int)
+        """Make an `NWayMatch` object from inputs"""
+        nPix = (np.array(regionSize) / pixSize).astype(int)
         matchWcs = createGlobalWcs(refDir, pixSize, nPix)
         return cls(matchWcs, **kwargs)
 
     @property
     def redData(self) -> OrderedDict[int, pandas.DataFrame]:
-        """ Return the dictionary of reduced data, i.e., just the columns
-        need for matching """
+        """Return the dictionary of reduced data, i.e., just the columns
+        need for matching"""
         return self._redData
 
     @property
     def nCell(self) -> tuple[int, int]:
-        """ Return the number of cells in X,Y """
+        """Return the number of cells in X,Y"""
         return self._nCell
 
     def reduceData(
@@ -142,7 +143,7 @@ class Match:
         inputFiles: list[str],
         visitIds: list[int],
     ) -> None:
-        """ Read input files and filter out only the columns we need """
+        """Read input files and filter out only the columns we need"""
         for fName, vid in zip(inputFiles, visitIds):
             self._redData[vid] = self.reduceDataFrame(fName)
 
@@ -150,19 +151,24 @@ class Match:
         self,
         fName: str,
     ) -> pandas.DataFrame:
-        """ Read and reduce a single input file """
-        columns=COLUMNS.copy()
-        if self._catType == 'wmom':
-            columns += ['wmom_band_flux_r', 'wmom_band_flux_err_r', "wmom_g_1", "wmom_g_2"]
-        elif self._catType == 'gauss':
-            columns += ['gauss_band_mag_r', "gauss_mag_r_err", "gauss_g_1", "gauss_g_2"]
+        """Read and reduce a single input file"""
+        columns = COLUMNS.copy()
+        if self._catType == "wmom":
+            columns += [
+                "wmom_band_flux_r",
+                "wmom_band_flux_err_r",
+                "wmom_g_1",
+                "wmom_g_2",
+            ]
+        elif self._catType == "gauss":
+            columns += ["gauss_band_mag_r", "gauss_mag_r_err", "gauss_g_1", "gauss_g_2"]
         parq = pq.read_pandas(fName, columns=columns)
         df = parq.to_pandas()
-        if self._catType == 'wmom':
-            df['SNR'] = df['wmom_band_flux_r']/df['wmom_band_flux_err_r']
-        elif self._catType == 'gauss':
-            #df['SNR'] = df['PsFlux']/df['PsFluxErr']
-            df['SNR'] = 1./df['gauss_mag_r_err']
+        if self._catType == "wmom":
+            df["SNR"] = df["wmom_band_flux_r"] / df["wmom_band_flux_err_r"]
+        elif self._catType == "gauss":
+            # df['SNR'] = df['PsFlux']/df['PsFluxErr']
+            df["SNR"] = 1.0 / df["gauss_mag_r_err"]
         # select sources that have SNR > 5.
         # You may start with 10 or even 50 if you want to start with just the brightest objects
         # AND
@@ -174,40 +180,70 @@ class Match:
         # AND
         # detect_isPrimary = True to remove duplicate rows from deblending:
         # If a source has been deblended, the parent is marked detect_isPrimary=False and its children True.
-        #df_clean = df[(df.SNR > 5) & ~df.Centroid_flag & ~df.sky_source & df.detect_isPrimary]
+        # df_clean = df[(df.SNR > 5) & ~df.Centroid_flag & ~df.sky_source & df.detect_isPrimary]
         df_clean = df[(df.SNR > 1)]
-        xcell, ycell = self._wcs.wcs_world2pix(df_clean['ra'].values, df_clean['dec'].values, 0)
-        df_red = df_clean[["ra", "dec", "SNR", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col", f"{self._catType}_g_1", f"{self._catType}_g_2"]].copy(deep=True)
-                              
-        idx_x = 20*df_red['patch_x'].values + df_red['cell_x'].values
-        idx_y = 20*df_red['patch_y'].values + df_red['cell_y'].values
-        cent_x = 150*idx_x -75
-        cent_y = 150*idx_y -75
-        local_x = df_red['col'] - cent_x
-        local_y = df_red['row'] - cent_y
+        xcell, ycell = self._wcs.wcs_world2pix(
+            df_clean["ra"].values, df_clean["dec"].values, 0
+        )
+        df_red = df_clean[
+            [
+                "ra",
+                "dec",
+                "SNR",
+                "id",
+                "patch_x",
+                "patch_y",
+                "cell_x",
+                "cell_y",
+                "row",
+                "col",
+                f"{self._catType}_g_1",
+                f"{self._catType}_g_2",
+            ]
+        ].copy(deep=True)
 
-        df_red['xcell'] = xcell
-        df_red['ycell'] = ycell
-        df_red['local_x'] = local_x
-        df_red['local_y'] = local_y
-        return df_red[["ra", "dec", "SNR", "id", "xcell", "ycell", "local_x", "local_y", f"{self._catType}_g_1", f"{self._catType}_g_2"]]
+        idx_x = 20 * df_red["patch_x"].values + df_red["cell_x"].values
+        idx_y = 20 * df_red["patch_y"].values + df_red["cell_y"].values
+        cent_x = 150 * idx_x - 75
+        cent_y = 150 * idx_y - 75
+        local_x = df_red["col"] - cent_x
+        local_y = df_red["row"] - cent_y
+
+        df_red["xcell"] = xcell
+        df_red["ycell"] = ycell
+        df_red["local_x"] = local_x
+        df_red["local_y"] = local_y
+        return df_red[
+            [
+                "ra",
+                "dec",
+                "SNR",
+                "id",
+                "xcell",
+                "ycell",
+                "local_x",
+                "local_y",
+                f"{self._catType}_g_1",
+                f"{self._catType}_g_2",
+            ]
+        ]
 
     def getIdOffset(
         self,
         ix: int,
         iy: int,
     ) -> int:
-        """ Get the ID offset to use for a given cell """
-        cellIdx = self._nCell[1]*ix + iy
+        """Get the ID offset to use for a given cell"""
+        cellIdx = self._nCell[1] * ix + iy
         return int(self._cellMaxObject * cellIdx)
 
     def analyzeCell(
         self,
         ix: int,
         iy: int,
-        fullData: bool=False,
-    ) -> dict|None:
-        """ Analyze a single cell
+        fullData: bool = False,
+    ) -> dict | None:
+        """Analyze a single cell
 
         Returns an OrderedDict
 
@@ -235,14 +271,14 @@ class Match:
         if oDict is None:
             return None
         if fullData:
-            oDict['cellData'] = cellData
+            oDict["cellData"] = cellData
             return oDict
         if cellData.nObjects >= self._cellMaxObject:
             print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
         return dict(cellData=cellData)
 
     def finish(self) -> Any:
-        """ Does clusering for all cell
+        """Does clusering for all cell
 
         Does not store source counts maps for the cells
         """
@@ -256,35 +292,49 @@ class Match:
             sys.stdout.write("%2i " % ix)
             sys.stdout.flush()
             for iy in range(int(self._nCell[1])):
-                sys.stdout.write('.')
+                sys.stdout.write(".")
                 sys.stdout.flush()
                 iCell = (ix, iy)
                 odict = self.analyzeCell(ix, iy)
                 if odict is None:
                     continue
-                cellData = odict['cellData']
+                cellData = odict["cellData"]
                 self._clusters[iCell] = cellData
                 clusterAssocTables.append(cellData.getClusterAssociations())
                 objectAssocTables.append(cellData.getObjectAssociations())
                 clusterStatsTables.append(cellData.getClusterStats())
                 objectStatsTables.append(cellData.getObjectStats())
-                
-            sys.stdout.write('!\n')
+
+            sys.stdout.write("!\n")
 
         sys.stdout.write("Making association vectors\n")
-        hduList = fits.HDUList([fits.PrimaryHDU(),
-                                fits.table_to_hdu(vstack(clusterAssocTables)),
-                                fits.table_to_hdu(vstack(objectAssocTables)),
-                                fits.table_to_hdu(vstack(clusterStatsTables)),
-                                fits.table_to_hdu(vstack(objectStatsTables))])
+        hduList = fits.HDUList(
+            [
+                fits.PrimaryHDU(),
+                fits.table_to_hdu(vstack(clusterAssocTables)),
+                fits.table_to_hdu(vstack(objectAssocTables)),
+                fits.table_to_hdu(vstack(clusterStatsTables)),
+                fits.table_to_hdu(vstack(objectStatsTables)),
+            ]
+        )
         return hduList
 
     def allStats(self) -> np.ndarray:
-        """ Helper function to print info about clusters """
+        """Helper function to print info about clusters"""
         stats = np.zeros((4), int)
         assert self._clusters
         for key, cellData in self._clusters.items():
             cellStats = clusterStats(cellData._clusterDict)
-            print("%3i, %3i: %8i %8i %8i %8i" % (key[0], key[1], cellStats[0], cellStats[1], cellStats[2], cellStats[3]))
+            print(
+                "%3i, %3i: %8i %8i %8i %8i"
+                % (
+                    key[0],
+                    key[1],
+                    cellStats[0],
+                    cellStats[1],
+                    cellStats[2],
+                    cellStats[3],
+                )
+            )
             stats += cellStats
         return stats
