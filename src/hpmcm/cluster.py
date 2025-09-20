@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import lsst.afw.detection as afwDetect
-import np as np
+import numpy as np
 import pandas
 
 from .object import ObjectData
@@ -57,6 +57,7 @@ class ClusterData:
         self._nUnique = len(np.unique(self._catIndices))
         self._objects: list[ObjectData] = []
         self._data: pandas.DataFrame | None = None
+        
         self._xCent: np.ndarray | None = None
         self._yCent: np.ndarray | None = None
         self._dist2: np.ndarray | None = None
@@ -74,7 +75,7 @@ class ClusterData:
         iCat_list = []
         src_idx_list = []
 
-        for i, (iCat, srcIdx) in enumerate(zip(self._catIndices, self._sourceIdxs)):
+        for _i, (iCat, srcIdx) in enumerate(zip(self._catIndices, self._sourceIdxs)):
 
             series_list.append(cellData.data[iCat].iloc[srcIdx])
             iCat_list.append(iCat)

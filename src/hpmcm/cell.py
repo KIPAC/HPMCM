@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 
 import lsst.afw.detection as afwDetect
 import lsst.afw.image as afwImage
-import np as np
+import numpy as np
 import pandas
 from astropy.table import Table
 
-from .cluser import ClusterData
+from .cluster import ClusterData
 from .object import ObjectData
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class CellData:
     def reduceData(self, data: pandas.DataFrame) -> None:
         """Pull out only the data needed for this cell"""
         self._data = [self.reduceDataframe(val) for val in data]
-        self._nSrc = sum([len(df) for df in self._data])
+        self._nSrc = np.sum([len(df) for df in self._data])
 
     @property
     def nClusters(self) -> int:

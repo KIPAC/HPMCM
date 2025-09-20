@@ -4,7 +4,7 @@ import sys
 from collections import OrderedDict
 from typing import Any
 
-import np as np
+import numpy as np
 import pandas
 import pyarrow.parquet as pq
 from astropy import wcs
@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.table import vstack
 
 from .cell import CellData
-from .cluser import ClusterData
+from .cluster import ClusterData
 
 COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
 
@@ -53,31 +53,31 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 class Match:
     """Class to do N-way matching
 
-    Uses a provided WCS to define a Skymap that covers the full region
-    begin matched.
+        Uses a provided WCS to define a Skymap that covers the full region
+        begin matched.
 
-    Uses that WCS to assign pixel locations to all sources in the input catalogs
+        Uses that WCS to assign pixel locations to all sources in the input catalogs
 
-    Iterates over cells and does source clustering in each cell
-    using Footprint detection on a Skymap of source counts per pixel.
+        Iterates over cells and does source clustering in each cell
+    x    using Footprint detection on a Skymap of source counts per pixel.
 
-    Assigns each input source to a cluster.
+        Assigns each input source to a cluster.
 
-    At that stage the clusters are not the final product as they can include
-    more than one soruce from a given catalog.
+        At that stage the clusters are not the final product as they can include
+        more than one soruce from a given catalog.
 
-    Loops over clusters and processes each cluster to resolve confusion.
+        Loops over clusters and processes each cluster to resolve confusion.
 
-       If there is not a unqiue source per-catalog redo the clustering with
-       half-size pixels to try to split the cluster (down to minimum pixel scale)
+           If there is not a unqiue source per-catalog redo the clustering with
+           half-size pixels to try to split the cluster (down to minimum pixel scale)
 
-    Parameters
-    ----------
-    _redData : `list`, [`Dataframe`]
-        Reduced dataframes with only the columns needed for matching
+        Parameters
+        ----------
+        _redData : `list`, [`Dataframe`]
+            Reduced dataframes with only the columns needed for matching
 
-    _clusters : `OrderedDict`, [`tuple`, `CellData`]
-        Dictionary providing access to cell data
+        _clusters : `OrderedDict`, [`tuple`, `CellData`]
+            Dictionary providing access to cell data
     """
 
     def __init__(
@@ -285,7 +285,7 @@ class Match:
         objectStatsTables = []
 
         for ix in range(int(self._nCell[0])):
-            sys.stdout.write("%2i " % ix)
+            sys.stdout.write(f"{ix:%2i}")
             sys.stdout.flush()
             for iy in range(int(self._nCell[1])):
                 sys.stdout.write(".")
@@ -322,15 +322,12 @@ class Match:
         for key, cellData in self._clusters.items():
             cellStats = clusterStats(cellData._clusterDict)
             print(
-                "%3i, %3i: %8i %8i %8i %8i"
-                % (
-                    key[0],
-                    key[1],
-                    cellStats[0],
-                    cellStats[1],
-                    cellStats[2],
-                    cellStats[3],
-                )
+                f"{key[0]:%3} "
+                f"{key[1]:%3}: "
+                f"{cellStats[0]:%8i} "
+                f"{cellStats[1]:%8i} "
+                f"{cellStats[2]:%8i} "
+                f"{cellStats[3]:%8i}"
             )
             stats += cellStats
         return stats

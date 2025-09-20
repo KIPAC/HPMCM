@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import np as np
+import numpy as np
 
 if TYPE_CHECKING:
     from .cell import CellData
@@ -161,8 +161,7 @@ class ObjectData:
             if catIdx not in usedCats:
                 usedCats[catIdx] = 1
                 continue
-            else:
-                usedCats[catIdx] += 1
+            usedCats[catIdx] += 1
             mask[iSrc] = False
 
         newObjMask = self._mask.copy()

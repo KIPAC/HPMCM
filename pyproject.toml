@@ -7,7 +7,6 @@ authors = [
     { name = "Eric Charles", email = "badass@stanford.edu" }
 ]
 description="=Matching algorithm for multiple input source catalogs"
-url = "https://github.com/KIPAC/NWayMatch"
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -65,6 +64,8 @@ disable = [
     "invalid-name",
     "too-many-statements",
     "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-positional-arguments",
     "missing-module-docstring",
     "missing-class-docstring",
     "missing-function-docstring",
