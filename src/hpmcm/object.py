@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas
 
 if TYPE_CHECKING:
     from .cell import CellData
     from .cluster import ClusterData
-
 
 RECURSE_MAX = 20
 
@@ -15,30 +15,37 @@ RECURSE_MAX = 20
 class ObjectData:
     """Small class to define 'Objects', i.e., sets of associated sources"""
 
-    def __init__(self, cluster: ClusterData, objectId: int, mask: np.ndarray):
+    def __init__(self, cluster: ClusterData, objectId: int, mask: np.ndarray | None):
         """Build from `ClusterData`, an objectId and mask specifying with sources
         in the cluster are part of the object"""
-        self._parentCluster = cluster
-        self._objectId = objectId
+        self._parentCluster: ClusterData = cluster
+        self._objectId: int = objectId
         if mask is None:
             self._mask = np.ones((self._parentCluster.nSrc), dtype=bool)
         else:
             self._mask = mask
-        self._catIndices = self._parentCluster._catIndices[self._mask]
-        self._nSrc = self._catIndices.size
-        self._nUnique = np.unique(self._catIndices).size
+        self._catIndices: np.ndarray = self._parentCluster._catIndices[self._mask]
+        self._nSrc: int = self._catIndices.size
+        self._nUnique: int = np.unique(self._catIndices).size
+        self._data: pandas.DataFrame | None = None
 
+        self._xCent: np.ndarray | None = None
+        self._yCent: np.ndarray | None = None
         self._dist2: np.ndarray | None = None
-        self._xCent = None
-        self._yCent = None
-        self._local_x = None
-        self._local_y = None
-        self._g1 = None
-        self._g2 = None
-        self._rmsDist = None
-        self.xCell = None
-        self.yCell = None
-        self.snr = None
+        self._rmsDist: np.ndarray | None = None
+        self._xCell: np.ndarray | None = None
+        self._yCell: np.ndarray | None = None
+        self._snr: np.ndarray | None = None
+
+    @property
+    def parentCluster(self) -> ClusterData:
+        """Return the parent cluster"""
+        return self._parentCluster
+
+    @property
+    def objectId(self) -> int:
+        """Return the object id"""
+        return self._objectId
 
     @property
     def nSrc(self) -> int:
@@ -51,13 +58,28 @@ class ObjectData:
         return self._nUnique
 
     @property
-    def dist2(self) -> np.ndarray:
+    def xCell(self) -> np.ndarray | None:
+        """Return the x-position of the sources within the cell"""
+        return self._xCell
+
+    @property
+    def yCell(self) -> np.ndarray | None:
+        """Return the y-position of the sources within the cell"""
+        return self._yCell
+
+    @property
+    def snr(self) -> np.ndarray | None:
+        """Return the signal to noise of the sources in the object"""
+        return self._snr
+
+    @property
+    def dist2(self) -> np.ndarray | None:
         """Return an array with the distance squared (in cells)
         between each source and the object centroid"""
         return self._dist2
 
     def _updateCatIndices(self) -> None:
-        self._catIndices = self._parentCluster._catIndices[self._mask]
+        self._catIndices = self._parentCluster.catIndices[self._mask]
         self._nSrc = self._catIndices.size
         self._nUnique = np.unique(self._catIndices).size
 
@@ -75,14 +97,18 @@ class ObjectData:
             print("Empty object", self._nSrc, self._nUnique, recurse)
             return
 
+        assert (
+            self._parentCluster.xCell
+            and self._parentCluster.yCell
+            and self._parentCluster.snr
+        )
+
+        # FIXME, update self._data
+
         xCell = self._parentCluster.xCell[self._mask]
         yCell = self._parentCluster.yCell[self._mask]
         snr = self._parentCluster.snr[self._mask]
         self._parentCluster.extract(cellData)
-        local_x = self._parentCluster._local_x[self._mask]
-        local_y = self._parentCluster._local_y[self._mask]
-        g1 = self._parentCluster._g1[self._mask]
-        g2 = self._parentCluster._g2[self._mask]
         xCell = self._parentCluster.xCell[self._mask]
         yCell = self._parentCluster.yCell[self._mask]
 
@@ -90,14 +116,10 @@ class ObjectData:
             self._xCent = np.array([xCell[0]])
             self._yCent = np.array([yCell[0]])
             self._dist2 = np.zeros((1), float)
-            self._local_x = np.array([local_x[0]])
-            self._local_y = np.array([local_y[0]])
-            self._g1 = np.array([g1[0]])
-            self._g2 = np.array([g2[0]])
             self._rmsDist = np.array([0.0])
-            self.xCell = np.array([xCell[0]])
-            self.yCell = np.array([yCell[0]])
-            self.snr = np.array([snr[0]])
+            self._xCell = np.array([xCell[0]])
+            self._yCell = np.array([yCell[0]])
+            self._snr = np.array([snr[0]])
             self._updateCatIndices()
             return
 
@@ -105,13 +127,9 @@ class ObjectData:
         self._xCent = np.sum(xCell * snr) / sumSnr
         self._yCent = np.sum(yCell * snr) / sumSnr
         self._dist2 = np.array((self._xCent - xCell) ** 2 + (self._yCent - yCell) ** 2)
-        self._local_x = local_x
-        self._local_y = local_y
-        self._g1 = g1
-        self._g2 = g2
-        self.xCell = xCell
-        self.yCell = yCell
-        self.snr = snr
+        self._xCell = xCell
+        self._yCell = yCell
+        self._snr = snr
 
         self._rmsDist = np.sqrt(np.mean(self._dist2))
         subMask = self._dist2 < pixelR2Cut
@@ -129,13 +147,9 @@ class ObjectData:
                 (self._xCent - xCell) ** 2 + (self._yCent - yCell) ** 2
             )
             self._rmsDist = np.array([np.sqrt(np.mean(self._dist2))])
-            self._local_x = np.array([local_x[idx]])
-            self._local_y = np.array([local_y[idx]])
-            self._g1 = np.array([g1[idx]])
-            self._g2 = np.array([g2[idx]])
-            self.xCell = np.array([xCell[idx]])
-            self.yCell = np.array([yCell[idx]])
-            self.snr = np.array([snr[idx]])
+            self._xCell = np.array([xCell[idx]])
+            self._yCell = np.array([yCell[idx]])
+            self._snr = np.array([snr[idx]])
 
             subMask = self._dist2 < pixelR2Cut
 
@@ -154,6 +168,7 @@ class ObjectData:
     ) -> None:
         """Split up a cluster keeping only one source per input
         catalog, choosing the one closest to the cluster center"""
+        assert self._dist2
         sortIdx = np.argsort(self._dist2)
         mask = np.ones((self._nSrc), dtype=bool)
         usedCats = {}

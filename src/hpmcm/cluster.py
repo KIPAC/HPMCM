@@ -41,27 +41,26 @@ class ClusterData:
         self,
         iCluster: int,
         footprint: afwDetect.Footprint,
-        sources: tuple,
+        sources: np.ndarray,
         origCluster: int | None = None,
     ):
-        self._iCluster = iCluster
-        self._footprint = footprint
-        if origCluster is None:
-            self._origCluster = self._iCluster
-        else:
+        self._iCluster: int = iCluster
+        self._footprint: afwDetect.Footprint = footprint
+        self._origCluster: int = iCluster
+        if origCluster is not None:
             self._origCluster = origCluster
-        self._catIndices = sources[0]
-        self._sourceIds = sources[1]
-        self._sourceIdxs = sources[2]
-        self._nSrc = self._catIndices.size
-        self._nUnique = len(np.unique(self._catIndices))
+        self._catIndices: np.ndarray = sources[0]
+        self._sourceIds: np.ndarray = sources[1]
+        self._sourceIdxs: np.ndarray = sources[2]
+        self._nSrc: int = self._catIndices.size
+        self._nUnique: int = len(np.unique(self._catIndices))
         self._objects: list[ObjectData] = []
         self._data: pandas.DataFrame | None = None
-        
+
         self._xCent: np.ndarray | None = None
         self._yCent: np.ndarray | None = None
         self._dist2: np.ndarray | None = None
-        self._rmsDist: np.ndarray | None = None
+        self._rmsDist: float | None = None
         self._xCell: np.ndarray | None = None
         self._yCell: np.ndarray | None = None
         self._snr: np.ndarray | None = None
@@ -112,12 +111,32 @@ class ClusterData:
         return self._nUnique
 
     @property
-    def sourceIds(self) -> list[int]:
+    def sourceIds(self) -> np.ndarray:
         """Return the source IDs associated to this cluster"""
         return self._sourceIds
 
     @property
-    def dist2(self) -> np.ndarray:
+    def catIndices(self) -> np.ndarray:
+        """Return the catalog indcies associated to this cluster"""
+        return self._catIndices
+
+    @property
+    def xCell(self) -> np.ndarray | None:
+        """Return the x-position of the sources within the cell"""
+        return self._xCell
+
+    @property
+    def yCell(self) -> np.ndarray | None:
+        """Return the y-position of the sources within the cell"""
+        return self._yCell
+
+    @property
+    def snr(self) -> np.ndarray | None:
+        """Return the signal to noise of the sources in the object"""
+        return self._snr
+
+    @property
+    def dist2(self) -> np.ndarray | None:
         """Return an array with the distance squared (in cells)
         between each source and the cluster centroid"""
         return self._dist2
@@ -142,7 +161,7 @@ class ClusterData:
             print("Empty cluster", self._nSrc, self._nUnique)
             return self._objects
         self.extract(cellData)
-        assert self._xCell and self._yCell
+        assert self._xCell and self._yCell and self._snr
 
         if self._nSrc == 1:
             self._xCent = self._xCell[0]

@@ -18,7 +18,9 @@ COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "
 
 
 def createGlobalWcs(
-    refDir: tuple[float, float], pixSize: float, nPix: tuple[int, int]
+    refDir: tuple[float, float],
+    pixSize: float,
+    nPix: np.ndarray,
 ) -> wcs.WCS:
     """Helper function to create the WCS used to project the
     sources in a skymap"""
@@ -85,18 +87,20 @@ class Match:
         matchWcs: wcs.WCS,
         **kwargs: Any,
     ):
-        self._wcs = matchWcs
-        self._pixSize = self._wcs.wcs.cdelt[1]
-        self._nPixSide = np.ceil(2 * np.array(self._wcs.wcs.crpix)).astype(int)
-        self._cellSize = kwargs.get("cellSize", 3000)
-        self._cellBuffer = kwargs.get("cellBuffer", 10)
-        self._cellMaxObject = kwargs.get("cellMaxObject", 100000)
-        self._pixelR2Cut = kwargs.get("pixelR2Cut", 1.0)
-        self._maxSubDivision = kwargs.get("maxSubDivision", 3)
-        self._catType = kwargs.get("catalogType", "wmom")
-        self._nCell = np.ceil(self._nPixSide / self._cellSize)
+        self._wcs: wcs.WCS = matchWcs
+        self._pixSize: float = self._wcs.wcs.cdelt[1]
+        self._nPixSide: np.ndarray = np.ceil(2 * np.array(self._wcs.wcs.crpix)).astype(
+            int
+        )
+        self._cellSize: int = kwargs.get("cellSize", 3000)
+        self._cellBuffer: int = kwargs.get("cellBuffer", 10)
+        self._cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
+        self._pixelR2Cut: float = kwargs.get("pixelR2Cut", 1.0)
+        self._maxSubDivision: int = kwargs.get("maxSubDivision", 3)
+        self._catType: str = kwargs.get("catalogType", "wmom")
+        self._nCell: np.ndarray = np.ceil(self._nPixSide / self._cellSize)
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._clusters: OrderedDict[tuple[int, int], ClusterData] | None = None
+        self._clusters: OrderedDict[tuple[int, int], CellData] | None = None
 
     def pixToArcsec(self) -> float:
         """Convert pixel size (in degrees) to arcseconds"""
@@ -104,9 +108,9 @@ class Match:
 
     def pixToWorld(
         self,
-        xPix: float,
-        yPix: float,
-    ) -> tuple[float, float]:
+        xPix: np.ndarray,
+        yPix: np.ndarray,
+    ) -> np.ndarray:
         """Convert locals in pixels to world coordinates (RA, DEC)"""
         return self._wcs.wcs_pix2world(xPix, yPix, 0)
 
@@ -130,7 +134,7 @@ class Match:
         return self._redData
 
     @property
-    def nCell(self) -> tuple[int, int]:
+    def nCell(self) -> np.ndarray:
         """Return the number of cells in X,Y"""
         return self._nCell
 
@@ -259,9 +263,10 @@ class Match:
             associated Footprints
         """
         iCell = np.array([ix, iy])
-        corner = iCell * self._cellSize
+        cellStep = np.array([self._cellSize, self._cellSize])
+        corner = iCell * cellStep
         idOffset = self.getIdOffset(ix, iy)
-        cellData = CellData(self, idOffset, corner, self._cellSize, self._cellBuffer)
+        cellData = CellData(self, idOffset, corner, cellStep, self._cellBuffer)
         cellData.reduceData(self._redData.values())
         oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
         if oDict is None:
@@ -320,7 +325,7 @@ class Match:
         stats = np.zeros((4), int)
         assert self._clusters
         for key, cellData in self._clusters.items():
-            cellStats = clusterStats(cellData._clusterDict)
+            cellStats = clusterStats(cellData.clusterDict)
             print(
                 f"{key[0]:%3} "
                 f"{key[1]:%3}: "

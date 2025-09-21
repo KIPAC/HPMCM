@@ -56,16 +56,16 @@ class CellData:
         size: np.ndarray,
         buf: int = 10,
     ):
-        self._matcher = matcher
-        self._idOffset = (
-            idOffset  # Offset used for the Object and Cluster IDs for this cell
-        )
-        self._corner = corner  # cellX, cellY for corner of cell
-        self._size = size  # size of cell
-        self._buf = buf
-        self._minPix = corner - buf
-        self._maxPix = corner + size + buf
-        self._nPix = self._maxPix - self._minPix
+        self._matcher: Match = matcher
+        # Offset used for the Object and Cluster IDs for this cell
+        self._idOffset: int = idOffset
+        self._corner: np.ndarray = corner  # pixX, pixY for corner of cell
+        self._size: np.ndarray = size  # size of cell
+        self._buf: int = buf
+        self._minPix: np.ndarray = corner - buf
+        self._maxPix: np.ndarray = corner + size + buf
+        self._nPix: np.ndarray = self._maxPix - self._minPix
+
         self._data: list[pandas.DataFrame] | None = None
         self._nSrc: int | None = None
         self._footprintIds: list[np.ndarray] | None = None
@@ -93,7 +93,7 @@ class CellData:
         return self._data
 
     @property
-    def clusterDist(self) -> OrderedDict[int, ClusterData]:
+    def clusterDict(self) -> OrderedDict[int, ClusterData]:
         """Return a dictionary mapping clusters Ids to clusters"""
         return self._clusterDict
 
@@ -120,7 +120,7 @@ class CellData:
             toFill += self.fillCellFromDf(df, weightName=weightName)
         return toFill
 
-    def associateSourcesToFootprints(self, clusterKey: int) -> None:
+    def associateSourcesToFootprints(self, clusterKey: np.ndarray) -> None:
         """Loop through data and associate sources to clusters"""
         assert self._data
         self._footprintIds = [self.findClusterIds(df, clusterKey) for df in self._data]
@@ -133,7 +133,7 @@ class CellData:
         """Loop through cluster ids and collect sources into
         the ClusterData objects"""
         footprints = fpSet.getFootprints()
-        footprintDict = {}
+        footprintDict: dict[int, list[tuple[int, int, int]]] = {}
         nMissing = 0
         nFound = 0
         assert self._data
@@ -237,17 +237,18 @@ class CellData:
         """Convert the clusters to a set of associations"""
         clusterIds = []
         sourceIds = []
-        distances = []
+        distancesList: list[np.ndarray] = []
         for cluster in self._clusterDict.values():
             clusterIds.append(np.full((cluster.nSrc), cluster.iCluster, dtype=int))
             sourceIds.append(cluster.sourceIds)
-            distances.append(cluster.dist2)
-        if not distances:
+            assert cluster.dist2
+            distancesList.append(cluster.dist2)
+        if not distancesList:
             return Table(
                 dict(distance=[], id=np.array([], int), object=np.array([], int))
             )
-        distances = np.hstack(distances)
-        distances = self._matcher.cellToArcsec() * np.sqrt(distances)
+        distances = np.hstack(distancesList)
+        distances = self._matcher.pixToArcsec() * np.sqrt(distances)
         data = dict(
             object=np.hstack(clusterIds), id=np.hstack(sourceIds), distance=distances
         )
@@ -257,15 +258,16 @@ class CellData:
         clusterIds = []
         objectIds = []
         sourceIds = []
-        distances = []
+        distancesList: list[np.ndarray] = []
         for obj in self._objectDict.values():
             clusterIds.append(
-                np.full((obj._nSrc), obj._parentCluster.iCluster, dtype=int)
+                np.full((obj.nSrc), obj.parentCluster.iCluster, dtype=int)
             )
-            objectIds.append(np.full((obj._nSrc), obj._objectId, dtype=int))
+            objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
             sourceIds.append(obj.sourceIds())
-            distances.append(obj.dist2)
-        if not distances:
+            assert obj.dist2
+            distancesList.append(obj.dist2)
+        if not distancesList:
             return Table(
                 dict(
                     object=np.array([], int),
@@ -274,8 +276,8 @@ class CellData:
                     distance=[],
                 )
             )
-        distances = np.hstack(distances)
-        distances = self._matcher.cellToArcsec() * np.sqrt(distances)
+        distances = np.hstack(distancesList)
+        distances = self._matcher.pixToArcsec() * np.sqrt(distances)
         data = dict(
             object=np.hstack(objectIds),
             parent=np.hstack(clusterIds),
@@ -295,15 +297,15 @@ class CellData:
         xCents = np.zeros((nClust), dtype=float)
         yCents = np.zeros((nClust), dtype=float)
         for idx, cluster in enumerate(self._clusterDict.values()):
-            clusterIds[idx] = cluster._iCluster
+            clusterIds[idx] = cluster.iCluster
             nSrcs[idx] = cluster.nSrc
-            nObjects[idx] = len(cluster._objects)
+            nObjects[idx] = len(cluster.objects)
             nUniques[idx] = cluster.nUnique
-            distRms[idx] = cluster._rmsDist
-            xCents[idx] = cluster._xCent
-            yCents[idx] = cluster._yCent
-        ra, decl = self._matcher.cellToWorld(xCents, yCents)
-        distRms *= self._matcher.cellToArcsec()
+            distRms[idx] = cluster.rmsDist
+            xCents[idx] = cluster.xCent
+            yCents[idx] = cluster.yCent
+        ra, decl = self._matcher.pixToWorld(xCents, yCents)
+        distRms *= self._matcher.pixToArcsec()
 
         data = dict(
             clusterIds=clusterIds,
@@ -327,15 +329,15 @@ class CellData:
         xCents = np.zeros((nObj), dtype=float)
         yCents = np.zeros((nObj), dtype=float)
         for idx, obj in enumerate(self._objectDict.values()):
-            clusterIds[idx] = obj._parentCluster._iCluster
-            objectIds[idx] = obj._objectId
+            clusterIds[idx] = obj.parentCluster.iCluster
+            objectIds[idx] = obj.objectId
             nSrcs[idx] = obj.nSrc
-            distRms[idx] = obj._rmsDist
-            xCents[idx] = obj._xCent
-            yCents[idx] = obj._yCent
+            distRms[idx] = obj.rmsDist
+            xCents[idx] = obj.xCent
+            yCents[idx] = obj.yCent
 
-        ra, decl = self._matcher.cellToWorld(xCents, yCents)
-        distRms *= self._matcher.cellToArcsec()
+        ra, decl = self._matcher.pixToWorld(xCents, yCents)
+        distRms *= self._matcher.pixToArcsec()
 
         data = dict(
             clusterIds=clusterIds,
