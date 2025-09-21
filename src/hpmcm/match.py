@@ -55,31 +55,31 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 class Match:
     """Class to do N-way matching
 
-        Uses a provided WCS to define a Skymap that covers the full region
-        begin matched.
+    Uses a provided WCS to define a Skymap that covers the full region
+    begin matched.
 
-        Uses that WCS to assign pixel locations to all sources in the input catalogs
+    Uses that WCS to assign pixel locations to all sources in the input catalogs
 
-        Iterates over cells and does source clustering in each cell
-    x    using Footprint detection on a Skymap of source counts per pixel.
+    Iterates over cells and does source clustering in each cell
+    using Footprint detection on a Skymap of source counts per pixel.
 
-        Assigns each input source to a cluster.
+    Assigns each input source to a cluster.
 
-        At that stage the clusters are not the final product as they can include
-        more than one soruce from a given catalog.
+    At that stage the clusters are not the final product as they can include
+    more than one soruce from a given catalog.
 
-        Loops over clusters and processes each cluster to resolve confusion.
+    Loops over clusters and processes each cluster to resolve confusion.
 
-           If there is not a unqiue source per-catalog redo the clustering with
-           half-size pixels to try to split the cluster (down to minimum pixel scale)
+    If there is not a unqiue source per-catalog redo the clustering with
+    half-size pixels to try to split the cluster (down to minimum pixel scale)
 
-        Parameters
-        ----------
-        _redData : `list`, [`Dataframe`]
-            Reduced dataframes with only the columns needed for matching
+    Parameters
+    ----------
+    _redData : `list`, [`Dataframe`]
+        Reduced dataframes with only the columns needed for matching
 
-        _clusters : `OrderedDict`, [`tuple`, `CellData`]
-            Dictionary providing access to cell data
+    _clusters : `OrderedDict`, [`tuple`, `CellData`]
+        Dictionary providing access to cell data
     """
 
     def __init__(
@@ -101,18 +101,6 @@ class Match:
         self._nCell: np.ndarray = np.ceil(self._nPixSide / self._cellSize)
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._clusters: OrderedDict[tuple[int, int], CellData] | None = None
-
-    def pixToArcsec(self) -> float:
-        """Convert pixel size (in degrees) to arcseconds"""
-        return 3600.0 * self._pixSize
-
-    def pixToWorld(
-        self,
-        xPix: np.ndarray,
-        yPix: np.ndarray,
-    ) -> np.ndarray:
-        """Convert locals in pixels to world coordinates (RA, DEC)"""
-        return self._wcs.wcs_pix2world(xPix, yPix, 0)
 
     @classmethod
     def create(
@@ -138,6 +126,27 @@ class Match:
         """Return the number of cells in X,Y"""
         return self._nCell
 
+    def pixToArcsec(self) -> float:
+        """Convert pixel size (in degrees) to arcseconds"""
+        return 3600.0 * self._pixSize
+
+    def pixToWorld(
+        self,
+        xPix: np.ndarray,
+        yPix: np.ndarray,
+    ) -> np.ndarray:
+        """Convert locals in pixels to world coordinates (RA, DEC)"""
+        return self._wcs.wcs_pix2world(xPix, yPix, 0)
+
+    def getIdOffset(
+        self,
+        ix: int,
+        iy: int,
+    ) -> int:
+        """Get the ID offset to use for a given cell"""
+        cellIdx = self._nCell[1] * ix + iy
+        return int(self._cellMaxObject * cellIdx)
+
     def reduceData(
         self,
         inputFiles: list[str],
@@ -145,9 +154,113 @@ class Match:
     ) -> None:
         """Read input files and filter out only the columns we need"""
         for fName, vid in zip(inputFiles, visitIds):
-            self._redData[vid] = self.reduceDataFrame(fName)
+            self._redData[vid] = self._reduceDataFrame(fName)
 
-    def reduceDataFrame(
+    def analyzeCell(
+        self,
+        ix: int,
+        iy: int,
+        fullData: bool = False,
+    ) -> dict | None:
+        """Analyze a single cell
+
+        Returns an OrderedDict
+
+        'srd' : `CellData`
+            The analysis data for the Cell
+
+        if fullData is True the return dict will include
+
+        'image' : `afwImage.ImageI`
+            Image of cell source counts map
+        'countsMap' : `np.array`
+            Numpy array with same
+        'clusters' : `afwDetect.FootprintSet`
+            Clusters as dectected by finding FootprintSet on source counts map
+        'clusterKey' : `afwImage.ImageI`
+            Map of cell with pixels filled with index of
+            associated Footprints
+        """
+        iCell = np.array([ix, iy])
+        cellStep = np.array([self._cellSize, self._cellSize])
+        corner = iCell * cellStep
+        idOffset = self.getIdOffset(ix, iy)
+        cellData = CellData(self, idOffset, corner, cellStep, self._cellBuffer)
+        cellData.reduceData(list(self._redData.values()))
+        oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
+        if oDict is None:
+            return None
+        if fullData:
+            oDict["cellData"] = cellData
+            return oDict
+        if cellData.nObjects >= self._cellMaxObject:
+            print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
+        return dict(cellData=cellData)
+
+    def analysisLoop(self) -> None:
+        """Does clustering for all cells"""
+        self._clusters = OrderedDict()
+
+        for ix in range(int(self._nCell[0])):
+            sys.stdout.write(f"{ix:%2i}")
+            sys.stdout.flush()
+            for iy in range(int(self._nCell[1])):
+                sys.stdout.write(".")
+                sys.stdout.flush()
+                iCell = (ix, iy)
+                odict = self.analyzeCell(ix, iy)
+                if odict is None:
+                    continue
+                cellData = odict["cellData"]
+                self._clusters[iCell] = cellData
+            sys.stdout.write("!\n")
+
+    def extractStats(self) -> Any:
+        """Extracts cluster statisistics"""
+        clusterAssocTables = []
+        objectAssocTables = []
+        clusterStatsTables = []
+        objectStatsTables = []
+
+        assert self._clusters
+
+        for ix in range(int(self._nCell[0])):
+            for iy in range(int(self._nCell[1])):
+                iCell = (ix, iy)
+                cellData = self._clusters[iCell]
+                clusterAssocTables.append(cellData.getClusterAssociations())
+                objectAssocTables.append(cellData.getObjectAssociations())
+                clusterStatsTables.append(cellData.getClusterStats())
+                objectStatsTables.append(cellData.getObjectStats())
+        hduList = fits.HDUList(
+            [
+                fits.PrimaryHDU(),
+                fits.table_to_hdu(vstack(clusterAssocTables)),
+                fits.table_to_hdu(vstack(objectAssocTables)),
+                fits.table_to_hdu(vstack(clusterStatsTables)),
+                fits.table_to_hdu(vstack(objectStatsTables)),
+            ]
+        )
+        return hduList
+
+    def printSummaryStats(self) -> np.ndarray:
+        """Helper function to print info about clusters"""
+        stats = np.zeros((4), int)
+        assert self._clusters
+        for key, cellData in self._clusters.items():
+            cellStats = clusterStats(cellData.clusterDict)
+            print(
+                f"{key[0]:%3} "
+                f"{key[1]:%3}: "
+                f"{cellStats[0]:%8i} "
+                f"{cellStats[1]:%8i} "
+                f"{cellStats[2]:%8i} "
+                f"{cellStats[3]:%8i}"
+            )
+            stats += cellStats
+        return stats
+
+    def _reduceDataFrame(
         self,
         fName: str,
     ) -> pandas.DataFrame:
@@ -227,112 +340,3 @@ class Match:
                 f"{self._catType}_g_2",
             ]
         ]
-
-    def getIdOffset(
-        self,
-        ix: int,
-        iy: int,
-    ) -> int:
-        """Get the ID offset to use for a given cell"""
-        cellIdx = self._nCell[1] * ix + iy
-        return int(self._cellMaxObject * cellIdx)
-
-    def analyzeCell(
-        self,
-        ix: int,
-        iy: int,
-        fullData: bool = False,
-    ) -> dict | None:
-        """Analyze a single cell
-
-        Returns an OrderedDict
-
-        'srd' : `CellData`
-            The analysis data for the Cell
-
-        if fullData is True the return dict will include
-
-        'image' : `afwImage.ImageI`
-            Image of cell source counts map
-        'countsMap' : `np.array`
-            Numpy array with same
-        'clusters' : `afwDetect.FootprintSet`
-            Clusters as dectected by finding FootprintSet on source counts map
-        'clusterKey' : `afwImage.ImageI`
-            Map of cell with pixels filled with index of
-            associated Footprints
-        """
-        iCell = np.array([ix, iy])
-        cellStep = np.array([self._cellSize, self._cellSize])
-        corner = iCell * cellStep
-        idOffset = self.getIdOffset(ix, iy)
-        cellData = CellData(self, idOffset, corner, cellStep, self._cellBuffer)
-        cellData.reduceData(self._redData.values())
-        oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
-        if oDict is None:
-            return None
-        if fullData:
-            oDict["cellData"] = cellData
-            return oDict
-        if cellData.nObjects >= self._cellMaxObject:
-            print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
-        return dict(cellData=cellData)
-
-    def finish(self) -> Any:
-        """Does clusering for all cell
-
-        Does not store source counts maps for the cells
-        """
-        self._clusters = OrderedDict()
-        clusterAssocTables = []
-        objectAssocTables = []
-        clusterStatsTables = []
-        objectStatsTables = []
-
-        for ix in range(int(self._nCell[0])):
-            sys.stdout.write(f"{ix:%2i}")
-            sys.stdout.flush()
-            for iy in range(int(self._nCell[1])):
-                sys.stdout.write(".")
-                sys.stdout.flush()
-                iCell = (ix, iy)
-                odict = self.analyzeCell(ix, iy)
-                if odict is None:
-                    continue
-                cellData = odict["cellData"]
-                self._clusters[iCell] = cellData
-                clusterAssocTables.append(cellData.getClusterAssociations())
-                objectAssocTables.append(cellData.getObjectAssociations())
-                clusterStatsTables.append(cellData.getClusterStats())
-                objectStatsTables.append(cellData.getObjectStats())
-
-            sys.stdout.write("!\n")
-
-        sys.stdout.write("Making association vectors\n")
-        hduList = fits.HDUList(
-            [
-                fits.PrimaryHDU(),
-                fits.table_to_hdu(vstack(clusterAssocTables)),
-                fits.table_to_hdu(vstack(objectAssocTables)),
-                fits.table_to_hdu(vstack(clusterStatsTables)),
-                fits.table_to_hdu(vstack(objectStatsTables)),
-            ]
-        )
-        return hduList
-
-    def allStats(self) -> np.ndarray:
-        """Helper function to print info about clusters"""
-        stats = np.zeros((4), int)
-        assert self._clusters
-        for key, cellData in self._clusters.items():
-            cellStats = clusterStats(cellData.clusterDict)
-            print(
-                f"{key[0]:%3} "
-                f"{key[1]:%3}: "
-                f"{cellStats[0]:%8i} "
-                f"{cellStats[1]:%8i} "
-                f"{cellStats[2]:%8i} "
-                f"{cellStats[3]:%8i}"
-            )
-            stats += cellStats
-        return stats

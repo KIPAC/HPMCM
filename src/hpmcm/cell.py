@@ -72,7 +72,7 @@ class CellData:
         self._clusterDict: OrderedDict[int, ClusterData] = OrderedDict()
         self._objectDict: OrderedDict[int, ObjectData] = OrderedDict()
 
-    def reduceData(self, data: pandas.DataFrame) -> None:
+    def reduceData(self, data: list[pandas.DataFrame]) -> None:
         """Pull out only the data needed for this cell"""
         self._data = [self.reduceDataframe(val) for val in data]
         self._nSrc = np.sum([len(df) for df in self._data])

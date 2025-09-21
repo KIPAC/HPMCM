@@ -57,12 +57,12 @@ class ClusterData:
         self._objects: list[ObjectData] = []
         self._data: pandas.DataFrame | None = None
 
-        self._xCent: np.ndarray | None = None
-        self._yCent: np.ndarray | None = None
-        self._dist2: np.ndarray | None = None
+        self._xCent: float | None = None
+        self._yCent: float | None = None
         self._rmsDist: float | None = None
         self._xCell: np.ndarray | None = None
         self._yCell: np.ndarray | None = None
+        self._dist2: np.ndarray | None = None
         self._snr: np.ndarray | None = None
 
     def extract(self, cellData: CellData) -> None:
@@ -119,6 +119,21 @@ class ClusterData:
     def catIndices(self) -> np.ndarray:
         """Return the catalog indcies associated to this cluster"""
         return self._catIndices
+
+    @property
+    def xCent(self) -> float | None:
+        """Return the x-position of the centroid of the cluster"""
+        return self._xCent
+
+    @property
+    def yCent(self) -> float | None:
+        """Return the y-position of the centroid of the cluster"""
+        return self._yCent
+
+    @property
+    def rmsDist(self) -> float | None:
+        """Return the RMS distance of the sources in the cluster"""
+        return self._rmsDist
 
     @property
     def xCell(self) -> np.ndarray | None:

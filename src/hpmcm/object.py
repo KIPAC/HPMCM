@@ -29,12 +29,12 @@ class ObjectData:
         self._nUnique: int = np.unique(self._catIndices).size
         self._data: pandas.DataFrame | None = None
 
-        self._xCent: np.ndarray | None = None
-        self._yCent: np.ndarray | None = None
-        self._dist2: np.ndarray | None = None
-        self._rmsDist: np.ndarray | None = None
+        self._xCent: float | None = None
+        self._yCent: float | None = None
+        self._rmsDist: float | None = None
         self._xCell: np.ndarray | None = None
         self._yCell: np.ndarray | None = None
+        self._dist2: np.ndarray | None = None
         self._snr: np.ndarray | None = None
 
     @property
@@ -56,6 +56,21 @@ class ObjectData:
     def nUnique(self) -> int:
         """Return the number of catalogs contributing sources to the object"""
         return self._nUnique
+
+    @property
+    def xCent(self) -> float | None:
+        """Return the x-position of the centroid of the object"""
+        return self._xCent
+
+    @property
+    def yCent(self) -> float | None:
+        """Return the y-position of the centroid of the object"""
+        return self._yCent
+
+    @property
+    def rmsDist(self) -> float | None:
+        """Return the RMS distance of the sources in the object"""
+        return self._rmsDist
 
     @property
     def xCell(self) -> np.ndarray | None:
@@ -113,25 +128,27 @@ class ObjectData:
         yCell = self._parentCluster.yCell[self._mask]
 
         if self._mask.sum() == 1:
-            self._xCent = np.array([xCell[0]])
-            self._yCent = np.array([yCell[0]])
+            self._xCent = xCell[0]
+            self._yCent = yCell[0]
             self._dist2 = np.zeros((1), float)
-            self._rmsDist = np.array([0.0])
+            self._rmsDist = 0.0
             self._xCell = np.array([xCell[0]])
             self._yCell = np.array([yCell[0]])
             self._snr = np.array([snr[0]])
             self._updateCatIndices()
             return
 
+        assert snr and self._dist2
         sumSnr = np.sum(snr)
         self._xCent = np.sum(xCell * snr) / sumSnr
         self._yCent = np.sum(yCell * snr) / sumSnr
+        self._rmsDist = np.sqrt(np.mean(self._dist2))
+
         self._dist2 = np.array((self._xCent - xCell) ** 2 + (self._yCent - yCell) ** 2)
         self._xCell = xCell
         self._yCell = yCell
         self._snr = snr
 
-        self._rmsDist = np.sqrt(np.mean(self._dist2))
         subMask = self._dist2 < pixelR2Cut
         if subMask.all():
             if self._nSrc != self._nUnique:
@@ -141,12 +158,12 @@ class ObjectData:
 
         if not subMask.any():
             idx = np.argmax(snr)
-            self._xCent = np.array([xCell[idx]])
-            self._yCent = np.array([yCell[idx]])
+            self._xCent = xCell[idx]
+            self._yCent = yCell[idx]
             self._dist2 = np.array(
                 (self._xCent - xCell) ** 2 + (self._yCent - yCell) ** 2
             )
-            self._rmsDist = np.array([np.sqrt(np.mean(self._dist2))])
+            self._rmsDist = np.sqrt(np.mean(self._dist2))
             self._xCell = np.array([xCell[idx]])
             self._yCell = np.array([yCell[idx]])
             self._snr = np.array([snr[idx]])
