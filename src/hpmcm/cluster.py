@@ -75,7 +75,6 @@ class ClusterData:
         src_idx_list = []
 
         for _i, (iCat, srcIdx) in enumerate(zip(self._catIndices, self._sourceIdxs)):
-
             series_list.append(cellData.data[iCat].iloc[srcIdx])
             iCat_list.append(iCat)
             src_idx_list.append(srcIdx)
@@ -84,17 +83,15 @@ class ClusterData:
         self._data["iCat"] = iCat_list
         self._data["idx"] = src_idx_list
 
-        self._xCell = self._data["xcell"].values()
-        self._yCell = self._data["ycell"].values()
-        self._snr = self._data["snr"].values()
+        self._xCell = self._data["xcell"].values
+        self._yCell = self._data["ycell"].values
+        self._snr = self._data["SNR"].values
 
-    def clearTempData(self) -> None:
-        """Remove temporary data only used when making objects"""
-        self._data = None
-        self._xCell = None
-        self._yCell = None
-        self._snr = None
-
+    @property
+    def data(self) -> pandas.DataFrame | None:
+        """Return the data for this cluster"""
+        return self._data
+        
     @property
     def iCluster(self) -> int:
         """Return the cluster ID"""
@@ -176,7 +173,11 @@ class ClusterData:
             print("Empty cluster", self._nSrc, self._nUnique)
             return self._objects
         self.extract(cellData)
-        assert self._xCell and self._yCell and self._snr
+        assert (
+            self._xCell is not None
+            and self._yCell is not None
+            and self._snr is not None
+        )
 
         if self._nSrc == 1:
             self._xCent = self._xCell[0]
@@ -185,7 +186,6 @@ class ClusterData:
             self._rmsDist = 0.0
             initialObject = self.addObject(cellData)
             initialObject.processObject(cellData, pixelR2Cut)
-            self.clearTempData()
             return self._objects
 
         sumSnr = np.sum(self._snr)
@@ -198,7 +198,6 @@ class ClusterData:
 
         initialObject = self.addObject(cellData)
         initialObject.processObject(cellData, pixelR2Cut)
-        self.clearTempData()
         return self._objects
 
     def addObject(

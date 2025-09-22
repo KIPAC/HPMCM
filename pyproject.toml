@@ -23,6 +23,7 @@ dependencies = [
     "click",
     "astropy",
     "pyarrow",
+    "pandas",
 ]
 
 

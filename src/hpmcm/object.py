@@ -111,97 +111,44 @@ class ObjectData:
         if self._nSrc == 0:
             print("Empty object", self._nSrc, self._nUnique, recurse)
             return
-
         assert (
-            self._parentCluster.xCell
-            and self._parentCluster.yCell
-            and self._parentCluster.snr
+            self._parentCluster.xCell is not None
+            and self._parentCluster.yCell is not None
+            and self._parentCluster.snr is not None
         )
 
-        # FIXME, update self._data
-
-        xCell = self._parentCluster.xCell[self._mask]
-        yCell = self._parentCluster.yCell[self._mask]
-        snr = self._parentCluster.snr[self._mask]
-        self._parentCluster.extract(cellData)
-        xCell = self._parentCluster.xCell[self._mask]
-        yCell = self._parentCluster.yCell[self._mask]
+        self._data = self._parentCluster.data.iloc[self._mask]
+        self._xCell = self._parentCluster.xCell[self._mask]
+        self._yCell = self._parentCluster.yCell[self._mask]
+        self._snr = self._parentCluster.snr[self._mask]
 
         if self._mask.sum() == 1:
-            self._xCent = xCell[0]
-            self._yCent = yCell[0]
+            self._xCent = self._xCell[0]
+            self._yCent = self._yCell[0]
             self._dist2 = np.zeros((1), float)
             self._rmsDist = 0.0
-            self._xCell = np.array([xCell[0]])
-            self._yCell = np.array([yCell[0]])
-            self._snr = np.array([snr[0]])
             self._updateCatIndices()
             return
 
-        assert snr and self._dist2
-        sumSnr = np.sum(snr)
-        self._xCent = np.sum(xCell * snr) / sumSnr
-        self._yCent = np.sum(yCell * snr) / sumSnr
+        assert self._snr is not None
+        sumSnr = np.sum(self._snr)
+        self._xCent = np.sum(self._xCell * self._snr) / sumSnr
+        self._yCent = np.sum(self._yCell * self._snr) / sumSnr
+        self._dist2 = np.array((self._xCent - self._xCell) ** 2 + (self._yCent - self._yCell) ** 2)
         self._rmsDist = np.sqrt(np.mean(self._dist2))
 
-        self._dist2 = np.array((self._xCent - xCell) ** 2 + (self._yCent - yCell) ** 2)
-        self._xCell = xCell
-        self._yCell = yCell
-        self._snr = snr
-
         subMask = self._dist2 < pixelR2Cut
-        if subMask.all():
-            if self._nSrc != self._nUnique:
-                self.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
-            self._updateCatIndices()
+        if subMask.all() and self._nSrc == self._nUnique:
             return
 
-        if not subMask.any():
-            idx = np.argmax(snr)
-            self._xCent = xCell[idx]
-            self._yCent = yCell[idx]
-            self._dist2 = np.array(
-                (self._xCent - xCell) ** 2 + (self._yCent - yCell) ** 2
-            )
-            self._rmsDist = np.sqrt(np.mean(self._dist2))
-            self._xCell = np.array([xCell[idx]])
-            self._yCell = np.array([yCell[idx]])
-            self._snr = np.array([snr[idx]])
-
-            subMask = self._dist2 < pixelR2Cut
-
-        newObjMask = self._mask.copy()
-        newObjMask[newObjMask] *= subMask
-
-        newObject = self._parentCluster.addObject(cellData, newObjMask)
-        newObject.processObject(cellData, pixelR2Cut)
-
-        self._mask[self._mask] *= ~subMask
+        self.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
         self._updateCatIndices()
-        self.processObject(cellData, pixelR2Cut, recurse=recurse + 1)
-
+        return
+        
     def splitObject(
         self, cellData: CellData, pixelR2Cut: float, recurse: int = 0
     ) -> None:
         """Split up a cluster keeping only one source per input
-        catalog, choosing the one closest to the cluster center"""
-        assert self._dist2
-        sortIdx = np.argsort(self._dist2)
-        mask = np.ones((self._nSrc), dtype=bool)
-        usedCats = {}
-        for iSrc, catIdx in zip(sortIdx, self._catIndices[sortIdx]):
-            if catIdx not in usedCats:
-                usedCats[catIdx] = 1
-                continue
-            usedCats[catIdx] += 1
-            mask[iSrc] = False
-
-        newObjMask = self._mask.copy()
-        newObjMask[newObjMask] *= mask
-
-        newObject = self._parentCluster.addObject(cellData, newObjMask)
-        newObject.processObject(cellData, pixelR2Cut)
-
-        self._mask[self._mask] *= ~mask
-        self._updateCatIndices()
-        self.processObject(cellData, pixelR2Cut, recurse=recurse + 1)
+        catalog
+        """
+        pass

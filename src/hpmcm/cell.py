@@ -4,11 +4,11 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 import lsst.afw.detection as afwDetect
-import lsst.afw.image as afwImage
 import numpy as np
 import pandas
 from astropy.table import Table
 
+from . import utils
 from .cluster import ClusterData
 from .object import ObjectData
 
@@ -117,13 +117,8 @@ class CellData:
         toFill = np.zeros((self._nPix))
         assert self._data
         for df in self._data:
-            toFill += self.fillCellFromDf(df, weightName=weightName)
+            toFill += utils.fillCellFromDf(df, nPix=self._nPix, weightName=weightName)
         return toFill
-
-    def associateSourcesToFootprints(self, clusterKey: np.ndarray) -> None:
-        """Loop through data and associate sources to clusters"""
-        assert self._data
-        self._footprintIds = [self.findClusterIds(df, clusterKey) for df in self._data]
 
     def buildClusterData(
         self,
@@ -166,72 +161,14 @@ class CellData:
         if self._nSrc == 0:
             return None
         countsMap = self.countsMap(weightName)
-        oDict = self.getFootprints(countsMap)
+        oDict = utils.getFootprints(countsMap, buf=self._buf)
         oDict["countsMap"] = countsMap
-        self.associateSourcesToFootprints(oDict["footprintKey"])
+        assert self._data
+        self._footprintIds = utils.associateSourcesToFootprints(
+            self._data, oDict["footprintKey"]
+        )
         self.buildClusterData(oDict["footprints"], pixelR2Cut)
         return oDict
-
-    @staticmethod
-    def findClusterIds(df: pandas.DataFrame, clusterKey: np.ndarray) -> np.ndarray:
-        """Associate sources to clusters using `clusterkey`
-        which is a map where any pixel associated to a cluster
-        has the cluster index as its value"""
-        return np.array(
-            [
-                clusterKey[yLocal, xLocal]
-                for xLocal, yLocal in zip(df["xlocal"], df["ylocal"])
-            ]
-        ).astype(np.int32)
-
-    def fillCellFromDf(
-        self, df: pandas.DataFrame, weightName: str | None = None
-    ) -> np.ndarray:
-        """Fill a source counts map from a reduced dataframe for one input
-        catalog"""
-        if weightName is None:
-            weights = None
-        else:
-            weights = df[weightName].values
-        hist = np.histogram2d(
-            df["xlocal"],
-            df["ylocal"],
-            bins=self._nPix,
-            range=((0, self._nPix[0]), (0, self._nPix[1])),
-            weights=weights,
-        )
-        return hist[0]
-
-    @staticmethod
-    def filterFootprints(
-        fpSet: afwDetect.FootprintSet, buf: int
-    ) -> afwDetect.FootprintSet:
-        """Remove footprints within `buf` pixels of the celll edge"""
-        region = fpSet.getRegion()
-        width, height = region.getWidth(), region.getHeight()
-        outList = []
-        maxX = width - buf
-        maxY = height - buf
-        for fp in fpSet.getFootprints():
-            cent = fp.getCentroid()
-            xC = cent.getX()
-            yC = cent.getY()
-            if xC < buf or xC > maxX or yC < buf or yC > maxY:
-                continue
-            outList.append(fp)
-        fpSetOut = afwDetect.FootprintSet(fpSet.getRegion())
-        fpSetOut.setFootprints(outList)
-        return fpSetOut
-
-    def getFootprints(self, countsMap: np.ndarray) -> dict:
-        """Take a source counts map and do clustering using Footprint detection"""
-        image = afwImage.ImageF(countsMap.astype(np.float32))
-        footprintsOrig = afwDetect.FootprintSet(image, afwDetect.Threshold(0.5))
-        footprints = self.filterFootprints(footprintsOrig, self._buf)
-        footprintKey = afwImage.ImageI(np.full(countsMap.shape, -1, dtype=np.int32))
-        for i, footprint in enumerate(footprints.getFootprints()):
-            footprint.spans.setImage(footprintKey, i, doClip=True)
-        return dict(image=image, footprints=footprints, footprintKey=footprintKey)
 
     def getClusterAssociations(self) -> Table:
         """Convert the clusters to a set of associations"""
@@ -241,7 +178,7 @@ class CellData:
         for cluster in self._clusterDict.values():
             clusterIds.append(np.full((cluster.nSrc), cluster.iCluster, dtype=int))
             sourceIds.append(cluster.sourceIds)
-            assert cluster.dist2
+            assert cluster.dist2 is not None
             distancesList.append(cluster.dist2)
         if not distancesList:
             return Table(
@@ -265,7 +202,7 @@ class CellData:
             )
             objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
             sourceIds.append(obj.sourceIds())
-            assert obj.dist2
+            assert obj.dist2 is not None
             distancesList.append(obj.dist2)
         if not distancesList:
             return Table(
