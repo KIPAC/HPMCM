@@ -71,6 +71,9 @@ class ClusterData:
         """Extract the xCell, yCell and snr data from
         the sources in this cluster
         """
+        bbox = self._footprint.getBBox()
+        xOffset = cellData._minPix[0] + bbox.getBeginY()
+        yOffset = cellData._minPix[1] + bbox.getBeginX()
 
         series_list = []
         iCat_list = []
@@ -93,7 +96,10 @@ class ClusterData:
         self._xCluster = self._xCell - xOffset
         self._yCluster = self._yCell - yOffset
         self._snr = self._data["SNR"].values
+        self._xCluster = self._xCell - xOffset
+        self._yCluster = self._yCell - yOffset        
 
+        
     @property
     def data(self) -> pandas.DataFrame | None:
         """Return the data for this cluster"""
@@ -155,17 +161,17 @@ class ClusterData:
         return self._yCell
 
     @property
-    def xCluster(self) -> np.ndarray:
-        """Return the x-position of the sources within the footprint"""
+    def xCluster(self) -> np.ndarray | None:
+        """Return the x-position of the sources within the cluster"""
         return self._xCluster
 
     @property
-    def yCluster(self) -> np.ndarray:
-        """Return the y-position of the sources within the footprint"""
+    def yCluster(self) -> np.ndarray | None:
+        """Return the y-position of the sources within the cluster"""
         return self._yCluster
 
     @property
-    def snr(self) -> np.ndarray:
+    def snr(self) -> np.ndarray | None:
         """Return the signal to noise of the sources in the object"""
         return self._snr
 

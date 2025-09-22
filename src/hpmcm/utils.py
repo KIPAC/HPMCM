@@ -98,3 +98,4 @@ def associateSourcesToFootprints(
 ) -> list[np.ndarray]:
     """Loop through data and associate sources to clusters"""
     return [findClusterIds(df, clusterKey) for df in data]
+
