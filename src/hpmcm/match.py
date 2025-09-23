@@ -280,18 +280,7 @@ class Match:
         elif self._catType == "gauss":
             # df['SNR'] = df['PsFlux']/df['PsFluxErr']
             df["SNR"] = 1.0 / df["gauss_mag_r_err"]
-        # select sources that have SNR > 5.
-        # You may start with 10 or even 50 if you want to start with just the brightest objects
-        # AND
-        # Centroid_flag is True if there was a problem fitting the position (centroid)
-        # AND
-        # sky_source is True if it is a measurement of blank sky.
-        # sky_sources should have SNR < 5 or the Centroid_flag set,
-        # but explicitly filter just to make sure.
-        # AND
-        # detect_isPrimary = True to remove duplicate rows from deblending:
-        # If a source has been deblended, the parent is marked detect_isPrimary=False and its children True.
-        # df_clean = df[(df.SNR > 5) & ~df.Centroid_flag & ~df.sky_source & df.detect_isPrimary]
+
         df_clean = df[(df.SNR > 1)]
         xcell, ycell = self._wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
