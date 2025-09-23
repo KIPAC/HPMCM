@@ -36,6 +36,7 @@ def showCluster(
     _cb = plt.colorbar()
     img.axes.scatter(yOff, xOff)
     img.axes.scatter(yC, xC, marker="+", c="green")
+    assert img.axes.figure is not None
     return img.axes.figure
 
 
@@ -72,6 +73,7 @@ def showObjects(
         )
         print(1 + np.ceil(iObj / 5))
         img.axes.scatter(yC, xC, marker="+", c=colors[iObj % 6])
+    assert img.axes.figure is not None
     return img.axes.figure
 
 
@@ -90,8 +92,8 @@ def showObjectsV2(
     cluster.extract(cellData)
     xOffset = cellData.minPix[0] + cluster.footprint.getBBox().getBeginY()
     yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX()
-    xOff = cluster.xCell - xOffset
-    yOff = cluster.yCell - yOffset
+    xOff = cluster.xPix - xOffset
+    yOff = cluster.yPix - yOffset
     img = plt.imshow(
         image[cluster.footprint.getBBox()].array, origin="lower", extent=extent
     )
@@ -103,4 +105,5 @@ def showObjectsV2(
         img.axes.scatter(
             yOff_, xOff_, c=colors[iCat_ % 5], s=20 - 3 * np.ceil(iCat_ / 5)
         )
+    assert img.axes.figure is not None
     return img.axes.figure

@@ -23,7 +23,7 @@ def findClusterIds(df: pandas.DataFrame, clusterKey: np.ndarray) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
     has the cluster index as its value"""
-    return findClusterIdsFromArrays(df["xlocal"], df["ylocal"], clusterKey)
+    return findClusterIdsFromArrays(df["xCell"], df["yCell"], clusterKey)
 
 
 def fillCountsMapFromArrays(
@@ -53,8 +53,8 @@ def fillCountsMapFromDf(
     else:
         weights = df[weightName].values
     return fillCountsMapFromArrays(
-        df["xlocal"],
-        df["ylocal"],
+        df["xCell"],
+        df["yCell"],
         nPix=nPix,
         weights=weights,
     )
@@ -98,4 +98,3 @@ def associateSourcesToFootprints(
 ) -> list[np.ndarray]:
     """Loop through data and associate sources to clusters"""
     return [findClusterIds(df, clusterKey) for df in data]
-

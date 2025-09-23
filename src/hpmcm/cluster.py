@@ -13,7 +13,11 @@ if TYPE_CHECKING:
 
 
 class ClusterData:
-    """Class to store data about clusters
+    """Class that defines clusters
+
+    A cluster is a set of sources within a footprint of
+    adjacent pixels.
+
 
     Parameters
     ----------
@@ -49,57 +53,43 @@ class ClusterData:
         self._origCluster: int = iCluster
         if origCluster is not None:
             self._origCluster = origCluster
-        self._catIndices: np.ndarray = sources[0]
-        self._sourceIds: np.ndarray = sources[1]
-        self._sourceIdxs: np.ndarray = sources[2]
-        self._nSrc: int = self._catIndices.size
-        self._nUnique: int = len(np.unique(self._catIndices))
+        self._sources: np.ndarray = sources
+
+        self._nSrc: int = self._sources[0].size
+        self._nUnique: int = len(np.unique(self._sources[0]))
         self._objects: list[ObjectData] = []
         self._data: pandas.DataFrame | None = None
 
         self._xCent: float = np.nan
         self._yCent: float = np.nan
         self._rmsDist: float = np.nan
-        self._xCell: np.ndarray = np.array([])
-        self._yCell: np.ndarray = np.array([])
-        self._xCluster: np.ndarray = np.array([])
-        self._yCluster: np.ndarray = np.array([])
         self._dist2: np.ndarray = np.array([])
-        self._snr: np.ndarray = np.array([])
 
     def extract(self, cellData: CellData) -> None:
-        """Extract the xCell, yCell and snr data from
+        """Extract the xPix, yPix and snr data from
         the sources in this cluster
         """
         bbox = self._footprint.getBBox()
-        xOffset = cellData._minPix[0] + bbox.getBeginY()
-        yOffset = cellData._minPix[1] + bbox.getBeginX()
+        #xOffset = cellData.minPix[0] + bbox.getBeginY()
+        #yOffset = cellData.minPix[1] + bbox.getBeginX()
+        
+        xOffset = bbox.getBeginY()
+        yOffset = bbox.getBeginX()
 
         series_list = []
-        iCat_list = []
-        src_idx_list = []
 
-        xOffset = cellData.minPix[0] + self._footprint.getBBox().getBeginY()
-        yOffset = cellData.minPix[1] + self._footprint.getBBox().getBeginX()
-
-        for _i, (iCat, srcIdx) in enumerate(zip(self._catIndices, self._sourceIdxs)):
+        for _i, (iCat, srcIdx) in enumerate(zip(self._sources[0], self._sources[2])):
             series_list.append(cellData.data[iCat].iloc[srcIdx])
-            iCat_list.append(iCat)
-            src_idx_list.append(srcIdx)
 
         self._data = pandas.DataFrame(series_list)
-        self._data["iCat"] = iCat_list
-        self._data["idx"] = src_idx_list
+        self._data["iCat"] = self._sources[0]
+        self._data["srcId"] = self._sources[1]
+        self._data["srcIdx"] = self._sources[2]
+        #self._data["xCluster"] = self._data.xPix - xOffset
+        #self._data["yCluster"] = self._data.yPix - yOffset
+        self._data["xCluster"] = self._data.xCell - xOffset
+        self._data["yCluster"] = self._data.yCell - yOffset
 
-        self._xCell = self._data["xcell"].values
-        self._yCell = self._data["ycell"].values
-        self._xCluster = self._xCell - xOffset
-        self._yCluster = self._yCell - yOffset
-        self._snr = self._data["SNR"].values
-        self._xCluster = self._xCell - xOffset
-        self._yCluster = self._yCell - yOffset        
-
-        
     @property
     def data(self) -> pandas.DataFrame | None:
         """Return the data for this cluster"""
@@ -107,7 +97,7 @@ class ClusterData:
 
     @property
     def footprint(self) -> afwDetect.Footprint:
-        """Return the footprint"""
+        """Return the footprint associated to this cluster"""
         return self._footprint
 
     @property
@@ -126,54 +116,61 @@ class ClusterData:
         return self._nUnique
 
     @property
-    def sourceIds(self) -> np.ndarray:
-        """Return the source IDs associated to this cluster"""
-        return self._sourceIds
+    def catIndices(self) -> np.ndarray:
+        """Return the catalog indices for all the sources in the cluster"""
+        assert self._data is not None
+        return self._data.iCat
 
     @property
-    def catIndices(self) -> np.ndarray:
-        """Return the catalog indcies associated to this cluster"""
-        return self._catIndices
+    def srcIds(self) -> np.ndarray:
+        """Return the ids for all the sources in the cluster"""
+        assert self._data is not None
+        return self._data.srcId
+
+    @property
+    def srcIdxs(self) -> np.ndarray:
+        """Return the indices for all the sources in the cluster"""
+        assert self._data is not None
+        return self._data.srcIdx
+
+    @property
+    def xCluster(self) -> np.ndarray:
+        """Return the x-positions of the soures w.r.t. the footprint"""
+        assert self._data is not None
+        return self._data.xCluster
+
+    @property
+    def yCluster(self) -> np.ndarray:
+        """Return the y-positions of the soures w.r.t. the footprint"""
+        assert self._data is not None
+        return self._data.yCluster
+
+    @property
+    def xPix(self) -> np.ndarray:
+        """Return the x-positions of the soures w.r.t. the WCS"""        
+        assert self._data is not None
+        return self._data.xPix
+
+    @property
+    def yPix(self) -> np.ndarray:
+        """Return the x-positions of the soures w.r.t. the WCS"""        
+        assert self._data is not None
+        return self._data.yPix
 
     @property
     def xCent(self) -> float:
-        """Return the x-position of the centroid of the cluster"""
+        """Return the x-position of the centroid of the cluster in the WCS"""
         return self._xCent
 
     @property
     def yCent(self) -> float:
-        """Return the y-position of the centroid of the cluster"""
+        """Return the y-position of the centroid of the cluster in the WCS"""
         return self._yCent
 
     @property
     def rmsDist(self) -> float:
         """Return the RMS distance of the sources in the cluster"""
         return self._rmsDist
-
-    @property
-    def xCell(self) -> np.ndarray:
-        """Return the x-position of the sources within the cell"""
-        return self._xCell
-
-    @property
-    def yCell(self) -> np.ndarray:
-        """Return the y-position of the sources within the cell"""
-        return self._yCell
-
-    @property
-    def xCluster(self) -> np.ndarray | None:
-        """Return the x-position of the sources within the cluster"""
-        return self._xCluster
-
-    @property
-    def yCluster(self) -> np.ndarray | None:
-        """Return the y-position of the sources within the cluster"""
-        return self._yCluster
-
-    @property
-    def snr(self) -> np.ndarray | None:
-        """Return the signal to noise of the sources in the object"""
-        return self._snr
 
     @property
     def dist2(self) -> np.ndarray:
@@ -188,35 +185,32 @@ class ClusterData:
 
     def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
         """Function that is called recursively to
-        split clusters until they:
-
-        1.  Consist only of sources with the match radius of the cluster
-        centroid.
-
-        2.  Have at most one source per input catalog
+        split clusters until they consist only of sources within
+        the match radius of the cluster centroid.
         """
-        self._nSrc = self._catIndices.size
-        self._nUnique = len(np.unique(self._catIndices))
+        self.extract(cellData)
+        assert self._data is not None
+
+        self._nSrc = len(self._data.iCat)
+        self._nUnique = len(np.unique(self._data.iCat.values))
         if self._nSrc == 0:
             print("Empty cluster", self._nSrc, self._nUnique)
             return self._objects
-        self.extract(cellData)
-        assert self._xCell.size and self._yCell.size and self._snr.size
 
         if self._nSrc == 1:
-            self._xCent = self._xCell[0]
-            self._yCent = self._yCell[0]
+            self._xCent = self._data.xPix.values[0]
+            self._yCent = self._data.yPix.values[0]
             self._dist2 = np.zeros((1))
             self._rmsDist = 0.0
             initialObject = self.addObject(cellData)
             initialObject.processObject(cellData, pixelR2Cut)
             return self._objects
 
-        sumSnr = np.sum(self._snr)
-        self._xCent = np.sum(self._xCell * self._snr) / sumSnr
-        self._yCent = np.sum(self._yCell * self._snr) / sumSnr
-        self._dist2 = (self._xCent - self._xCell) ** 2 + (
-            self._yCent - self._yCell
+        sumSnr = np.sum(self._data.SNR)
+        self._xCent = np.sum(self._data.xPix * self._data.SNR) / sumSnr
+        self._yCent = np.sum(self._data.yPix * self._data.SNR) / sumSnr
+        self._dist2 = (self._xCent - self._data.xPix) ** 2 + (
+            self._yCent - self._data.yPix
         ) ** 2
         self._rmsDist = np.sqrt(np.mean(self._dist2))
 

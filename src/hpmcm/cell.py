@@ -24,13 +24,16 @@ class CellData:
 
     Does not store sky maps
 
-    Cells are square sub-regions of the Skymap
-    constructed with the WCS
+    Cells are square sub-regions of the analysis region
+    that are extracted from the ranges of pixels in the WCS
 
     The cell covers corner:corner+size
 
     The sources are projected into an array that extends `buf` pixels
     beyond the cell
+
+    The used the afwDetect.FootprintSet to identify pixels which contain
+    source, and builds those into clusters
 
     Parameters
     ----------
@@ -45,6 +48,9 @@ class CellData:
     _clusterDict : `dict`, [`int` : `ClusterData`]
         Dictionary with cluster membership data
 
+    _objectDict : `dict`, [`int` : `ObjectData`]
+        Dictionary with object membership data
+
     TODO:  Add code to filter out clusters centered in the buffer
     """
 
@@ -54,6 +60,7 @@ class CellData:
         idOffset: int,
         corner: np.ndarray,
         size: np.ndarray,
+        idx: np.ndarray,
         buf: int = 10,
     ):
         self._matcher: Match = matcher
@@ -61,6 +68,7 @@ class CellData:
         self._idOffset: int = idOffset
         self._corner: np.ndarray = corner  # pixX, pixY for corner of cell
         self._size: np.ndarray = size  # size of cell
+        self._idx: np.ndarray = idx
         self._buf: int = buf
         self._minPix: np.ndarray = corner - buf
         self._maxPix: np.ndarray = corner + size + buf
@@ -108,24 +116,33 @@ class CellData:
         return self._maxPix
 
     def reduceDataframe(self, dataframe: pandas.DataFrame) -> pandas.DataFrame:
-        """Filters dataframe to keep only source in the cell"""
-        xLocal = dataframe["xcell"] - self._minPix[0]
-        yLocal = dataframe["ycell"] - self._minPix[1]
-        filtered = (
-            (xLocal >= 0)
-            & (xLocal < self._nPix[0])
-            & (yLocal >= 0)
-            & (yLocal < self._nPix[1])
-        )
+        """Filters dataframe to keep only source in the cell"""        
+        if self._matcher.wcs is not None:
+            xCell = dataframe["xPix"] - self._minPix[0]
+            yCell = dataframe["yPix"] - self._minPix[1]
+            filtered = (
+                (xCell >= 0)
+                & (xCell < self._nPix[0])
+                & (yCell >= 0)
+                & (yCell < self._nPix[1])
+            )
+        else:
+            xCell = dataframe["xCell_coadd"] + 100
+            yCell = dataframe["yCell_coadd"] + 100
+            filtered = np.bitwise_and(
+                dataframe["idx_x"] == self._idx[0] + 1,
+                dataframe["idx_y"] == self._idx[1] + 1,
+            )
+            
         red = dataframe[filtered].copy(deep=True)
-        red["xlocal"] = xLocal[filtered]
-        red["ylocal"] = yLocal[filtered]
+        red["xCell"] = xCell[filtered].clip(0, 200)
+        red["yCell"] = yCell[filtered].clip(0, 200)
         return red
 
     def countsMap(self, weightName: str | None = None) -> np.ndarray:
         """Fill a map that counts the number of source per cell"""
         toFill = np.zeros((self._nPix))
-        assert self._data
+        assert self._data is not None
         for df in self._data:
             toFill += utils.fillCountsMapFromDf(
                 df, nPix=self._nPix, weightName=weightName
@@ -143,7 +160,7 @@ class CellData:
         footprintDict: dict[int, list[tuple[int, int, int]]] = {}
         nMissing = 0
         nFound = 0
-        assert self._data
+        assert self._data is not None
         assert self._footprintIds
         for iCat, (df, footprintIds) in enumerate(zip(self._data, self._footprintIds)):
             for srcIdx, (srcId, footprintId) in enumerate(zip(df["id"], footprintIds)):
@@ -163,7 +180,7 @@ class CellData:
             cluster.processCluster(self, pixelR2Cut)
 
     def analyze(
-        self, weightName: str | None = None, pixelR2Cut: float = 4.0
+        self, weightName: str | None = None, pixelR2Cut: float = 2.0
     ) -> dict | None:
         """Analyze this cell
 
@@ -175,7 +192,7 @@ class CellData:
         countsMap = self.countsMap(weightName)
         oDict = utils.getFootprints(countsMap, buf=self._buf)
         oDict["countsMap"] = countsMap
-        assert self._data
+        assert self._data is not None
         self._footprintIds = utils.associateSourcesToFootprints(
             self._data, oDict["footprintKey"]
         )
@@ -189,7 +206,7 @@ class CellData:
         distancesList: list[np.ndarray] = []
         for cluster in self._clusterDict.values():
             clusterIds.append(np.full((cluster.nSrc), cluster.iCluster, dtype=int))
-            sourceIds.append(cluster.sourceIds)
+            sourceIds.append(cluster.srcIds)
             assert cluster.dist2.size
             distancesList.append(cluster.dist2)
         if not distancesList:
@@ -204,6 +221,7 @@ class CellData:
         return Table(data)
 
     def getObjectAssociations(self) -> Table:
+        """Convert the objects to a set of associations"""        
         clusterIds = []
         objectIds = []
         sourceIds = []
@@ -236,7 +254,7 @@ class CellData:
         return Table(data)
 
     def getClusterStats(self) -> Table:
-        """Convert the clusters to a set of associations"""
+        """Get the stats for all the clusters"""
         nClust = self.nClusters
         clusterIds = np.zeros((nClust), dtype=int)
         nSrcs = np.zeros((nClust), dtype=int)
@@ -269,7 +287,7 @@ class CellData:
         return Table(data)
 
     def getObjectStats(self) -> Table:
-        """Convert the clusters to a set of associations"""
+        """Get the stats for all the clusters"""
         nObj = self.nObjects
         clusterIds = np.zeros((nObj), dtype=int)
         objectIds = np.zeros((nObj), dtype=int)

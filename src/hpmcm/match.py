@@ -23,7 +23,26 @@ def createGlobalWcs(
     nPix: np.ndarray,
 ) -> wcs.WCS:
     """Helper function to create the WCS used to project the
-    sources in a skymap"""
+    sources in a skymap
+
+
+    Parameters
+    ----------
+    refDir: 
+        Reference Direction (RA, DEC) in degrees
+    
+    pixSize:
+        Pixel size in degrees
+
+    nPix:
+        Number of pixels in x, y
+
+        
+    Returns
+    -------
+    wcs.WCS
+        WCS to create the pixel grid
+    """
     w = wcs.WCS(naxis=2)
     w.wcs.cdelt = [-pixSize, pixSize]
     w.wcs.crpix = [nPix[0] / 2, nPix[1] / 2]
@@ -34,6 +53,15 @@ def createGlobalWcs(
 def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
     """Helper function to get stats about the clusters
 
+    Parameters
+    ----------
+    clusterDict:  
+        Dict from clusterId to ClusterData object
+
+    Returns
+    -------
+    nClusters, nOrphans, nMixed, nConfused
+    
     'Orphan'   means single source clusters (i.e., single detections)
     'Mixed`    means there is more that one source from at least one
                input catalog
@@ -75,23 +103,46 @@ class Match:
 
     Parameters
     ----------
-    _redData : `list`, [`Dataframe`]
-        Reduced dataframes with only the columns needed for matching
+    _fullData: list[DataFrame]
+        Full input DataFrames
 
-    _clusters : `OrderedDict`, [`tuple`, `CellData`]
+    _redData : list[DataFrame]
+        Reduced DataFrames with only the columns needed for matching
+
+    _clusters : OrderedDict[tuple[int, int], CellData]
         Dictionary providing access to cell data
+
+    Notes
+    -----
+    This expectes a list of parquet files with pandas DataFrames
+    that contain the following columns.
+
+    "id" : source ID
+    "ra" : RA in degrees
+    "dec": DEC in degress
+    "SNR": Signal-to-Noise of source, used for filtering and centroiding
+
+    Optional, used in post-processing:
+    "xCell_coadd": X-postion in cell-based coadd used for metadetect
+    "yCell_coadd": Y-postion in cell-based coadd used for metadetect
+    "g_1": shape measurement
+    "g_2": shape measurement
     """
 
     def __init__(
         self,
-        matchWcs: wcs.WCS,
+        matchWcs: wcs.WCS | None,
         **kwargs: Any,
     ):
-        self._wcs: wcs.WCS = matchWcs
-        self._pixSize: float = self._wcs.wcs.cdelt[1]
-        self._nPixSide: np.ndarray = np.ceil(2 * np.array(self._wcs.wcs.crpix)).astype(
-            int
-        )
+        self._wcs: wcs.WCS | None = matchWcs
+        if self._wcs is not None:
+            self._pixSize: float = self._wcs.wcs.cdelt[1]
+            self._nPixSide: np.ndarray = np.ceil(
+                2 * np.array(self._wcs.wcs.crpix)
+            ).astype(int)
+        else:
+            self._pixSize = kwargs.get("pixelSize", 1.0)
+            self._nPixSide = kwargs['nPixels']
         self._cellSize: int = kwargs.get("cellSize", 3000)
         self._cellBuffer: int = kwargs.get("cellBuffer", 10)
         self._cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
@@ -99,6 +150,8 @@ class Match:
         self._maxSubDivision: int = kwargs.get("maxSubDivision", 3)
         self._catType: str = kwargs.get("catalogType", "wmom")
         self._nCell: np.ndarray = np.ceil(self._nPixSide / self._cellSize)
+
+        self._fullData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._clusters: OrderedDict[tuple[int, int], CellData] = OrderedDict()
 
@@ -110,17 +163,77 @@ class Match:
         pixSize: float,
         **kwargs: Any,
     ) -> Match:
-        """Make an `NWayMatch` object from inputs"""
+        """Helper function to create a Match object
+
+        Parameters
+        ----------
+        refDir: 
+            Reference Direction (RA, DEC) in degrees
+
+        pixSize:
+            Pixel size in degrees
+
+        Returns
+        -------
+        Match:
+            Object to create matches for the requested region
+        """
         nPix = (np.array(regionSize) / pixSize).astype(int)
-        matchWcs = createGlobalWcs(refDir, pixSize, nPix)
+        use_wcs = kwargs.pop('useWCS', True)
+        if use_wcs:
+            matchWcs = createGlobalWcs(refDir, pixSize, nPix)
+        else:
+            matchWcs = None
+            kwargs['nPixels'] = nPix
         return cls(matchWcs, **kwargs)
 
+    @classmethod
+    def createCoaddCellsForTract(
+        cls,
+        **kwargs,
+    ) -> Match:
+        """Helper function to create a Match object
+
+        Parameters
+        ----------
+        refDir: 
+            Reference Direction (RA, DEC) in degrees
+
+        pixSize:
+            Pixel size in degrees
+
+        Returns
+        -------
+        Match:
+            Object to create matches for the requested region
+        """
+        nPix = np.array([30000, 30000])
+        matchWcs = None
+        kw = dict(
+            pixelSize=0.2,
+            nPixels=nPix,
+            cellSize=150,
+            cellBuffer=25,
+            cellMaxObject=10000,
+        )  
+        return cls(matchWcs, **kw, **kwargs)
+
+    @property
+    def fullData(self) -> OrderedDict[int, pandas.DataFrame]:
+        """Return the dictionary of full data as passed to the Match object"""
+        return self._fullData
+    
     @property
     def redData(self) -> OrderedDict[int, pandas.DataFrame]:
         """Return the dictionary of reduced data, i.e., just the columns
         need for matching"""
         return self._redData
 
+    @property
+    def wcs(self) -> wcs.WCS:
+        """Return the WCS used to pixelize the region"""
+        return self._wcs
+    
     @property
     def nCell(self) -> np.ndarray:
         """Return the number of cells in X,Y"""
@@ -152,9 +265,19 @@ class Match:
         inputFiles: list[str],
         visitIds: list[int],
     ) -> None:
-        """Read input files and filter out only the columns we need"""
+        """Read input files and filter out only the columns we need
+
+        Each input file should have an associated visitId.
+        This is used to test if we have more than one-source 
+        per input catalog.
+
+        If the inputs files have a pre-defined ID associated with them
+        that can be used.   Otherwise it is fine just to give a range from 
+        0 to nInputs.
+        """
         for fName, vid in zip(inputFiles, visitIds):
-            self._redData[vid] = self._reduceDataFrame(fName)
+            self._fullData[vid] = self._readDataFrame(fName)
+            self._redData[vid] = self._reduceDataFrame(self._fullData[vid])
 
     def analyzeCell(
         self,
@@ -164,9 +287,20 @@ class Match:
     ) -> dict | None:
         """Analyze a single cell
 
-        Returns an OrderedDict
+        Parameters
+        ----------
+        ix: 
+            Cell index in x-coord
 
-        'srd' : `CellData`
+        iy:
+            Cell index in y-coord
+
+        Returns
+        -------
+        dict:
+            Dict with the information listed below
+
+        'cellData' : `CellData`
             The analysis data for the Cell
 
         if fullData is True the return dict will include
@@ -181,39 +315,46 @@ class Match:
             Map of cell with pixels filled with index of
             associated Footprints
         """
-        iCell = np.array([ix, iy])
+        iCell = np.array([ix, iy]).astype(int)
         cellStep = np.array([self._cellSize, self._cellSize])
         corner = iCell * cellStep
         idOffset = self.getIdOffset(ix, iy)
-        cellData = CellData(self, idOffset, corner, cellStep, self._cellBuffer)
+        cellData = CellData(self, idOffset, corner, cellStep, iCell, self._cellBuffer)
         cellData.reduceData(list(self._redData.values()))
         oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
+        if cellData.nObjects >= self._cellMaxObject:
+            print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
+        
         if oDict is None:
             return None
         if fullData:
             oDict["cellData"] = cellData
             return oDict
-        if cellData.nObjects >= self._cellMaxObject:
-            print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
         return dict(cellData=cellData)
 
     def analysisLoop(self) -> None:
-        """Does clustering for all cells"""
+        """Does matching for all cells"""
         self._clusters.clear()
 
         for ix in range(int(self._nCell[0])):
-            sys.stdout.write(f"{ix:%2i}")
-            sys.stdout.flush()
             for iy in range(int(self._nCell[1])):
-                sys.stdout.write(".")
-                sys.stdout.flush()
                 iCell = (ix, iy)
                 odict = self.analyzeCell(ix, iy)
                 if odict is None:
                     continue
                 cellData = odict["cellData"]
                 self._clusters[iCell] = cellData
-            sys.stdout.write("!\n")
+            if ix == 0:
+                pass
+            elif ix % 10 == 0:
+                sys.stdout.write(f" {ix}!\n")
+                sys.stdout.flush()
+            else:
+                sys.stdout.write(f".")
+                sys.stdout.flush()
+
+        sys.stdout.write("Done\n")
+        sys.stdout.flush()
 
     def extractStats(self) -> Any:
         """Extracts cluster statisistics"""
@@ -257,75 +398,45 @@ class Match:
             stats += cellStats
         return stats
 
-    def _reduceDataFrame(
+    def _readDataFrame(
         self,
         fName: str,
     ) -> pandas.DataFrame:
-        """Read and reduce a single input file"""
-        columns = COLUMNS.copy()
-        if self._catType == "wmom":
-            columns += [
-                "wmom_band_flux_r",
-                "wmom_band_flux_err_r",
-                "wmom_g_1",
-                "wmom_g_2",
-            ]
-        elif self._catType == "gauss":
-            columns += ["gauss_band_mag_r", "gauss_mag_r_err", "gauss_g_1", "gauss_g_2"]
-        # parq = pq.read_pandas(fName, columns=columns)
+        """Read a single input file"""
         parq = pq.read_pandas(fName)
         df = parq.to_pandas()
-        if self._catType == "wmom":
-            df["SNR"] = df["wmom_band_flux_r"] / df["wmom_band_flux_err_r"]
-        elif self._catType == "gauss":
-            # df['SNR'] = df['PsFlux']/df['PsFluxErr']
-            df["SNR"] = 1.0 / df["gauss_mag_r_err"]
+        return df
 
+    def _reduceDataFrame(
+        self,
+        df: pandas.DataFrame,
+    ) -> pandas.DataFrame:
+        """Reduce a single input DataFrame"""
         df_clean = df[(df.SNR > 1)]
-        xcell, ycell = self._wcs.wcs_world2pix(
-            df_clean["ra"].values, df_clean["dec"].values, 0
-        )
-        # df_red = df_clean[
-        #    [
-        #        "ra",
-        #        "dec",
-        #        "SNR",
-        #        "id",
-        #        "patch_x",
-        #        "patch_y",
-        #        "cell_x",
-        #        "cell_y",
-        #        "row",
-        #        "col",
-        #        f"{self._catType}_g_1",
-        #        f"{self._catType}_g_2",
-        #    ]
-        # ].copy(deep=True)
+        if self._wcs is not None:
+            xPix, yPix = self._wcs.wcs_world2pix(
+                df_clean["ra"].values, df_clean["dec"].values, 0
+            )
+        else:
+            xPix, yPix = df_clean['col'].values+25, df_clean['row'].values+25,
         df_red = df_clean.copy(deep=True)
 
-        idx_x = 20 * df_red["patch_x"].values + df_red["cell_x"].values
-        idx_y = 20 * df_red["patch_y"].values + df_red["cell_y"].values
-        cent_x = 150 * idx_x - 75
-        cent_y = 150 * idx_y - 75
-        local_x = df_red["col"] - cent_x
-        local_y = df_red["row"] - cent_y
+        df_red["xPix"] = xPix
+        df_red["yPix"] = yPix
 
-        df_red["xcell"] = xcell
-        df_red["ycell"] = ycell
-        df_red["local_x"] = local_x
-        df_red["local_y"] = local_y
-        return df_red
-        # return df_red[
-        #    [
-        #        "ra",
-        #        "dec",
-        #        "SNR",
-        #        "id",
-        #        "xcell",
-        #        "ycell",
-        #        "local_x",
-        #        "local_y",
-        #        f"{self._catType}_g_1",
-        #        f"{self._catType}_g_2",
-        #    ]
-        # ]
+        return df_red[
+            [
+                "id",
+                "ra",
+                "dec",
+                "xPix",
+                "yPix",
+                "xCell_coadd",
+                "yCell_coadd",
+                "SNR",
+                "g_1",
+                "g_2",
+                "idx_x",
+                "idx_y",            
+            ]
+        ]
