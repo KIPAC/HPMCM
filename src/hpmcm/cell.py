@@ -66,16 +66,16 @@ class CellData:
         self._maxPix: np.ndarray = corner + size + buf
         self._nPix: np.ndarray = self._maxPix - self._minPix
 
-        self._data: list[pandas.DataFrame] | None = None
-        self._nSrc: int | None = None
-        self._footprintIds: list[np.ndarray] | None = None
+        self._data: list[pandas.DataFrame] = []
+        self._nSrc: int = 0
+        self._footprintIds: list[np.ndarray] = []
         self._clusterDict: OrderedDict[int, ClusterData] = OrderedDict()
         self._objectDict: OrderedDict[int, ObjectData] = OrderedDict()
 
     def reduceData(self, data: list[pandas.DataFrame]) -> None:
         """Pull out only the data needed for this cell"""
         self._data = [self.reduceDataframe(val) for val in data]
-        self._nSrc = np.sum([len(df) for df in self._data])
+        self._nSrc = int(np.sum([len(df) for df in self._data]))
 
     @property
     def nClusters(self) -> int:
@@ -97,6 +97,16 @@ class CellData:
         """Return a dictionary mapping clusters Ids to clusters"""
         return self._clusterDict
 
+    @property
+    def minPix(self) -> np.ndarray:
+        """Return the location of the min corner"""
+        return self._minPix
+
+    @property
+    def maxPix(self) -> np.ndarray:
+        """Return the location of the max corner"""
+        return self._maxPix
+
     def reduceDataframe(self, dataframe: pandas.DataFrame) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
         xLocal = dataframe["xcell"] - self._minPix[0]
@@ -117,7 +127,9 @@ class CellData:
         toFill = np.zeros((self._nPix))
         assert self._data
         for df in self._data:
-            toFill += utils.fillCellFromDf(df, nPix=self._nPix, weightName=weightName)
+            toFill += utils.fillCountsMapFromDf(
+                df, nPix=self._nPix, weightName=weightName
+            )
         return toFill
 
     def buildClusterData(
@@ -178,7 +190,7 @@ class CellData:
         for cluster in self._clusterDict.values():
             clusterIds.append(np.full((cluster.nSrc), cluster.iCluster, dtype=int))
             sourceIds.append(cluster.sourceIds)
-            assert cluster.dist2 is not None
+            assert cluster.dist2.size
             distancesList.append(cluster.dist2)
         if not distancesList:
             return Table(
@@ -202,7 +214,7 @@ class CellData:
             )
             objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
             sourceIds.append(obj.sourceIds())
-            assert obj.dist2 is not None
+            assert obj.dist2.size
             distancesList.append(obj.dist2)
         if not distancesList:
             return Table(

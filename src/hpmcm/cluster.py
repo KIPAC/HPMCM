@@ -57,13 +57,15 @@ class ClusterData:
         self._objects: list[ObjectData] = []
         self._data: pandas.DataFrame | None = None
 
-        self._xCent: float | None = None
-        self._yCent: float | None = None
-        self._rmsDist: float | None = None
-        self._xCell: np.ndarray | None = None
-        self._yCell: np.ndarray | None = None
-        self._dist2: np.ndarray | None = None
-        self._snr: np.ndarray | None = None
+        self._xCent: float = np.nan
+        self._yCent: float = np.nan
+        self._rmsDist: float = np.nan
+        self._xCell: np.ndarray = np.array([])
+        self._yCell: np.ndarray = np.array([])
+        self._xCluster: np.ndarray = np.array([])
+        self._yCluster: np.ndarray = np.array([])
+        self._dist2: np.ndarray = np.array([])
+        self._snr: np.ndarray = np.array([])
 
     def extract(self, cellData: CellData) -> None:
         """Extract the xCell, yCell and snr data from
@@ -73,6 +75,9 @@ class ClusterData:
         series_list = []
         iCat_list = []
         src_idx_list = []
+
+        xOffset = cellData.minPix[0] + self._footprint.getBBox().getBeginY()
+        yOffset = cellData.minPix[1] + self._footprint.getBBox().getBeginX()
 
         for _i, (iCat, srcIdx) in enumerate(zip(self._catIndices, self._sourceIdxs)):
             series_list.append(cellData.data[iCat].iloc[srcIdx])
@@ -85,13 +90,20 @@ class ClusterData:
 
         self._xCell = self._data["xcell"].values
         self._yCell = self._data["ycell"].values
+        self._xCluster = self._xCell - xOffset
+        self._yCluster = self._yCell - yOffset
         self._snr = self._data["SNR"].values
 
     @property
     def data(self) -> pandas.DataFrame | None:
         """Return the data for this cluster"""
         return self._data
-        
+
+    @property
+    def footprint(self) -> afwDetect.Footprint:
+        """Return the footprint"""
+        return self._footprint
+
     @property
     def iCluster(self) -> int:
         """Return the cluster ID"""
@@ -118,37 +130,47 @@ class ClusterData:
         return self._catIndices
 
     @property
-    def xCent(self) -> float | None:
+    def xCent(self) -> float:
         """Return the x-position of the centroid of the cluster"""
         return self._xCent
 
     @property
-    def yCent(self) -> float | None:
+    def yCent(self) -> float:
         """Return the y-position of the centroid of the cluster"""
         return self._yCent
 
     @property
-    def rmsDist(self) -> float | None:
+    def rmsDist(self) -> float:
         """Return the RMS distance of the sources in the cluster"""
         return self._rmsDist
 
     @property
-    def xCell(self) -> np.ndarray | None:
+    def xCell(self) -> np.ndarray:
         """Return the x-position of the sources within the cell"""
         return self._xCell
 
     @property
-    def yCell(self) -> np.ndarray | None:
+    def yCell(self) -> np.ndarray:
         """Return the y-position of the sources within the cell"""
         return self._yCell
 
     @property
-    def snr(self) -> np.ndarray | None:
+    def xCluster(self) -> np.ndarray:
+        """Return the x-position of the sources within the footprint"""
+        return self._xCluster
+
+    @property
+    def yCluster(self) -> np.ndarray:
+        """Return the y-position of the sources within the footprint"""
+        return self._yCluster
+
+    @property
+    def snr(self) -> np.ndarray:
         """Return the signal to noise of the sources in the object"""
         return self._snr
 
     @property
-    def dist2(self) -> np.ndarray | None:
+    def dist2(self) -> np.ndarray:
         """Return an array with the distance squared (in cells)
         between each source and the cluster centroid"""
         return self._dist2
@@ -173,11 +195,7 @@ class ClusterData:
             print("Empty cluster", self._nSrc, self._nUnique)
             return self._objects
         self.extract(cellData)
-        assert (
-            self._xCell is not None
-            and self._yCell is not None
-            and self._snr is not None
-        )
+        assert self._xCell.size and self._yCell.size and self._snr.size
 
         if self._nSrc == 1:
             self._xCent = self._xCell[0]

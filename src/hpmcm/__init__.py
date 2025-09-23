@@ -1,4 +1,4 @@
-from . import utils
+from . import utils, viz_utils
 from .cell import CellData
 from .cluster import ClusterData
 from .match import Match
@@ -10,4 +10,5 @@ __all__ = [
     "Match",
     "ObjectData",
     "utils",
+    "viz_utils",
 ]

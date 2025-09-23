@@ -100,7 +100,7 @@ class Match:
         self._catType: str = kwargs.get("catalogType", "wmom")
         self._nCell: np.ndarray = np.ceil(self._nPixSide / self._cellSize)
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._clusters: OrderedDict[tuple[int, int], CellData] | None = None
+        self._clusters: OrderedDict[tuple[int, int], CellData] = OrderedDict()
 
     @classmethod
     def create(
@@ -199,7 +199,7 @@ class Match:
 
     def analysisLoop(self) -> None:
         """Does clustering for all cells"""
-        self._clusters = OrderedDict()
+        self._clusters.clear()
 
         for ix in range(int(self._nCell[0])):
             sys.stdout.write(f"{ix:%2i}")
@@ -221,8 +221,6 @@ class Match:
         objectAssocTables = []
         clusterStatsTables = []
         objectStatsTables = []
-
-        assert self._clusters
 
         for ix in range(int(self._nCell[0])):
             for iy in range(int(self._nCell[1])):
@@ -246,7 +244,6 @@ class Match:
     def printSummaryStats(self) -> np.ndarray:
         """Helper function to print info about clusters"""
         stats = np.zeros((4), int)
-        assert self._clusters
         for key, cellData in self._clusters.items():
             cellStats = clusterStats(cellData.clusterDict)
             print(
@@ -275,7 +272,7 @@ class Match:
             ]
         elif self._catType == "gauss":
             columns += ["gauss_band_mag_r", "gauss_mag_r_err", "gauss_g_1", "gauss_g_2"]
-        #parq = pq.read_pandas(fName, columns=columns)
+        # parq = pq.read_pandas(fName, columns=columns)
         parq = pq.read_pandas(fName)
         df = parq.to_pandas()
         if self._catType == "wmom":
@@ -299,7 +296,7 @@ class Match:
         xcell, ycell = self._wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
         )
-        #df_red = df_clean[
+        # df_red = df_clean[
         #    [
         #        "ra",
         #        "dec",
@@ -314,9 +311,9 @@ class Match:
         #        f"{self._catType}_g_1",
         #        f"{self._catType}_g_2",
         #    ]
-        #].copy(deep=True)
+        # ].copy(deep=True)
         df_red = df_clean.copy(deep=True)
-        
+
         idx_x = 20 * df_red["patch_x"].values + df_red["cell_x"].values
         idx_y = 20 * df_red["patch_y"].values + df_red["cell_y"].values
         cent_x = 150 * idx_x - 75
@@ -329,7 +326,7 @@ class Match:
         df_red["local_x"] = local_x
         df_red["local_y"] = local_y
         return df_red
-        #return df_red[
+        # return df_red[
         #    [
         #        "ra",
         #        "dec",
@@ -342,4 +339,4 @@ class Match:
         #        f"{self._catType}_g_1",
         #        f"{self._catType}_g_2",
         #    ]
-        #]
+        # ]

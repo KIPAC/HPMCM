@@ -6,19 +6,44 @@ import numpy as np
 import pandas
 
 
-def findClusterIds(df: pandas.DataFrame, clusterKey: np.ndarray) -> np.ndarray:
+def findClusterIdsFromArrays(
+    xLocals: np.ndarray,
+    yLocals: np.ndarray,
+    clusterKey: np.ndarray,
+) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
     has the cluster index as its value"""
     return np.array(
-        [
-            clusterKey[yLocal, xLocal]
-            for xLocal, yLocal in zip(df["xlocal"], df["ylocal"])
-        ]
+        [clusterKey[yLocal, xLocal] for xLocal, yLocal in zip(xLocals, yLocals)]
     ).astype(np.int32)
 
 
-def fillCellFromDf(
+def findClusterIds(df: pandas.DataFrame, clusterKey: np.ndarray) -> np.ndarray:
+    """Associate sources to clusters using `clusterkey`
+    which is a map where any pixel associated to a cluster
+    has the cluster index as its value"""
+    return findClusterIdsFromArrays(df["xlocal"], df["ylocal"], clusterKey)
+
+
+def fillCountsMapFromArrays(
+    xLocals: np.ndarray,
+    yLocals: np.ndarray,
+    nPix: np.ndarray,
+    weights: np.ndarray | None = None,
+) -> np.ndarray:
+    """Fill a source counts map"""
+    hist = np.histogram2d(
+        xLocals,
+        yLocals,
+        bins=(nPix[0], nPix[1]),
+        range=((0, nPix[0]), (0, nPix[1])),
+        weights=weights,
+    )
+    return hist[0]
+
+
+def fillCountsMapFromDf(
     df: pandas.DataFrame, nPix: np.ndarray, weightName: str | None = None
 ) -> np.ndarray:
     """Fill a source counts map from a reduced dataframe for one input
@@ -27,14 +52,12 @@ def fillCellFromDf(
         weights = None
     else:
         weights = df[weightName].values
-    hist = np.histogram2d(
+    return fillCountsMapFromArrays(
         df["xlocal"],
         df["ylocal"],
-        bins=(nPix[0], nPix[1]),
-        range=((0, nPix[0]), (0, nPix[1])),
+        nPix=nPix,
         weights=weights,
     )
-    return hist[0]
 
 
 def filterFootprints(fpSet: afwDetect.FootprintSet, buf: int) -> afwDetect.FootprintSet:
