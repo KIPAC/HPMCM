@@ -116,7 +116,7 @@ class CellData:
         return self._maxPix
 
     def reduceDataframe(self, dataframe: pandas.DataFrame) -> pandas.DataFrame:
-        """Filters dataframe to keep only source in the cell"""        
+        """Filters dataframe to keep only source in the cell"""
         if self._matcher.wcs is not None:
             xCell = dataframe["xPix"] - self._minPix[0]
             yCell = dataframe["yPix"] - self._minPix[1]
@@ -127,16 +127,17 @@ class CellData:
                 & (yCell < self._nPix[1])
             )
         else:
-            xCell = dataframe["xCell_coadd"] + 100
-            yCell = dataframe["yCell_coadd"] + 100
+
+            xCell = (dataframe["xCell_coadd"] + 100) / self._matcher._pixelMatchScale
+            yCell = (dataframe["yCell_coadd"] + 100) / self._matcher._pixelMatchScale
             filtered = np.bitwise_and(
                 dataframe["idx_x"] == self._idx[0] + 1,
                 dataframe["idx_y"] == self._idx[1] + 1,
             )
-            
+
         red = dataframe[filtered].copy(deep=True)
-        red["xCell"] = xCell[filtered].clip(0, 200)
-        red["yCell"] = yCell[filtered].clip(0, 200)
+        red["xCell"] = xCell[filtered]
+        red["yCell"] = yCell[filtered]
         return red
 
     def countsMap(self, weightName: str | None = None) -> np.ndarray:
@@ -221,7 +222,7 @@ class CellData:
         return Table(data)
 
     def getObjectAssociations(self) -> Table:
-        """Convert the objects to a set of associations"""        
+        """Convert the objects to a set of associations"""
         clusterIds = []
         objectIds = []
         sourceIds = []

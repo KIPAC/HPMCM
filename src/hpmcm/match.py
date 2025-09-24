@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections import OrderedDict
+from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
@@ -28,16 +29,16 @@ def createGlobalWcs(
 
     Parameters
     ----------
-    refDir: 
+    refDir:
         Reference Direction (RA, DEC) in degrees
-    
+
     pixSize:
         Pixel size in degrees
 
     nPix:
         Number of pixels in x, y
 
-        
+
     Returns
     -------
     wcs.WCS
@@ -55,13 +56,13 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 
     Parameters
     ----------
-    clusterDict:  
+    clusterDict:
         Dict from clusterId to ClusterData object
 
     Returns
     -------
     nClusters, nOrphans, nMixed, nConfused
-    
+
     'Orphan'   means single source clusters (i.e., single detections)
     'Mixed`    means there is more that one source from at least one
                input catalog
@@ -142,12 +143,13 @@ class Match:
             ).astype(int)
         else:
             self._pixSize = kwargs.get("pixelSize", 1.0)
-            self._nPixSide = kwargs['nPixels']
+            self._nPixSide = kwargs["nPixels"]
         self._cellSize: int = kwargs.get("cellSize", 3000)
         self._cellBuffer: int = kwargs.get("cellBuffer", 10)
         self._cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
         self._pixelR2Cut: float = kwargs.get("pixelR2Cut", 1.0)
         self._maxSubDivision: int = kwargs.get("maxSubDivision", 3)
+        self._pixelMatchScale: int = kwargs.get("pixelMatchScale", 1)
         self._catType: str = kwargs.get("catalogType", "wmom")
         self._nCell: np.ndarray = np.ceil(self._nPixSide / self._cellSize)
 
@@ -167,7 +169,7 @@ class Match:
 
         Parameters
         ----------
-        refDir: 
+        refDir:
             Reference Direction (RA, DEC) in degrees
 
         pixSize:
@@ -179,24 +181,24 @@ class Match:
             Object to create matches for the requested region
         """
         nPix = (np.array(regionSize) / pixSize).astype(int)
-        use_wcs = kwargs.pop('useWCS', True)
+        use_wcs = kwargs.pop("useWCS", True)
         if use_wcs:
             matchWcs = createGlobalWcs(refDir, pixSize, nPix)
         else:
             matchWcs = None
-            kwargs['nPixels'] = nPix
+            kwargs["nPixels"] = nPix
         return cls(matchWcs, **kwargs)
 
     @classmethod
     def createCoaddCellsForTract(
         cls,
-        **kwargs,
+        **kwargs: Any,
     ) -> Match:
         """Helper function to create a Match object
 
         Parameters
         ----------
-        refDir: 
+        refDir:
             Reference Direction (RA, DEC) in degrees
 
         pixSize:
@@ -215,14 +217,14 @@ class Match:
             cellSize=150,
             cellBuffer=25,
             cellMaxObject=10000,
-        )  
+        )
         return cls(matchWcs, **kw, **kwargs)
 
     @property
     def fullData(self) -> OrderedDict[int, pandas.DataFrame]:
         """Return the dictionary of full data as passed to the Match object"""
         return self._fullData
-    
+
     @property
     def redData(self) -> OrderedDict[int, pandas.DataFrame]:
         """Return the dictionary of reduced data, i.e., just the columns
@@ -233,7 +235,7 @@ class Match:
     def wcs(self) -> wcs.WCS:
         """Return the WCS used to pixelize the region"""
         return self._wcs
-    
+
     @property
     def nCell(self) -> np.ndarray:
         """Return the number of cells in X,Y"""
@@ -249,6 +251,7 @@ class Match:
         yPix: np.ndarray,
     ) -> np.ndarray:
         """Convert locals in pixels to world coordinates (RA, DEC)"""
+        assert self._wcs is not None
         return self._wcs.wcs_pix2world(xPix, yPix, 0)
 
     def getIdOffset(
@@ -268,11 +271,11 @@ class Match:
         """Read input files and filter out only the columns we need
 
         Each input file should have an associated visitId.
-        This is used to test if we have more than one-source 
+        This is used to test if we have more than one-source
         per input catalog.
 
         If the inputs files have a pre-defined ID associated with them
-        that can be used.   Otherwise it is fine just to give a range from 
+        that can be used.   Otherwise it is fine just to give a range from
         0 to nInputs.
         """
         for fName, vid in zip(inputFiles, visitIds):
@@ -289,7 +292,7 @@ class Match:
 
         Parameters
         ----------
-        ix: 
+        ix:
             Cell index in x-coord
 
         iy:
@@ -315,7 +318,8 @@ class Match:
             Map of cell with pixels filled with index of
             associated Footprints
         """
-        iCell = np.array([ix, iy]).astype(int)
+        cellKey = (ix, iy)
+        iCell = np.array(cellKey).astype(int)
         cellStep = np.array([self._cellSize, self._cellSize])
         corner = iCell * cellStep
         idOffset = self.getIdOffset(ix, iy)
@@ -324,36 +328,42 @@ class Match:
         oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
         if cellData.nObjects >= self._cellMaxObject:
             print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
-        
+
+        self._clusters[cellKey] = cellData
         if oDict is None:
             return None
         if fullData:
             oDict["cellData"] = cellData
             return oDict
+
         return dict(cellData=cellData)
 
-    def analysisLoop(self) -> None:
+    def analysisLoop(
+        self, xRange: Iterable | None = None, yRange: Iterable | None = None
+    ) -> None:
         """Does matching for all cells"""
         self._clusters.clear()
 
-        for ix in range(int(self._nCell[0])):
-            for iy in range(int(self._nCell[1])):
-                iCell = (ix, iy)
+        if xRange is None:
+            xRange = range(int(self._nCell[0]))
+        if yRange is None:
+            yRange = range(int(self._nCell[1]))
+
+        for ix in xRange:
+            for iy in yRange:
                 odict = self.analyzeCell(ix, iy)
                 if odict is None:
                     continue
-                cellData = odict["cellData"]
-                self._clusters[iCell] = cellData
             if ix == 0:
                 pass
             elif ix % 10 == 0:
                 sys.stdout.write(f" {ix}!\n")
                 sys.stdout.flush()
             else:
-                sys.stdout.write(f".")
+                sys.stdout.write(".")
                 sys.stdout.flush()
 
-        sys.stdout.write("Done\n")
+        sys.stdout.write(" Done!\n")
         sys.stdout.flush()
 
     def extractStats(self) -> Any:
@@ -418,7 +428,10 @@ class Match:
                 df_clean["ra"].values, df_clean["dec"].values, 0
             )
         else:
-            xPix, yPix = df_clean['col'].values+25, df_clean['row'].values+25,
+            xPix, yPix = (
+                df_clean["col"].values + 25,
+                df_clean["row"].values + 25,
+            )
         df_red = df_clean.copy(deep=True)
 
         df_red["xPix"] = xPix
@@ -437,6 +450,6 @@ class Match:
                 "g_1",
                 "g_2",
                 "idx_x",
-                "idx_y",            
+                "idx_y",
             ]
         ]

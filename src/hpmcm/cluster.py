@@ -70,9 +70,9 @@ class ClusterData:
         the sources in this cluster
         """
         bbox = self._footprint.getBBox()
-        #xOffset = cellData.minPix[0] + bbox.getBeginY()
-        #yOffset = cellData.minPix[1] + bbox.getBeginX()
-        
+        # xOffset = cellData.minPix[0] + bbox.getBeginY()
+        # yOffset = cellData.minPix[1] + bbox.getBeginX()
+
         xOffset = bbox.getBeginY()
         yOffset = bbox.getBeginX()
 
@@ -85,8 +85,8 @@ class ClusterData:
         self._data["iCat"] = self._sources[0]
         self._data["srcId"] = self._sources[1]
         self._data["srcIdx"] = self._sources[2]
-        #self._data["xCluster"] = self._data.xPix - xOffset
-        #self._data["yCluster"] = self._data.yPix - yOffset
+        # self._data["xCluster"] = self._data.xPix - xOffset
+        # self._data["yCluster"] = self._data.yPix - yOffset
         self._data["xCluster"] = self._data.xCell - xOffset
         self._data["yCluster"] = self._data.yCell - yOffset
 
@@ -147,13 +147,13 @@ class ClusterData:
 
     @property
     def xPix(self) -> np.ndarray:
-        """Return the x-positions of the soures w.r.t. the WCS"""        
+        """Return the x-positions of the soures w.r.t. the WCS"""
         assert self._data is not None
         return self._data.xPix
 
     @property
     def yPix(self) -> np.ndarray:
-        """Return the x-positions of the soures w.r.t. the WCS"""        
+        """Return the x-positions of the soures w.r.t. the WCS"""
         assert self._data is not None
         return self._data.yPix
 

@@ -203,12 +203,7 @@ class ObjectData:
             return
 
         footprintKey = fpDict["footprintKey"]
-        try:
-            footprintIds = utils.findClusterIdsFromArrays(zoom_x, zoom_y, footprintKey)
-        except Exception as msg:
-            print(msg, zoom_x, zoom_y)
-            import pdb
-            pdb.set_trace()
+        footprintIds = utils.findClusterIdsFromArrays(zoom_x, zoom_y, footprintKey)
 
         biggest = np.argmax(np.bincount(footprintIds))
         biggest_mask = np.zeros(self._mask.shape, dtype=bool)
