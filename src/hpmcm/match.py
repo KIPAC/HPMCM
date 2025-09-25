@@ -110,7 +110,7 @@ class Match:
     _redData : list[DataFrame]
         Reduced DataFrames with only the columns needed for matching
 
-    _clusters : OrderedDict[tuple[int, int], CellData]
+    _cellDict : OrderedDict[tuple[int, int], CellData]
         Dictionary providing access to cell data
 
     Notes
@@ -155,7 +155,7 @@ class Match:
 
         self._fullData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._clusters: OrderedDict[tuple[int, int], CellData] = OrderedDict()
+        self._cellDict: OrderedDict[tuple[int, int], CellData] = OrderedDict()
 
     @classmethod
     def create(
@@ -211,12 +211,13 @@ class Match:
         """
         nPix = np.array([30000, 30000])
         matchWcs = None
+        pixMatchScale = kwargs.get("pixelMatchScale", 1)        
         kw = dict(
-            pixelSize=0.2,
+            pixelSize=0.2*pixMatchScale/3600.,
             nPixels=nPix,
-            cellSize=150,
-            cellBuffer=25,
-            cellMaxObject=10000,
+            cellSize=int(np.ceil(150/pixMatchScale)),
+            cellBuffer=int(np.ceil(25/pixMatchScale)),
+            cellMaxObject=1000,
         )
         return cls(matchWcs, **kw, **kwargs)
 
@@ -329,7 +330,7 @@ class Match:
         if cellData.nObjects >= self._cellMaxObject:
             print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
 
-        self._clusters[cellKey] = cellData
+        self._cellDict[cellKey] = cellData
         if oDict is None:
             return None
         if fullData:
@@ -342,7 +343,7 @@ class Match:
         self, xRange: Iterable | None = None, yRange: Iterable | None = None
     ) -> None:
         """Does matching for all cells"""
-        self._clusters.clear()
+        self._cellDict.clear()
 
         if xRange is None:
             xRange = range(int(self._nCell[0]))
@@ -366,7 +367,27 @@ class Match:
         sys.stdout.write(" Done!\n")
         sys.stdout.flush()
 
-    def extractStats(self) -> Any:
+
+    def extractShearStats(self) -> list[pandas.DataFrame]:
+        clusterShearStatsTables = []
+        objectShearStatsTables = []
+
+        for ix in range(int(self._nCell[0])):
+            for iy in range(int(self._nCell[1])):
+                iCell = (ix, iy)
+                if iCell not in self._cellDict:
+                    continue
+                cellData = self._cellDict[iCell]
+                clusterShearStatsTables.append(cellData.getClusterShearStats())
+                objectShearStatsTables.append(cellData.getObjectShearStats())
+
+        return [
+            pandas.concat(clusterShearStatsTables),
+            pandas.concat(objectShearStatsTables),
+        ]
+
+        
+    def extractStats(self) -> list[pandas.DataFrame]:
         """Extracts cluster statisistics"""
         clusterAssocTables = []
         objectAssocTables = []
@@ -376,26 +397,25 @@ class Match:
         for ix in range(int(self._nCell[0])):
             for iy in range(int(self._nCell[1])):
                 iCell = (ix, iy)
-                cellData = self._clusters[iCell]
+                if iCell not in self._cellDict:
+                    continue
+                cellData = self._cellDict[iCell]
                 clusterAssocTables.append(cellData.getClusterAssociations())
                 objectAssocTables.append(cellData.getObjectAssociations())
                 clusterStatsTables.append(cellData.getClusterStats())
                 objectStatsTables.append(cellData.getObjectStats())
-        hduList = fits.HDUList(
-            [
-                fits.PrimaryHDU(),
-                fits.table_to_hdu(vstack(clusterAssocTables)),
-                fits.table_to_hdu(vstack(objectAssocTables)),
-                fits.table_to_hdu(vstack(clusterStatsTables)),
-                fits.table_to_hdu(vstack(objectStatsTables)),
-            ]
-        )
-        return hduList
+
+        return [
+            pandas.concat(clusterAssocTables),
+            pandas.concat(objectAssocTables),
+            pandas.concat(clusterStatsTables),
+            pandas.concat(objectStatsTables),
+        ]
 
     def printSummaryStats(self) -> np.ndarray:
         """Helper function to print info about clusters"""
         stats = np.zeros((4), int)
-        for key, cellData in self._clusters.items():
+        for key, cellData in self._cellDict.items():
             cellStats = clusterStats(cellData.clusterDict)
             print(
                 f"{key[0]:%3} "
@@ -453,3 +473,257 @@ class Match:
                 "idx_y",
             ]
         ]
+
+
+    def classifyClusters(self, **kwargs: Any) -> dict[str, list]:
+
+        nsrcs = []
+
+        cut1 = []
+        cut2 = []
+
+        used = []
+        ideal_faint = []        
+        ideal = []
+
+        faint = []
+        edge_mixed = []
+        mixed = []
+        edge_missing = []
+        edge_extra = []
+
+        missing = []
+        two_missing = []
+        many_missing = []
+        extra = []
+        caught = []
+
+        cell_edge = kwargs.get('cellEdge', 75)        
+        edge_cut = kwargs.get('edgeCut', 2)
+        snr_cut = kwargs.get('SNRCut', 7.5)
+
+        n_cat = len(self._redData)
+        
+        for iC, cellData in self._cellDict.items():
+            cd = cellData.clusterDict
+            
+            for key, c in cd.items():
+                k = (iC, key)
+
+                nsrcs.append(c._nSrc)    
+
+                if (np.fabs(c.data.xCell_coadd) > cell_edge).all() or (np.fabs(c.data.yCell_coadd) > cell_edge).all():
+                    cut1.append(k)
+                    continue
+                if np.fabs(c.data.xCell_coadd.mean()) > cell_edge or np.fabs(c.data.yCell_coadd.mean()) > cell_edge:
+                    cut2.append(k)
+                    continue
+
+                used.append(k)
+        
+                edge_case = False
+                is_faint = False
+                if (np.fabs(c._data.xCell_coadd) > cell_edge-edge_cut).any() or (np.fabs(c._data.yCell_coadd) > cell_edge-edge_cut).any():
+                    edge_case = True
+                if (c._data.SNR < snr_cut).any():
+                    is_faint = True
+                                        
+                if c._nSrc == c._nUnique and c._nSrc == n_cat and is_faint:
+                    ideal_faint.append(k)
+                elif c._nSrc == c._nUnique and c._nSrc == n_cat:
+                    ideal.append(k)
+                elif c._nSrc < n_cat and is_faint:
+                    faint.append(k)                    
+                elif c._nSrc == n_cat and c._nUnique != n_cat and edge_case:
+                    edge_mixed.append(k)
+                elif c._nSrc == n_cat and c._nUnique != n_cat:
+                    mixed.append(k)
+                elif c._nSrc < n_cat and edge_case:
+                    edge_missing.append(k)
+                elif c._nSrc > n_cat and edge_case:
+                    edge_extra.append(k)    
+                elif c._nSrc == n_cat - 1:
+                    missing.append(k)
+                elif c._nSrc == n_cat - 2:
+                    two_missing.append(k)
+                elif c._nSrc < n_cat - 2:
+                    many_missing.append(k)
+                elif c._nSrc > n_cat:
+                    extra.append(k)
+                else:
+                    caught.append(k)
+
+        return dict(
+            nsrcs=nsrcs,
+            cut1=cut1,
+            cut2=cut2,
+            used=used,
+            ideal_faint=ideal_faint,
+            ideal=ideal,
+            faint=faint,
+            edge_mixed=edge_mixed,
+            mixed=mixed,
+            edge_missing=edge_missing,
+            edge_extra=edge_extra,
+            missing=missing,
+            two_missing=two_missing,
+            many_missing=many_missing,
+            extra=extra,
+            caught=caught,
+        )
+    
+        
+    
+    def classifyObjects(self, **kwargs: Any) -> dict[str, list]:
+
+        nsrcs = []
+
+        cut1 = []
+        cut2 = []
+
+        used = []
+        ideal_faint = []        
+        ideal = []
+
+        faint = []
+        edge_mixed = []
+        mixed = []
+        edge_missing = []
+        edge_extra = []
+
+        orphan = []
+        missing = []
+        two_missing = []
+        many_missing = []
+        extra = []
+        caught = []
+
+        cell_edge = kwargs.get('cellEdge', 75)        
+        edge_cut = kwargs.get('edgeCut', 2)
+        snr_cut = kwargs.get('SNRCut', 7.5)
+
+        n_cat = len(self._redData)
+        
+        for iC, cellData in self._cellDict.items():
+            od = cellData.objectDict
+            
+            for key, c in od.items():
+                k = (iC, key)
+
+                nsrcs.append(c._nSrc)    
+
+                if (np.fabs(c.data.xCell_coadd) > cell_edge).all() or (np.fabs(c.data.yCell_coadd) > cell_edge).all():
+                    cut1.append(k)
+                    continue
+                if np.fabs(c.data.xCell_coadd.mean()) > cell_edge or np.fabs(c.data.yCell_coadd.mean()) > cell_edge:
+                    cut2.append(k)
+                    continue
+
+                used.append(k)
+        
+                edge_case = False
+                is_faint = False
+                if (np.fabs(c._data.xCell_coadd) > cell_edge-edge_cut).any() or (np.fabs(c._data.yCell_coadd) > cell_edge-edge_cut).any():
+                    edge_case = True
+                if (c._data.SNR < snr_cut).any():
+                    is_faint = True
+                                        
+                if c._nSrc == c._nUnique and c._nSrc == n_cat and is_faint:
+                    ideal_faint.append(k)
+                elif c._nSrc == c._nUnique and c._nSrc == n_cat:
+                    ideal.append(k)
+                elif c._nSrc < n_cat and is_faint:
+                    faint.append(k)                    
+                elif c._nSrc == n_cat and c._nUnique != n_cat and edge_case:
+                    edge_mixed.append(k)
+                elif c._nSrc == n_cat and c._nUnique != n_cat:
+                    mixed.append(k)
+                elif c._nSrc < n_cat and edge_case:
+                    edge_missing.append(k)
+                elif c._nSrc > n_cat and edge_case:
+                    edge_extra.append(k)    
+                elif c._nSrc < n_cat and c._parentCluster.nSrc >= n_cat:
+                    orphan.append(k)
+                elif c._nSrc == n_cat - 1:
+                    missing.append(k)
+                elif c._nSrc == n_cat - 2:
+                    two_missing.append(k)
+                elif c._nSrc < n_cat - 2:
+                    many_missing.append(k)
+                elif c._nSrc > n_cat:
+                    extra.append(k)
+                else:
+                    caught.append(k)
+
+        return dict(
+            nsrcs=nsrcs,
+            cut1=cut1,
+            cut2=cut2,
+            used=used,
+            ideal_faint=ideal_faint,
+            ideal=ideal,
+            faint=faint,
+            edge_mixed=edge_mixed,
+            mixed=mixed,
+            edge_missing=edge_missing,
+            edge_extra=edge_extra,
+            orphan=orphan,
+            missing=missing,
+            two_missing=two_missing,
+            many_missing=many_missing,
+            extra=extra,
+            caught=caught,
+        )
+
+
+    @staticmethod
+    def printClusterTypes(clusterTypes: dict[str, list]):
+        print("All Clusters:                                  ", len(clusterTypes["nsrcs"]))
+        print("cut 1                                          ", len(clusterTypes["cut1"]))
+        print("cut 2                                          ", len(clusterTypes["cut2"]))        
+        print("Used:                                          ", len(clusterTypes["used"]))
+        print("good (n source from n catalogs):               ", len(clusterTypes["ideal"]))
+        print("good faint                                     ", len(clusterTypes["ideal_faint"]))
+        print("faint (< n sources, SNR < cut):                ", len(clusterTypes["faint"]))        
+        print("mixed (n source from < n catalogs):            ", len(clusterTypes["mixed"]))
+        print("edge_mixed (mixed near edge of cell):          ", len(clusterTypes["edge_mixed"]))
+        print("edge_missing (< n sources, near edge of cell): ", len(clusterTypes["edge_missing"]))
+        print("edge_extra (> n sources, near edge of cell):   ", len(clusterTypes["edge_extra"]))
+        print("faint (< n sources, SNR < cut):                ", len(clusterTypes["faint"]))
+        print("one missing (n-1 sources, not near edge):      ", len(clusterTypes["missing"]))
+        print("two missing (n-2 sources, not near edge):      ", len(clusterTypes["two_missing"]))
+        print("many missing (< n-2 sources, not near edge):   ", len(clusterTypes["many_missing"]))
+        print("extra (> n sources, not near edge):            ", len(clusterTypes["extra"]))
+    
+    
+    @staticmethod
+    def printObjectTypes(objectTypes: dict[str, list]):
+        print("All Objects:                                   ", len(objectTypes["nsrcs"]))
+        print("cut 1                                          ", len(objectTypes["cut1"]))
+        print("cut 2                                          ", len(objectTypes["cut2"]))        
+        print("Used:                                          ", len(objectTypes["used"]))
+        print("good (n source from n catalogs):               ", len(objectTypes["ideal"]))
+        print("good faint                                     ", len(objectTypes["ideal_faint"]))
+        print("faint (< n sources, SNR < cut):                ", len(objectTypes["faint"]))        
+        print("mixed (n source from < n catalogs):            ", len(objectTypes["mixed"]))
+        print("edge_mixed (mixed near edge of cell):          ", len(objectTypes["edge_mixed"]))
+        print("edge_missing (< n sources, near edge of cell): ", len(objectTypes["edge_missing"]))
+        print("edge_extra (> n sources, near edge of cell):   ", len(objectTypes["edge_extra"]))
+        print("faint (< n sources, SNR < cut):                ", len(objectTypes["faint"]))
+        print("orphan (split off from larger cluster          ", len(objectTypes["orphan"]))
+        print("one missing (n-1 sources, not near edge):      ", len(objectTypes["missing"]))
+        print("two missing (n-2 sources, not near edge):      ", len(objectTypes["two_missing"]))
+        print("many missing (< n-2 sources, not near edge):   ", len(objectTypes["many_missing"]))
+        print("extra (> n sources, not near edge):            ", len(objectTypes["extra"]))
+
+
+    def getCluster(self, iK: tuple[tuple[int, int], int]) -> ClusterData:
+        cellData = self._cellDict[iK[0]]
+        cluster = cellData.clusterDict[iK[1]]
+        return cluster
+
+
+    def getObject(self, iK: tuple[tuple[int, int], int]) -> ObjectData:
+        cellData = self._cellDict[iK[0]]
+        theObj = cellData.objectDict[iK[1]]
+        return theObj        

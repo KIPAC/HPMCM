@@ -91,10 +91,20 @@ class CellData:
         return len(self._clusterDict)
 
     @property
+    def clusterDict(self) -> OrderedDict[int, ClusterData]:
+        """Return the cluster dictionary"""
+        return self._clusterDict
+
+    @property
     def nObjects(self) -> int:
         """Return the number of objects in this cell"""
         return len(self._objectDict)
 
+    @property
+    def objectDict(self) -> OrderedDict[int, ObjectData]:
+        """Return the object dictionary"""
+        return self._objectDict
+    
     @property
     def data(self) -> pandas.DataFrame:
         """Return the data associated to this cell"""
@@ -131,8 +141,8 @@ class CellData:
             xCell = (dataframe["xCell_coadd"] + 100) / self._matcher._pixelMatchScale
             yCell = (dataframe["yCell_coadd"] + 100) / self._matcher._pixelMatchScale
             filtered = np.bitwise_and(
-                dataframe["idx_x"] == self._idx[0] + 1,
-                dataframe["idx_y"] == self._idx[1] + 1,
+                dataframe["idx_x"] - self._idx[0] == 1,
+                dataframe["idx_y"] - self._idx[1] == 1,
             )
 
         red = dataframe[filtered].copy(deep=True)
@@ -200,47 +210,68 @@ class CellData:
         self.buildClusterData(oDict["footprints"], pixelR2Cut)
         return oDict
 
-    def getClusterAssociations(self) -> Table:
+    def getClusterAssociations(self) -> pandas.DataFrame:
         """Convert the clusters to a set of associations"""
         clusterIds = []
         sourceIds = []
+        sourceIdxs = []
+        catIdxs = []
         distancesList: list[np.ndarray] = []
         for cluster in self._clusterDict.values():
             clusterIds.append(np.full((cluster.nSrc), cluster.iCluster, dtype=int))
             sourceIds.append(cluster.srcIds)
+            sourceIdxs.append(cluster.srcIdxs)
+            catIdxs.append(cluster.catIndices)
             assert cluster.dist2.size
             distancesList.append(cluster.dist2)
         if not distancesList:
-            return Table(
-                dict(distance=[], id=np.array([], int), object=np.array([], int))
+            return pandas.DataFrame(
+                dict(
+                    distance=[],
+                    id=np.array([], int),
+                    idx=np.array([], int),                    
+                    cat=np.array([], int),
+                    object=np.array([], int),
+                )
             )
         distances = np.hstack(distancesList)
         distances = self._matcher.pixToArcsec() * np.sqrt(distances)
         data = dict(
-            object=np.hstack(clusterIds), id=np.hstack(sourceIds), distance=distances
+            object=np.hstack(clusterIds),
+            id=np.hstack(sourceIds),
+            idx=np.hstack(sourceIdxs),            
+            cat=np.hstack(catIdxs),
+            distance=distances,
         )
-        return Table(data)
+        return pandas.DataFrame(data)
 
-    def getObjectAssociations(self) -> Table:
+    def getObjectAssociations(self) -> pandas.DataFrame:
         """Convert the objects to a set of associations"""
         clusterIds = []
         objectIds = []
         sourceIds = []
+        sourceIdxs = []        
+        catIdxs = []        
         distancesList: list[np.ndarray] = []
+
         for obj in self._objectDict.values():
             clusterIds.append(
                 np.full((obj.nSrc), obj.parentCluster.iCluster, dtype=int)
             )
             objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
             sourceIds.append(obj.sourceIds())
+            sourceIdxs.append(obj.sourceIdxs())            
+            catIdxs.append(obj.catIndices)            
             assert obj.dist2.size
             distancesList.append(obj.dist2)
         if not distancesList:
-            return Table(
+            return pandas.DataFrame(
                 dict(
                     object=np.array([], int),
                     parent=np.array([], int),
                     id=np.array([], int),
+                    idx=np.array([], int),
+                    cat=np.array([], int),                    
                     distance=[],
                 )
             )
@@ -250,11 +281,13 @@ class CellData:
             object=np.hstack(objectIds),
             parent=np.hstack(clusterIds),
             id=np.hstack(sourceIds),
+            idx=np.hstack(sourceIdxs),            
+            cat=np.hstack(catIdxs),            
             distance=distances,
         )
-        return Table(data)
+        return pandas.DataFrame(data)
 
-    def getClusterStats(self) -> Table:
+    def getClusterStats(self) -> pandas.DataFrame:
         """Get the stats for all the clusters"""
         nClust = self.nClusters
         clusterIds = np.zeros((nClust), dtype=int)
@@ -272,7 +305,11 @@ class CellData:
             distRms[idx] = cluster.rmsDist
             xCents[idx] = cluster.xCent
             yCents[idx] = cluster.yCent
-        ra, decl = self._matcher.pixToWorld(xCents, yCents)
+        if self._matcher._wcs is not None:
+            ra, dec = self._matcher.pixToWorld(xCents, yCents)
+        else:
+            ra, dec = np.repeat(np.nan, len(nSrcs)), np.repeat(np.nan, len(nSrcs))
+            
         distRms *= self._matcher.pixToArcsec()
 
         data = dict(
@@ -282,13 +319,13 @@ class CellData:
             nUnique=nUniques,
             distRms=distRms,
             ra=ra,
-            decl=decl,
+            decl=dec,
         )
 
-        return Table(data)
+        return pandas.DataFrame(data)
 
-    def getObjectStats(self) -> Table:
-        """Get the stats for all the clusters"""
+    def getObjectStats(self) -> pandas.DataFrame:
+        """Get the stats for all the objects"""
         nObj = self.nObjects
         clusterIds = np.zeros((nObj), dtype=int)
         objectIds = np.zeros((nObj), dtype=int)
@@ -304,7 +341,10 @@ class CellData:
             xCents[idx] = obj.xCent
             yCents[idx] = obj.yCent
 
-        ra, decl = self._matcher.pixToWorld(xCents, yCents)
+        if self._matcher._wcs is not None:
+            ra, dec = self._matcher.pixToWorld(xCents, yCents)
+        else:
+            ra, dec = np.repeat(np.nan, len(nSrcs)), np.repeat(np.nan, len(nSrcs))
         distRms *= self._matcher.pixToArcsec()
 
         data = dict(
@@ -313,10 +353,48 @@ class CellData:
             nSrcs=nSrcs,
             distRms=distRms,
             ra=ra,
-            decl=decl,
+            decl=dec,
         )
 
-        return Table(data)
+        return pandas.DataFrame(data)
+
+    def getObjectShearStats(self)  -> pandas.DataFrame:
+        """Get the shear stats for all the objects"""
+        nObj = self.nObjects
+        out_dict: dict[str, np.ndarray] = {}
+        names = ['ns', '2p', '2m', '1p', '1m']
+
+        for name_ in names:
+            out_dict[f"n_{name_}"] = np.zeros((nObj), dtype=int)
+            out_dict[f"g1_{name_}"] = np.zeros((nObj), dtype=float)
+            out_dict[f"g2_{name_}"] = np.zeros((nObj), dtype=float)
+        out_dict[f"good"] = np.zeros((nObj), dtype=bool)
+        out_dict['delta_g_1'] = np.zeros((nObj), dtype=float)
+        out_dict['delta_g_2'] = np.zeros((nObj), dtype=float)        
+        for idx, obj in enumerate(self._objectDict.values()):
+            objStats = obj.shearStats()
+            for key, val in objStats.items():
+                out_dict[key][idx] = val
+        return pandas.DataFrame(out_dict)
+
+    def getClusterShearStats(self)  -> pandas.DataFrame:
+        """Get the shear stats for all the objects"""
+        nClusters = self.nClusters
+        out_dict: dict[str, np.ndarray] = {}
+        names = ['ns', '2p', '2m', '1p', '1m']
+
+        for name_ in names:
+            out_dict[f"n_{name_}"] = np.zeros((nClusters), dtype=int)
+            out_dict[f"g1_{name_}"] = np.zeros((nClusters), dtype=float)
+            out_dict[f"g2_{name_}"] = np.zeros((nClusters), dtype=float)
+        out_dict['delta_g_1'] = np.zeros((nClusters), dtype=float)
+        out_dict['delta_g_2'] = np.zeros((nClusters), dtype=float)
+        out_dict[f"good"] = np.zeros((nClusters), dtype=bool)
+        for idx, cluster in enumerate(self._clusterDict.values()):
+            clusterStats = cluster.shearStats()
+            for key, val in clusterStats.items():
+                out_dict[key][idx] = val
+        return pandas.DataFrame(out_dict)
 
     def addObject(
         self, cluster: ClusterData, mask: np.ndarray | None = None

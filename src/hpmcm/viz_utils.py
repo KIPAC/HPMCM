@@ -5,6 +5,63 @@ from matplotlib.figure import Figure, SubFigure
 
 from .cell import CellData
 from .cluster import ClusterData
+from .match import Match
+
+
+def showShearObjs(matcher: Match, iK: tuple[tuple[int, int], int]) -> Figure | SubFigure:
+    cellData = matcher._cellDict[iK[0]]
+    cluster = cellData._clusterDict[iK[1]]
+    bbox = cluster._footprint.getBBox()
+    dx = bbox.getWidth()
+    dy = bbox.getHeight()
+    extent = (bbox.getBeginX(), bbox.getBeginX()+bbox.getWidth(),
+              bbox.getBeginY(), bbox.getBeginY()+bbox.getHeight())
+    cluster.extract(cellData)
+    xOffset = cellData._minPix[0] + 25
+    yOffset = cellData._minPix[1] + 25
+    xOff = cluster.data.xPix - xOffset
+    yOff = cluster.data.yPix - yOffset
+    catIndices = cluster.catIndices
+    image = np.zeros((dx, dy))
+    img = plt.imshow(image, origin='lower', extent=extent)
+    colors = ['red', 'blue', 'green', 'cyan', 'orange']
+    markers = ['.', '<', '>', 'v', '^']
+    for iObj, obj in enumerate(cluster.objects):
+        xC = obj._xCent - xOffset
+        yC = obj._yCent - yOffset
+        for x_, y_, i_ in zip(yOff[obj._mask], xOff[obj._mask], catIndices[obj._mask]):
+            img.axes.scatter(x_, y_, c=colors[iObj%5], marker=markers[i_ % 5])
+    return img.axes.figure
+
+def showShearObj(matcher: Match, iK: tuple[tuple[int, int], int]) -> Figure | SubFigure:
+    cellData = matcher._cellDict[iK[0]]
+    theObj = cellData._objectDict[iK[1]]
+    cluster = theObj._parentCluster
+    bbox = cluster._footprint.getBBox()
+    dx = bbox.getWidth()
+    dy = bbox.getHeight()
+    extent = (bbox.getBeginX(), bbox.getBeginX()+bbox.getWidth(),
+              bbox.getBeginY(), bbox.getBeginY()+bbox.getHeight())
+    cluster.extract(cellData)
+    xOffset = cellData._minPix[0] + 25
+    yOffset = cellData._minPix[1] + 25
+    xOff = cluster.data.xPix - xOffset
+    yOff = cluster.data.yPix - yOffset
+    catIndices = cluster.catIndices
+    image = np.zeros((dx, dy))
+    img = plt.imshow(image, origin='lower', extent=extent)
+    markers = ['.', '<', '>', 'v', '^']
+    for iObj, obj in enumerate(cluster.objects):
+        xC = obj._xCent - xOffset
+        yC = obj._yCent - yOffset
+        if obj.objectId == theObj.objectId:
+            color = 'red'
+        else:
+            color = 'blue'
+        for x_, y_, i_ in zip(yOff[obj._mask], xOff[obj._mask], catIndices[obj._mask]):
+            img.axes.scatter(x_, y_, c=color, marker=markers[i_ % 5])
+    return img.axes.figure
+
 
 
 def showCluster(

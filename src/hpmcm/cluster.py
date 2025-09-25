@@ -183,6 +183,28 @@ class ClusterData:
         """Return the objects associated with this cluster"""
         return self._objects
 
+    def shearStats(self) -> dict:
+        out_dict = {}
+        names = ['ns', '2p', '2m', '1p', '1m']
+        all_good = True
+        for i, name_ in enumerate(names):
+            mask = self._data.iCat == i
+            n_cat =  mask.sum()
+            if n_cat != 1:
+                all_good = False
+            out_dict[f"n_{name_}"] = n_cat
+            if n_cat:
+                out_dict[f"g1_{name_}"] = self._data.g_1[mask].mean()
+                out_dict[f"g2_{name_}"] = self._data.g_2[mask].mean()
+            else:
+                out_dict[f"g1_{name_}"] = np.nan
+                out_dict[f"g2_{name_}"] = np.nan
+        out_dict['delta_g_1'] = out_dict['g1_1p'] - out_dict['g1_1m']
+        out_dict['delta_g_2'] = out_dict['g2_2p'] - out_dict['g1_2m']
+        out_dict['good'] = all_good
+        return out_dict
+
+
     def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
         """Function that is called recursively to
         split clusters until they consist only of sources within
