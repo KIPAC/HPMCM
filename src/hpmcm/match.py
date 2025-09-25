@@ -282,6 +282,7 @@ class Match:
         for fName, vid in zip(inputFiles, visitIds):
             self._fullData[vid] = self._readDataFrame(fName)
             self._redData[vid] = self._reduceDataFrame(self._fullData[vid])
+            self._fullData[vid].set_index('id', inplace=True)
 
     def analyzeCell(
         self,
@@ -453,7 +454,7 @@ class Match:
                 df_clean["row"].values + 25,
             )
         df_red = df_clean.copy(deep=True)
-
+        
         df_red["xPix"] = xPix
         df_red["yPix"] = yPix
 
