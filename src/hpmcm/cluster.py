@@ -47,6 +47,7 @@ class ClusterData:
         footprint: afwDetect.Footprint,
         sources: np.ndarray,
         origCluster: int | None = None,
+        pixelMatchScale: int =1,
     ):
         self._iCluster: int = iCluster
         self._footprint: afwDetect.Footprint = footprint
@@ -54,7 +55,8 @@ class ClusterData:
         if origCluster is not None:
             self._origCluster = origCluster
         self._sources: np.ndarray = sources
-
+        self._pixelMatchScale = pixelMatchScale
+        
         self._nSrc: int = self._sources[0].size
         self._nUnique: int = len(np.unique(self._sources[0]))
         self._objects: list[ObjectData] = []
@@ -73,8 +75,8 @@ class ClusterData:
         # xOffset = cellData.minPix[0] + bbox.getBeginY()
         # yOffset = cellData.minPix[1] + bbox.getBeginX()
 
-        xOffset = bbox.getBeginY()
-        yOffset = bbox.getBeginX()
+        xOffset = bbox.getBeginY()*self._pixelMatchScale
+        yOffset = bbox.getBeginX()*self._pixelMatchScale
 
         series_list = []
 
@@ -200,7 +202,7 @@ class ClusterData:
                 out_dict[f"g1_{name_}"] = np.nan
                 out_dict[f"g2_{name_}"] = np.nan
         out_dict['delta_g_1'] = out_dict['g1_1p'] - out_dict['g1_1m']
-        out_dict['delta_g_2'] = out_dict['g2_2p'] - out_dict['g1_2m']
+        out_dict['delta_g_2'] = out_dict['g2_2p'] - out_dict['g2_2m']
         out_dict['good'] = all_good
         return out_dict
 

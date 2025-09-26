@@ -152,11 +152,15 @@ class CellData:
 
     def countsMap(self, weightName: str | None = None) -> np.ndarray:
         """Fill a map that counts the number of source per cell"""
-        toFill = np.zeros((self._nPix))
+        pixelMatchScale = self._matcher._pixelMatchScale
+        toFill = np.zeros(np.ceil(self._nPix/pixelMatchScale).astype(int))
         assert self._data is not None
         for df in self._data:
             toFill += utils.fillCountsMapFromDf(
-                df, nPix=self._nPix, weightName=weightName
+                df,
+                nPix=self._nPix,
+                weightName=weightName,
+                pixelMatchScale=self._matcher._pixelMatchScale,
             )
         return toFill
 
@@ -167,6 +171,7 @@ class CellData:
     ) -> None:
         """Loop through cluster ids and collect sources into
         the ClusterData objects"""
+        pixelMatchScale = self._matcher._pixelMatchScale        
         footprints = fpSet.getFootprints()
         footprintDict: dict[int, list[tuple[int, int, int]]] = {}
         nMissing = 0
@@ -186,7 +191,7 @@ class CellData:
         for footprintId, sources in footprintDict.items():
             footprint = footprints[footprintId]
             iCluster = footprintId + self._idOffset
-            cluster = ClusterData(iCluster, footprint, np.array(sources).T)
+            cluster = ClusterData(iCluster, footprint, np.array(sources).T, pixelMatchScale=pixelMatchScale)
             self._clusterDict[iCluster] = cluster
             cluster.processCluster(self, pixelR2Cut)
 
@@ -200,12 +205,16 @@ class CellData:
         """
         if self._nSrc == 0:
             return None
+        pixelMatchScale = self._matcher._pixelMatchScale
         countsMap = self.countsMap(weightName)
-        oDict = utils.getFootprints(countsMap, buf=self._buf)
+        if self._matcher.wcs is None:
+            oDict = utils.getFootprints(countsMap, buf=0, pixelMatchScale=pixelMatchScale)
+        else:
+            oDict = utils.getFootprints(countsMap, buf=self._buf)
         oDict["countsMap"] = countsMap
         assert self._data is not None
         self._footprintIds = utils.associateSourcesToFootprints(
-            self._data, oDict["footprintKey"]
+            self._data, oDict["footprintKey"], pixelMatchScale=pixelMatchScale,
         )
         self.buildClusterData(oDict["footprints"], pixelR2Cut)
         return oDict
@@ -292,19 +301,24 @@ class CellData:
         nClust = self.nClusters
         clusterIds = np.zeros((nClust), dtype=int)
         nSrcs = np.zeros((nClust), dtype=int)
+        nUniques = np.zeros((nClust), dtype=int)        
         nObjects = np.zeros((nClust), dtype=int)
         nUniques = np.zeros((nClust), dtype=int)
         distRms = np.zeros((nClust), dtype=float)
         xCents = np.zeros((nClust), dtype=float)
         yCents = np.zeros((nClust), dtype=float)
+        SNRs =  np.zeros((nClust), dtype=float)
         for idx, cluster in enumerate(self._clusterDict.values()):
             clusterIds[idx] = cluster.iCluster
             nSrcs[idx] = cluster.nSrc
+            nUniques[idx] = cluster.nUnique
             nObjects[idx] = len(cluster.objects)
             nUniques[idx] = cluster.nUnique
             distRms[idx] = cluster.rmsDist
-            xCents[idx] = cluster.xCent
-            yCents[idx] = cluster.yCent
+            sumSNR = cluster.data.SNR.sum()
+            xCents[idx] = np.sum(cluster.data.SNR*cluster.data.xCell)/sumSNR
+            yCents[idx] = np.sum(cluster.data.SNR*cluster.data.yCell)/sumSNR
+            SNRs[idx] = cluster.data.SNR.min()
         if self._matcher._wcs is not None:
             ra, dec = self._matcher.pixToWorld(xCents, yCents)
         else:
@@ -316,10 +330,13 @@ class CellData:
             clusterIds=clusterIds,
             nSrcs=nSrcs,
             nObject=nObjects,
-            nUnique=nUniques,
+            nUniques=nUniques,
             distRms=distRms,
             ra=ra,
-            decl=dec,
+            dec=dec,
+            xCents=xCents,
+            yCents=yCents,
+            SNRs=SNRs, 
         )
 
         return pandas.DataFrame(data)
@@ -330,16 +347,24 @@ class CellData:
         clusterIds = np.zeros((nObj), dtype=int)
         objectIds = np.zeros((nObj), dtype=int)
         nSrcs = np.zeros((nObj), dtype=int)
+        nUniques = np.zeros((nObj), dtype=int)                
         distRms = np.zeros((nObj), dtype=float)
         xCents = np.zeros((nObj), dtype=float)
         yCents = np.zeros((nObj), dtype=float)
+        SNRs =  np.zeros((nObj), dtype=float)
+        
         for idx, obj in enumerate(self._objectDict.values()):
             clusterIds[idx] = obj.parentCluster.iCluster
             objectIds[idx] = obj.objectId
             nSrcs[idx] = obj.nSrc
+            nUniques[idx] = obj.nUnique            
             distRms[idx] = obj.rmsDist
             xCents[idx] = obj.xCent
             yCents[idx] = obj.yCent
+            sumSNR = obj.data.SNR.sum()
+            xCents[idx] = np.sum(obj.data.SNR*obj.data.xCell)/sumSNR
+            yCents[idx] = np.sum(obj.data.SNR*obj.data.yCell)/sumSNR            
+            SNRs[idx] = obj.data.SNR.min()
 
         if self._matcher._wcs is not None:
             ra, dec = self._matcher.pixToWorld(xCents, yCents)
@@ -350,10 +375,14 @@ class CellData:
         data = dict(
             clusterIds=clusterIds,
             objectIds=objectIds,
+            nUniques=nUniques,            
             nSrcs=nSrcs,
             distRms=distRms,
             ra=ra,
-            decl=dec,
+            dec=dec,
+            xCents=xCents,
+            yCents=yCents,
+            SNRs=SNRs,             
         )
 
         return pandas.DataFrame(data)

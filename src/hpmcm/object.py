@@ -157,7 +157,7 @@ class ObjectData:
                 out_dict[f"g1_{name_}"] = np.nan
                 out_dict[f"g2_{name_}"] = np.nan
         out_dict['delta_g_1'] = out_dict['g1_1p'] - out_dict['g1_1m'] 
-        out_dict['delta_g_2'] = out_dict['g2_2p'] - out_dict['g1_2m'] 
+        out_dict['delta_g_2'] = out_dict['g2_2p'] - out_dict['g2_2m'] 
         out_dict['good'] = all_good
         return out_dict
 
@@ -217,8 +217,8 @@ class ObjectData:
         zoom_factor = zoom_factors[recurse]
 
         nPix = zoom_factor * np.array([bbox.getHeight(), bbox.getWidth()])
-        zoom_x = zoom_factor * self._data.xCluster
-        zoom_y = zoom_factor * self._data.yCluster
+        zoom_x = zoom_factor * self._data.xCluster / self._parentCluster._pixelMatchScale
+        zoom_y = zoom_factor * self._data.yCluster / self._parentCluster._pixelMatchScale
 
         countsMap = utils.fillCountsMapFromArrays(zoom_x, zoom_y, nPix)
 

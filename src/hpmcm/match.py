@@ -211,12 +211,11 @@ class Match:
         """
         nPix = np.array([30000, 30000])
         matchWcs = None
-        pixMatchScale = kwargs.get("pixelMatchScale", 1)        
         kw = dict(
-            pixelSize=0.2*pixMatchScale/3600.,
+            pixelSize=0.2*3600.,
             nPixels=nPix,
-            cellSize=int(np.ceil(150/pixMatchScale)),
-            cellBuffer=int(np.ceil(25/pixMatchScale)),
+            cellSize=150,
+            cellBuffer=25,
             cellMaxObject=1000,
         )
         return cls(matchWcs, **kw, **kwargs)
