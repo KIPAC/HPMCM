@@ -131,18 +131,10 @@ class Match:
 
     def __init__(
         self,
-        matchWcs: wcs.WCS | None,
         **kwargs: Any,
     ):
-        self._wcs: wcs.WCS | None = matchWcs
-        if self._wcs is not None:
-            self._pixSize: float = self._wcs.wcs.cdelt[1]
-            self._nPixSide: np.ndarray = np.ceil(
-                2 * np.array(self._wcs.wcs.crpix)
-            ).astype(int)
-        else:
-            self._pixSize = kwargs.get("pixelSize", 1.0)
-            self._nPixSide = kwargs["nPixels"]
+        self._pixSize = kwargs.get("pixelSize", 1.0)
+        self._nPixSide = kwargs["nPixels"]
         self._cellSize: int = kwargs.get("cellSize", 3000)
         self._cellBuffer: int = kwargs.get("cellBuffer", 10)
         self._cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
@@ -152,64 +144,6 @@ class Match:
         self._fullData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._cellDict: OrderedDict[tuple[int, int], CellData] = OrderedDict()
-
-    @classmethod
-    def create(
-        cls,
-        refDir: tuple[float, float],
-        regionSize: tuple[float, float],
-        pixSize: float,
-        **kwargs: Any,
-    ) -> Match:
-        """Helper function to create a Match object
-
-        Parameters
-        ----------
-        refDir:
-            Reference Direction (RA, DEC) in degrees
-
-        pixSize:
-            Pixel size in degrees
-
-        Returns
-        -------
-        Match:
-            Object to create matches for the requested region
-        """
-        nPix = (np.array(regionSize) / pixSize).astype(int)
-        matchWcs = createGlobalWcs(refDir, pixSize, nPix)
-        return cls(matchWcs, **kwargs)
-
-    @classmethod
-    def createCoaddCellsForTract(
-        cls,
-        **kwargs: Any,
-    ) -> Match:
-        """Helper function to create a Match object
-
-        Parameters
-        ----------
-        refDir:
-            Reference Direction (RA, DEC) in degrees
-
-        pixSize:
-            Pixel size in degrees
-
-        Returns
-        -------
-        Match:
-            Object to create matches for the requested region
-        """
-        nPix = np.array([30000, 30000])
-        matchWcs = None
-        kw = dict(
-            pixelSize=0.2 * 3600.0,
-            nPixels=nPix,
-            cellSize=150,
-            cellBuffer=25,
-            cellMaxObject=1000,
-        )
-        return cls(matchWcs, **kw, **kwargs)
 
     @property
     def fullData(self) -> OrderedDict[int, pandas.DataFrame]:
@@ -228,11 +162,6 @@ class Match:
         return self._cellDict
 
     @property
-    def wcs(self) -> wcs.WCS:
-        """Return the WCS used to pixelize the region"""
-        return self._wcs
-
-    @property
     def nCell(self) -> np.ndarray:
         """Return the number of cells in X,Y"""
         return self._nCell
@@ -247,8 +176,7 @@ class Match:
         yPix: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Convert locals in pixels to world coordinates (RA, DEC)"""
-        assert self._wcs is not None
-        return self._wcs.wcs_pix2world(xPix, yPix, 0)
+        return np.repeat(np.nan, len(xPix)), np.repeat(np.nan, len(yPix))
 
     def getIdOffset(
         self,
@@ -278,6 +206,15 @@ class Match:
             self._fullData[vid] = self._readDataFrame(fName)
             self._redData[vid] = self._reduceDataFrame(self._fullData[vid])
             self._fullData[vid].set_index("id", inplace=True)
+
+    def _buildCellData(
+        self,
+        idOffset: int,
+        corner: np.ndarray,
+        size: np.ndarray,
+        idx: np.ndarray,
+    ) -> CellData:
+        return CellData(self, idOffset, corner, size, idx, self._cellBuffer)
 
     def analyzeCell(
         self,
@@ -320,7 +257,7 @@ class Match:
         cellStep = np.array([self._cellSize, self._cellSize])
         corner = iCell * cellStep
         idOffset = self.getIdOffset(ix, iy)
-        cellData = CellData(self, idOffset, corner, cellStep, iCell, self._cellBuffer)
+        cellData = self._buildCellData(idOffset, corner, cellStep, iCell)
         cellData.reduceData(list(self._redData.values()))
         oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
         if cellData.nObjects >= self._cellMaxObject:
@@ -413,42 +350,15 @@ class Match:
         df = parq.to_pandas()
         return df
 
+    def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+        raise NotImplementedError()
+
     def _reduceDataFrame(
         self,
         df: pandas.DataFrame,
     ) -> pandas.DataFrame:
         """Reduce a single input DataFrame"""
-        df_clean = df[(df.SNR > 1)]
-        if self._wcs is not None:
-            xPix, yPix = self._wcs.wcs_world2pix(
-                df_clean["ra"].values, df_clean["dec"].values, 0
-            )
-        else:
-            xPix, yPix = (
-                df_clean["col"].values + 25,
-                df_clean["row"].values + 25,
-            )
-        df_red = df_clean.copy(deep=True)
-
-        df_red["xPix"] = xPix
-        df_red["yPix"] = yPix
-
-        return df_red[
-            [
-                "id",
-                "ra",
-                "dec",
-                "xPix",
-                "yPix",
-                "xCell_coadd",
-                "yCell_coadd",
-                "SNR",
-                "g_1",
-                "g_2",
-                "idx_x",
-                "idx_y",
-            ]
-        ]
+        raise NotImplementedError()
 
     def classifyClusters(self, **kwargs: Any) -> dict[str, list]:
 
