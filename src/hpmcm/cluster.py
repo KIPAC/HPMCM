@@ -47,7 +47,6 @@ class ClusterData:
         footprint: afwDetect.Footprint,
         sources: np.ndarray,
         origCluster: int | None = None,
-        pixelMatchScale: int =1,
     ):
         self._iCluster: int = iCluster
         self._footprint: afwDetect.Footprint = footprint
@@ -55,8 +54,7 @@ class ClusterData:
         if origCluster is not None:
             self._origCluster = origCluster
         self._sources: np.ndarray = sources
-        self._pixelMatchScale = pixelMatchScale
-        
+
         self._nSrc: int = self._sources[0].size
         self._nUnique: int = len(np.unique(self._sources[0]))
         self._objects: list[ObjectData] = []
@@ -67,6 +65,9 @@ class ClusterData:
         self._rmsDist: float = np.nan
         self._dist2: np.ndarray = np.array([])
 
+    def pixelMatchScale(self) -> float:
+        return 1.0
+
     def extract(self, cellData: CellData) -> None:
         """Extract the xPix, yPix and snr data from
         the sources in this cluster
@@ -75,8 +76,8 @@ class ClusterData:
         # xOffset = cellData.minPix[0] + bbox.getBeginY()
         # yOffset = cellData.minPix[1] + bbox.getBeginX()
 
-        xOffset = bbox.getBeginY()*self._pixelMatchScale
-        yOffset = bbox.getBeginX()*self._pixelMatchScale
+        xOffset = bbox.getBeginY() * self.pixelMatchScale()
+        yOffset = bbox.getBeginX() * self.pixelMatchScale()
 
         series_list = []
 
@@ -187,11 +188,12 @@ class ClusterData:
 
     def shearStats(self) -> dict:
         out_dict = {}
-        names = ['ns', '2p', '2m', '1p', '1m']
+        names = ["ns", "2p", "2m", "1p", "1m"]
         all_good = True
+        assert self._data is not None
         for i, name_ in enumerate(names):
             mask = self._data.iCat == i
-            n_cat =  mask.sum()
+            n_cat = mask.sum()
             if n_cat != 1:
                 all_good = False
             out_dict[f"n_{name_}"] = n_cat
@@ -201,11 +203,10 @@ class ClusterData:
             else:
                 out_dict[f"g1_{name_}"] = np.nan
                 out_dict[f"g2_{name_}"] = np.nan
-        out_dict['delta_g_1'] = out_dict['g1_1p'] - out_dict['g1_1m']
-        out_dict['delta_g_2'] = out_dict['g2_2p'] - out_dict['g2_2m']
-        out_dict['good'] = all_good
+        out_dict["delta_g_1"] = out_dict["g1_1p"] - out_dict["g1_1m"]
+        out_dict["delta_g_2"] = out_dict["g2_2p"] - out_dict["g2_2m"]
+        out_dict["good"] = all_good
         return out_dict
-
 
     def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
         """Function that is called recursively to
@@ -241,6 +242,53 @@ class ClusterData:
         initialObject = self.addObject(cellData)
         initialObject.processObject(cellData, pixelR2Cut)
         return self._objects
+
+    def addObject(
+        self, cellData: CellData, mask: np.ndarray | None = None
+    ) -> ObjectData:
+        """Add a new object to this cluster"""
+        newObject = cellData.addObject(self, mask)
+        self._objects.append(newObject)
+        return newObject
+
+
+class ShearClusterData(ClusterData):
+
+    def __init__(
+        self,
+        iCluster: int,
+        footprint: afwDetect.Footprint,
+        sources: np.ndarray,
+        origCluster: int | None = None,
+        pixelMatchScale: int = 1,
+    ):
+        ClusterData.__init__(self, iCluster, footprint, sources, origCluster)
+        self._pixelMatchScale = pixelMatchScale
+
+    def pixelMatchScale(self) -> float:
+        return self._pixelMatchScale
+
+    def shearStats(self) -> dict:
+        out_dict = {}
+        names = ["ns", "2p", "2m", "1p", "1m"]
+        all_good = True
+        assert self._data is not None
+        for i, name_ in enumerate(names):
+            mask = self._data.iCat == i
+            n_cat = mask.sum()
+            if n_cat != 1:
+                all_good = False
+            out_dict[f"n_{name_}"] = n_cat
+            if n_cat:
+                out_dict[f"g1_{name_}"] = self._data.g_1[mask].mean()
+                out_dict[f"g2_{name_}"] = self._data.g_2[mask].mean()
+            else:
+                out_dict[f"g1_{name_}"] = np.nan
+                out_dict[f"g2_{name_}"] = np.nan
+        out_dict["delta_g_1"] = out_dict["g1_1p"] - out_dict["g1_1m"]
+        out_dict["delta_g_2"] = out_dict["g2_2p"] - out_dict["g2_2m"]
+        out_dict["good"] = all_good
+        return out_dict
 
     def addObject(
         self, cellData: CellData, mask: np.ndarray | None = None

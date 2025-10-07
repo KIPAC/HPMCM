@@ -1,14 +1,19 @@
 from . import utils, viz_utils
-from .cell import CellData
-from .cluster import ClusterData
+from .cell import CellData, ShearCellData
+from .cluster import ClusterData, ShearClusterData
 from .match import Match
-from .object import ObjectData
+from .object import ObjectData, ShearObjectData
+from .shear_match import ShearMatch
 
 __all__ = [
     "CellData",
     "ClusterData",
     "Match",
     "ObjectData",
+    "ShearCellData",
+    "ShearClusterData",
+    "ShearObjectData",
+    "ShearMatch",
     "utils",
     "viz_utils",
 ]

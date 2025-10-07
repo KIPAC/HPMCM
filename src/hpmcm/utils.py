@@ -22,14 +22,14 @@ def findClusterIdsFromArrays(
 def findClusterIds(
     df: pandas.DataFrame,
     clusterKey: np.ndarray,
-    pixelMatchScale: int=1,    
+    pixelMatchScale: int = 1,
 ) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
     has the cluster index as its value"""
     return findClusterIdsFromArrays(
-        np.floor(df["xCell"]/pixelMatchScale).astype(int),
-        np.floor(df["yCell"]/pixelMatchScale).astype(int),
+        np.floor(df["xCell"] / pixelMatchScale).astype(int),
+        np.floor(df["yCell"] / pixelMatchScale).astype(int),
         clusterKey,
     )
 
@@ -55,7 +55,7 @@ def fillCountsMapFromDf(
     df: pandas.DataFrame,
     nPix: np.ndarray,
     weightName: str | None = None,
-    pixelMatchScale: int=1,
+    pixelMatchScale: int = 1,
 ) -> np.ndarray:
     """Fill a source counts map from a reduced dataframe for one input
     catalog"""
@@ -64,9 +64,9 @@ def fillCountsMapFromDf(
     else:
         weights = df[weightName].values
     return fillCountsMapFromArrays(
-        df["xCell"]/pixelMatchScale,
-        df["yCell"]/pixelMatchScale,
-        nPix=np.ceil(nPix/pixelMatchScale).astype(int),
+        df["xCell"] / pixelMatchScale,
+        df["yCell"] / pixelMatchScale,
+        nPix=np.ceil(nPix / pixelMatchScale).astype(int),
         weights=weights,
     )
 
@@ -74,7 +74,7 @@ def fillCountsMapFromDf(
 def filterFootprints(
     fpSet: afwDetect.FootprintSet,
     buf: int,
-    pixelMatchScale: int=1,    
+    pixelMatchScale: int = 1,
 ) -> afwDetect.FootprintSet:
     """Remove footprints within `buf` pixels of the celll edge"""
     region = fpSet.getRegion()
@@ -84,8 +84,8 @@ def filterFootprints(
     maxY = height - buf
     for fp in fpSet.getFootprints():
         cent = fp.getCentroid()
-        xC = cent.getX()*pixelMatchScale
-        yC = cent.getY()*pixelMatchScale
+        xC = cent.getX() * pixelMatchScale
+        yC = cent.getY() * pixelMatchScale
         if xC < buf or xC > maxX or yC < buf or yC > maxY:
             continue
         outList.append(fp)
@@ -97,7 +97,7 @@ def filterFootprints(
 def getFootprints(
     countsMap: np.ndarray,
     buf: int,
-    pixelMatchScale: int=1,    
+    pixelMatchScale: int = 1,
 ) -> dict:
     """Take a source counts map and do clustering using Footprint detection"""
     image = afwImage.ImageF(countsMap.astype(np.float32))
@@ -115,7 +115,7 @@ def getFootprints(
 def associateSourcesToFootprints(
     data: list[pandas.DataFrame],
     clusterKey: np.ndarray,
-    pixelMatchScale: int=1,    
+    pixelMatchScale: int = 1,
 ) -> list[np.ndarray]:
     """Loop through data and associate sources to clusters"""
     return [findClusterIds(df, clusterKey, pixelMatchScale) for df in data]
