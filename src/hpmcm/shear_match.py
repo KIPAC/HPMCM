@@ -329,24 +329,30 @@ class ShearMatch(Match):
 
         print("MetaCalib:")
         print(
-            f"g1:                                         {100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}"
+            "g1:                                         ",
+            f"{100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}"
         )
         print(
-            f"g2:                                         {100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}"
+            "g2:                                         ",
+            f"{100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}"
         )
 
         print("MetaDetect Good:")
         print(
-            f"g1:                                         {200*stats_good_g1[0]:.4f} +- {200*stats_good_g1[2]:.4f}"
+            "g1:                                         ",
+            f"{200*stats_good_g1[0]:.4f} +- {200*stats_good_g1[2]:.4f}"
         )
         print(
-            f"g2:                                         {200*stats_good_g2[0]:.4f} +- {200*stats_good_g2[2]:.4f}"
+            "g2:                                         ",
+            f"{200*stats_good_g2[0]:.4f} +- {200*stats_good_g2[2]:.4f}"
         )
 
         print("MetaDetect bad:")
         print(
-            f"g1:                                         {200*stats_bad_g1[0]:.4f} +- {200*stats_bad_g1[2]:.4f}"
+            "g1:                                         ",
+            f"{200*stats_bad_g1[0]:.4f} +- {200*stats_bad_g1[2]:.4f}"
         )
         print(
-            f"g2:                                         {200*stats_bad_g2[0]:.4f} +- {200*stats_bad_g2[2]:.4f}"
+            "g2:                                         ",
+            f"{200*stats_bad_g2[0]:.4f} +- {200*stats_bad_g2[2]:.4f}"
         )
