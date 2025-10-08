@@ -11,6 +11,21 @@ from .match import Match
 def showShearObjs(
     matcher: Match, iK: tuple[tuple[int, int], int]
 ) -> Figure | SubFigure:
+    """Draw the objects in a cluster
+
+    Parameters
+    ----------
+    matcher:
+        Match object
+
+    iK:
+        Indices of the particular cluster
+
+    Returns
+    -------
+    Display showing the cluster in question
+
+    """
     cellData = matcher.cellDict[iK[0]]
     cluster = cellData.clusterDict[iK[1]]
     bbox = cluster.footprint.getBBox()
@@ -36,10 +51,26 @@ def showShearObjs(
     for iObj, obj in enumerate(cluster.objects):
         for x_, y_, i_ in zip(yOff[obj.mask], xOff[obj.mask], catIndices[obj.mask]):
             img.axes.scatter(x_, y_, c=colors[iObj % 5], marker=markers[i_ % 5])
+    assert img.axes.figure is not None
     return img.axes.figure
 
 
 def showShearObj(matcher: Match, iK: tuple[tuple[int, int], int]) -> Figure | SubFigure:
+    """Draw a single object
+
+    Parameters
+    ----------
+    matcher:
+        Match object
+
+    iK:
+        Indices of the particular object
+
+    Returns
+    -------
+    Display showing the object in question
+    """
+
     cellData = matcher.cellDict[iK[0]]
     theObj = cellData.objectDict[iK[1]]
     cluster = theObj.parentCluster
@@ -69,6 +100,7 @@ def showShearObj(matcher: Match, iK: tuple[tuple[int, int], int]) -> Figure | Su
             color = "blue"
         for x_, y_, i_ in zip(yOff[obj.mask], xOff[obj.mask], catIndices[obj.mask]):
             img.axes.scatter(x_, y_, c=color, marker=markers[i_ % 5])
+    assert img.axes.figure is not None
     return img.axes.figure
 
 
@@ -78,7 +110,26 @@ def showCluster(
     cellData: CellData,
     mask: np.ndarray | None = None,
 ) -> Figure | SubFigure:
-    """Draw a cluster"""
+    """Draw a cluster
+    
+    Parameters
+    ----------
+    image:
+        Counts map used to make clusters
+
+    cluster:
+        Cluster being draw
+
+    cellData: 
+        Parent Cell for the cluster
+
+    mask:
+        Mask showing which sources are in the cluster
+
+    Returns
+    -------
+    Display showing the cluster in question
+    """
     extent = (
         0,
         cluster.footprint.getBBox().getWidth(),
@@ -110,7 +161,26 @@ def showObjects(
     cluster: ClusterData,
     cellData: CellData,
 ) -> Figure | SubFigure:
-    """Draw a cluster, showing the objects"""
+    """Draw a cluster, showing the objects
+    
+    Parameters
+    ----------
+    image:
+        Counts map used to make clusters
+
+    cluster:
+        Cluster being draw
+
+    cellData: 
+        Parent Cell for the cluster
+
+    mask:
+        Mask showing which sources are in the cluster
+
+    Returns
+    -------
+    Display showing the cluster in question
+    """
     extent = (
         0,
         cluster.footprint.getBBox().getWidth(),
@@ -147,7 +217,23 @@ def showObjectsV2(
     cluster: ClusterData,
     cellData: CellData,
 ) -> Figure | SubFigure:
-    """Draw a cluster, showing the objects"""
+    """Draw a cluster, showing the objects
+    
+    Parameters
+    ----------
+    image:
+        Counts map used to make clusters
+
+    cluster:
+        Cluster being draw
+
+    cellData: 
+        Parent Cell for the cluster
+
+    Returns
+    -------
+    Display showing the cluster in question
+    """
     extent = (
         0,
         cluster.footprint.getBBox().getWidth(),

@@ -35,23 +35,52 @@ class CellData:
     The used the afwDetect.FootprintSet to identify pixels which contain
     source, and builds those into clusters
 
-    Parameters
+    Attributes
     ----------
-    _data : `list`, [`Dataframe`]
+    _matcher: Match
+        Parent Match object
+
+    _idOffset: int
+        Offset used for the Object and Cluster IDs for this cell
+
+    _corner: np.ndarray
+        pixX, pixY for corner of cell
+
+    _size: np.ndarray
+        size of the cell (in pixels)
+
+    _idx: np.ndarray
+        Id of the cell (ix, iy)
+
+    _buf: int
+        Number of buffer pixels around the edge of the cell
+
+    _minPix: np.ndarray
+        Lowest number pixel in center of cell
+
+    _maxPix: np.ndarray
+        Highest number pixel in center of cell
+
+    _nPix: np.ndarray
+        Number of pixels in center of cell
+
+    _data : list[pandas.DataFrame]
         Reduced dataframes with only sources for this cell
 
-    _clusterIds : `list`, [`np.array`]
+    _nSrc : int
+        Number of sources in this cell
+
+    _footprintIds : list[np.ndarray]
         Matched arrays with the index of the cluster associated to each
         source.  I.e., these could added to the Dataframes as
         additional columns
 
-    _clusterDict : `dict`, [`int` : `ClusterData`]
+    _clusterDict : OrderedDict[int, ClusterData]
         Dictionary with cluster membership data
 
-    _objectDict : `dict`, [`int` : `ObjectData`]
+    _objectDict : OrderedDict[int, ObjectData]
         Dictionary with object membership data
 
-    TODO:  Add code to filter out clusters centered in the buffer
     """
 
     def __init__(
@@ -413,6 +442,13 @@ class CellData:
 
 
 class ShearCellData(CellData):
+    """Subclass of CellData that can compute shear statisitics
+
+    Attributes
+    ----------
+    _pixelMatchScale: int
+        Number of pixel merged in the original counts map
+    """
 
     def __init__(
         self,
@@ -442,38 +478,38 @@ class ShearCellData(CellData):
             ]
         )
         # No WCS, use the original cells
-        xCell_orig = dataframe["xCell_coadd"].values
-        yCell_orig = dataframe["yCell_coadd"].values
+        xCellOrig = dataframe["xCell_coadd"].values
+        yCellOrig = dataframe["yCell_coadd"].values
         if TYPE_CHECKING:
             assert isinstance(self._matcher, ShearMatch)
         if self._matcher.deshear is not None:
             # De-shear in the cell frame to do matching
             dxShear = self._matcher.deshear * (
-                xCell_orig * deshear_coeffs[iCat][0]
-                + yCell_orig * deshear_coeffs[iCat][2]
+                xCellOrig * deshear_coeffs[iCat][0]
+                + yCellOrig * deshear_coeffs[iCat][2]
             )
             dyShear = self._matcher.deshear * (
-                xCell_orig * deshear_coeffs[iCat][1]
-                + yCell_orig * deshear_coeffs[iCat][3]
+                xCellOrig * deshear_coeffs[iCat][1]
+                + yCellOrig * deshear_coeffs[iCat][3]
             )
-            xCell = xCell_orig + dxShear
-            yCell = yCell_orig + dyShear
+            xCell = xCellOrig + dxShear
+            yCell = yCellOrig + dyShear
         else:
             dxShear = np.zeros(len(dataframe))
             dyShear = np.zeros(len(dataframe))
-            xCell = xCell_orig
-            yCell = yCell_orig
+            xCell = xCellOrig
+            yCell = yCellOrig
 
-        xCell = (xCell_orig + 100) / self._pixelMatchScale
-        yCell = (yCell_orig + 100) / self._pixelMatchScale
-        filtered_idx = np.bitwise_and(
+        xCell = (xCellOrig + 100) / self._pixelMatchScale
+        yCell = (xCellOrig + 100) / self._pixelMatchScale
+        filteredIdx = np.bitwise_and(
             dataframe["idx_x"] - self._idx[0] == 1,
             dataframe["idx_y"] - self._idx[1] == 1,
         )
-        filtered_x = np.bitwise_and(xCell >= 0, xCell < self._nPix[0])
-        filtered_y = np.bitwise_and(yCell >= 0, yCell < self._nPix[1])
-        filtered_bounds = np.bitwise_and(filtered_x, filtered_y)
-        filtered = np.bitwise_and(filtered_idx, filtered_bounds)
+        filteredX = np.bitwise_and(xCell >= 0, xCell < self._nPix[0])
+        filteredY = np.bitwise_and(yCell >= 0, yCell < self._nPix[1])
+        filteredBounds = np.bitwise_and(filteredX, filteredY)
+        filtered = np.bitwise_and(filteredIdx, filteredBounds)
         red = dataframe[filtered].copy(deep=True)
         red["xCell"] = xCell[filtered]
         red["yCell"] = yCell[filtered]
@@ -487,42 +523,42 @@ class ShearCellData(CellData):
     def getObjectShearStats(self) -> pandas.DataFrame:
         """Get the shear stats for all the objects"""
         nObj = self.nObjects
-        out_dict: dict[str, np.ndarray] = {}
+        outDict: dict[str, np.ndarray] = {}
         names = ["ns", "2p", "2m", "1p", "1m"]
 
         for name_ in names:
-            out_dict[f"n_{name_}"] = np.zeros((nObj), dtype=int)
-            out_dict[f"g1_{name_}"] = np.zeros((nObj), dtype=float)
-            out_dict[f"g2_{name_}"] = np.zeros((nObj), dtype=float)
-        out_dict["good"] = np.zeros((nObj), dtype=bool)
-        out_dict["delta_g_1"] = np.zeros((nObj), dtype=float)
-        out_dict["delta_g_2"] = np.zeros((nObj), dtype=float)
+            outDict[f"n_{name_}"] = np.zeros((nObj), dtype=int)
+            outDict[f"g1_{name_}"] = np.zeros((nObj), dtype=float)
+            outDict[f"g2_{name_}"] = np.zeros((nObj), dtype=float)
+        outDict["good"] = np.zeros((nObj), dtype=bool)
+        outDict["delta_g_1"] = np.zeros((nObj), dtype=float)
+        outDict["delta_g_2"] = np.zeros((nObj), dtype=float)
         for idx, obj in enumerate(self._objectDict.values()):
             assert isinstance(obj, ShearObjectData)
             objStats = obj.shearStats()
             for key, val in objStats.items():
-                out_dict[key][idx] = val
-        return pandas.DataFrame(out_dict)
+                outDict[key][idx] = val
+        return pandas.DataFrame(outDict)
 
     def getClusterShearStats(self) -> pandas.DataFrame:
         """Get the shear stats for all the objects"""
         nClusters = self.nClusters
-        out_dict: dict[str, np.ndarray] = {}
+        outDict: dict[str, np.ndarray] = {}
         names = ["ns", "2p", "2m", "1p", "1m"]
 
         for name_ in names:
-            out_dict[f"n_{name_}"] = np.zeros((nClusters), dtype=int)
-            out_dict[f"g1_{name_}"] = np.zeros((nClusters), dtype=float)
-            out_dict[f"g2_{name_}"] = np.zeros((nClusters), dtype=float)
-        out_dict["delta_g_1"] = np.zeros((nClusters), dtype=float)
-        out_dict["delta_g_2"] = np.zeros((nClusters), dtype=float)
-        out_dict["good"] = np.zeros((nClusters), dtype=bool)
+            outDict[f"n_{name_}"] = np.zeros((nClusters), dtype=int)
+            outDict[f"g1_{name_}"] = np.zeros((nClusters), dtype=float)
+            outDict[f"g2_{name_}"] = np.zeros((nClusters), dtype=float)
+        outDict["delta_g_1"] = np.zeros((nClusters), dtype=float)
+        outDict["delta_g_2"] = np.zeros((nClusters), dtype=float)
+        outDict["good"] = np.zeros((nClusters), dtype=bool)
         for idx, cluster in enumerate(self._clusterDict.values()):
             assert isinstance(cluster, ShearClusterData)
             clusterStats = cluster.shearStats()
             for key, val in clusterStats.items():
-                out_dict[key][idx] = val
-        return pandas.DataFrame(out_dict)
+                outDict[key][idx] = val
+        return pandas.DataFrame(outDict)
 
     @classmethod
     def _newObject(

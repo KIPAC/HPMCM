@@ -22,6 +22,20 @@ class ShearMatch(Match):
 
     Expects 5 input catalogs.
 
+    Attributes
+    ----------
+    _maxSubDivision: int
+        Maximum number of cell sub-diviions
+    
+    _pixelMatchScale: int
+        Number of cells to merge in original counts map
+    
+    _catType: str
+        Shear catalog type
+    
+    _deshear: float
+        Deshearing parameter
+
     Notes
     -----
     This expectes a list of parquet files with pandas DataFrames
@@ -48,6 +62,7 @@ class ShearMatch(Match):
 
     @property
     def deshear(self) -> float | None:
+        """Return the deshearing parameter"""
         return self._deshear
 
     @classmethod
@@ -87,17 +102,18 @@ class ShearMatch(Match):
         tract: int,
         shear: float,
     ) -> None:
-        TYPES = ['ns', '1m', '2m', '1p', '2p']
+        """Split a parquet file by shear catalog type"""
+        TYPES = ["ns", "1m", "2m", "1p", "2p"]
         p = tables_io.read(basefile)
         for type_ in TYPES:
-            mask = p['shear_type'] == type_
+            mask = p["shear_type"] == type_
             sub = p[mask].copy(deep=True)
-            idx_x = (20*sub['patch_x'].values + sub['cell_x'].values).astype(int)
-            idx_y = (20*sub['patch_y'].values + sub['cell_y'].values).astype(int)
-            cent_x = 150*idx_x -75
-            cent_y = 150*idx_y -75
-            xCell_coadd = sub['col'] - cent_x
-            yCell_coadd = sub['row'] - cent_y
+            idx_x = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
+            idx_y = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
+            cent_x = 150 * idx_x - 75
+            cent_y = 150 * idx_y - 75
+            xCell_coadd = sub["col"] - cent_x
+            yCell_coadd = sub["row"] - cent_y
             sub["xCell_coadd"] = xCell_coadd
             sub["yCell_coadd"] = yCell_coadd
             sub["SNR"] = sub["wmom_band_flux_r"] / sub["wmom_band_flux_err_r"]
@@ -107,15 +123,22 @@ class ShearMatch(Match):
             sub["idx_y"] = idx_y
             sub["orig_id"] = sub.id
             sub["id"] = np.arange(len(sub))
-            central_to_cell = np.bitwise_and(np.fabs(xCell_coadd) < 80, np.fabs(yCell_coadd) < 80)
-            central_to_patch = np.bitwise_and(np.fabs(sub['cell_x'].values - 10.5) < 10, np.fabs(sub['cell_y'].values - 10.5) < 10)
-            right_tract = sub['tract'] == tract
+            central_to_cell = np.bitwise_and(
+                np.fabs(xCell_coadd) < 80, np.fabs(yCell_coadd) < 80
+            )
+            central_to_patch = np.bitwise_and(
+                np.fabs(sub["cell_x"].values - 10.5) < 10,
+                np.fabs(sub["cell_y"].values - 10.5) < 10,
+            )
+            right_tract = sub["tract"] == tract
             central = np.bitwise_and(central_to_cell, central_to_patch)
             selected = np.bitwise_and(right_tract, central)
             cleaned = sub[selected].copy(deep=True)
-            cleaned['shear'] = np.repeat(shear, len(cleaned))
-            cleaned.to_parquet(basefile.replace('.parq', f"_uncleaned_{tract}_{type_}.pq"))
-    
+            cleaned["shear"] = np.repeat(shear, len(cleaned))
+            cleaned.to_parquet(
+                basefile.replace(".parq", f"_uncleaned_{tract}_{type_}.pq")
+            )
+
     def _buildCellData(
         self,
         idOffset: int,
@@ -126,6 +149,7 @@ class ShearMatch(Match):
         return ShearCellData(self, idOffset, corner, size, idx, self._cellBuffer)
 
     def extractShearStats(self) -> list[pandas.DataFrame]:
+        """Extract shear stats"""
         clusterShearStatsTables = []
         objectShearStatsTables = []
 
@@ -180,14 +204,18 @@ class ShearMatch(Match):
         ]
 
     @staticmethod
-    def stats(weights, bin_centers):
+    def stats(
+        weights: np.ndarray,
+        bin_centers: np.ndarray,
+    ) -> tuple[float, float, float, float]:
+        """Compute the stats from a histogram"""
         w = np.sum(weights)
-        mean = np.sum(weights*bin_centers)/w
+        mean = np.sum(weights * bin_centers) / w
         deltas = bin_centers - mean
-        var = np.sum(weights*deltas*deltas)/w
+        var = np.sum(weights * deltas * deltas) / w
         std = np.sqrt(var)
-        error = std/np.sqrt(w)
-        inv_var = 1./(error*error)
+        error = std / np.sqrt(w)
+        inv_var = 1.0 / (error * error)
         return mean, std, error, inv_var
 
     @classmethod
@@ -196,16 +224,16 @@ class ShearMatch(Match):
         basefile: str,
         shear: float,
     ) -> None:
-
+        """Report on the shear calibration"""
         t = tables_io.read(f"{basefile}_object_shear.pq")
         t2 = tables_io.read(f"{basefile}_object_stats.pq")
-        t['idx'] = np.arange(len(t))
-        t2['idx'] = np.arange(len(t2))
-        merged = t.merge(t2, on='idx')
+        t["idx"] = np.arange(len(t))
+        t2["idx"] = np.arange(len(t2))
+        merged = t.merge(t2, on="idx")
 
-        in_cell_mask = np.bitwise_and( 
-            np.fabs(merged.xCents-100) < 75,
-            np.fabs(merged.yCents-100) < 75,
+        in_cell_mask = np.bitwise_and(
+            np.fabs(merged.xCents - 100) < 75,
+            np.fabs(merged.yCents - 100) < 75,
         )
         in_cell = merged[in_cell_mask]
         bright_mask = in_cell.SNRs > 7.5
@@ -215,29 +243,32 @@ class ShearMatch(Match):
         good_mask = used.good
         good = used[good_mask]
         bad = used[~good_mask]
-        
+
         print("All Objects:                               ", len(merged))
         print("Usable                                     ", len(in_cell))
         print("Bright                                     ", len(used))
         print("Good                                       ", len(good))
         print("Bad                                        ", len(bad))
-        print("Efficiency                                 ", len(good)/(len(good)+len(bad)))
-        
+        print(
+            "Efficiency                                 ",
+            len(good) / (len(good) + len(bad)),
+        )
+
         bin_edges = np.linspace(-1, 1, 2001)
-        bin_centers = (bin_edges[1:] + bin_edges[0:-1])/2.
+        bin_centers = (bin_edges[1:] + bin_edges[0:-1]) / 2.0
 
         good_delta_g1 = np.histogram(good.delta_g_1, bins=bin_edges)[0]
         good_delta_g2 = np.histogram(good.delta_g_2, bins=bin_edges)[0]
 
         good_g2_2p = np.histogram(good.g2_2p, weights=good.n_2p, bins=bin_edges)[0]
-        good_g2_2m = np.histogram(-1*good.g2_2m, weights=good.n_2m, bins=bin_edges)[0]
+        good_g2_2m = np.histogram(-1 * good.g2_2m, weights=good.n_2m, bins=bin_edges)[0]
         good_g1_1p = np.histogram(good.g1_1p, weights=good.n_1p, bins=bin_edges)[0]
-        good_g1_1m = np.histogram(-1*good.g1_1m, weights=good.n_1m, bins=bin_edges)[0]
+        good_g1_1m = np.histogram(-1 * good.g1_1m, weights=good.n_1m, bins=bin_edges)[0]
 
         bad_g2_2p = np.histogram(bad.g2_2p, weights=bad.n_2p, bins=bin_edges)[0]
-        bad_g2_2m = np.histogram(-1*bad.g2_2m, weights=bad.n_2m, bins=bin_edges)[0]
+        bad_g2_2m = np.histogram(-1 * bad.g2_2m, weights=bad.n_2m, bins=bin_edges)[0]
         bad_g1_1p = np.histogram(bad.g1_1p, weights=bad.n_1p, bins=bin_edges)[0]
-        bad_g1_1m = np.histogram(-1*bad.g1_1m, weights=bad.n_1m, bins=bin_edges)[0]
+        bad_g1_1m = np.histogram(-1 * bad.g1_1m, weights=bad.n_1m, bins=bin_edges)[0]
 
         stats_delta_g1 = cls.stats(good_delta_g1, bin_centers)
         stats_delta_g2 = cls.stats(good_delta_g2, bin_centers)
@@ -249,49 +280,73 @@ class ShearMatch(Match):
         stats_bad_g2 = cls.stats(bad_g2_2p + bad_g2_2m, bin_centers)
 
         fig_mc, axes_mc = plt.subplots()
-        axes_mc.stairs(good_delta_g1[800:1200], bin_edges[800:1201], label=f"g1: {100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}")
-        axes_mc.stairs(good_delta_g2[800:1200], bin_edges[800:1201], label=f"g2: {100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}")
-        axes_mc.axvline(x=0, color='red', linestyle='--', linewidth=2)
+        axes_mc.stairs(
+            good_delta_g1[800:1200],
+            bin_edges[800:1201],
+            label=f"g1: {100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}",
+        )
+        axes_mc.stairs(
+            good_delta_g2[800:1200],
+            bin_edges[800:1201],
+            label=f"g2: {100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}",
+        )
+        axes_mc.axvline(x=0, color="red", linestyle="--", linewidth=2)
         axes_mc.legend()
         fig_mc.tight_layout()
         fig_mc.savefig(f"{basefile}_metacalib.png")
 
         fig_md_good, axes_md_good = plt.subplots()
         axes_md_good.stairs(
-            (good_g1_1p + good_g1_1m)[800:1200], bin_edges[800:1201],
+            (good_g1_1p + good_g1_1m)[800:1200],
+            bin_edges[800:1201],
             label=f"g1: {200*stats_good_g1[0]:.4f} +- {200*stats_good_g1[2]:.4f}",
         )
         axes_md_good.stairs(
-            (good_g2_2p + good_g2_2m)[800:1200], bin_edges[800:1201],
+            (good_g2_2p + good_g2_2m)[800:1200],
+            bin_edges[800:1201],
             label=f"g2: {200*stats_good_g2[0]:.4f} +- {200*stats_good_g2[2]:.4f}",
         )
         axes_md_good.legend()
-        fig_md_good.tight_layout()        
+        fig_md_good.tight_layout()
         fig_md_good.savefig(f"{basefile}_md_good.png")
 
         fig_md_bad, axes_md_bad = plt.subplots()
         axes_md_bad.stairs(
-            (bad_g1_1p + bad_g1_1m)[800:1200], bin_edges[800:1201],
+            (bad_g1_1p + bad_g1_1m)[800:1200],
+            bin_edges[800:1201],
             label=f"g1: {200*stats_bad_g1[0]:.4f} +- {200*stats_bad_g1[2]:.4f}",
         )
         axes_md_bad.stairs(
-            (bad_g2_2p + bad_g2_2m)[800:1200], bin_edges[800:1201],
+            (bad_g2_2p + bad_g2_2m)[800:1200],
+            bin_edges[800:1201],
             label=f"g2: {200*stats_bad_g2[0]:.4f} +- {200*stats_bad_g2[2]:.4f}",
         )
         axes_md_bad.legend()
-        fig_md_bad.tight_layout()                
+        fig_md_bad.tight_layout()
         fig_md_bad.savefig(f"{basefile}_md_bad.png")
 
         print("Shear                                      ", f"{shear}")
-        
+
         print("MetaCalib:")
-        print(f"g1:                                         {100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}")
-        print(f"g2:                                         {100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}")
+        print(
+            f"g1:                                         {100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}"
+        )
+        print(
+            f"g2:                                         {100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}"
+        )
 
         print("MetaDetect Good:")
-        print(f"g1:                                         {200*stats_good_g1[0]:.4f} +- {200*stats_good_g1[2]:.4f}")
-        print(f"g2:                                         {200*stats_good_g2[0]:.4f} +- {200*stats_good_g2[2]:.4f}")
+        print(
+            f"g1:                                         {200*stats_good_g1[0]:.4f} +- {200*stats_good_g1[2]:.4f}"
+        )
+        print(
+            f"g2:                                         {200*stats_good_g2[0]:.4f} +- {200*stats_good_g2[2]:.4f}"
+        )
 
         print("MetaDetect bad:")
-        print(f"g1:                                         {200*stats_bad_g1[0]:.4f} +- {200*stats_bad_g1[2]:.4f}")
-        print(f"g2:                                         {200*stats_bad_g2[0]:.4f} +- {200*stats_bad_g2[2]:.4f}")
+        print(
+            f"g1:                                         {200*stats_bad_g1[0]:.4f} +- {200*stats_bad_g1[2]:.4f}"
+        )
+        print(
+            f"g2:                                         {200*stats_bad_g2[0]:.4f} +- {200*stats_bad_g2[2]:.4f}"
+        )

@@ -33,7 +33,7 @@ class EnumChoice(click.Choice):
         converted_str = super().convert(value, param, ctx)
         return self._enum.__members__[converted_str]
 
-    
+
 class PartialOption:
     """Wraps click.option with partial arguments for convenient reuse"""
 
@@ -54,6 +54,7 @@ class PartialArgument:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
         return self._partial(*args, **kwargs)
+
 
 basefile = PartialOption(
     "--basefile",
@@ -79,7 +80,7 @@ pixel_r2_cut = PartialOption(
     "--pixel_r2_cut",
     help="Matching cut to apply in pixel distance squared",
     type=float,
-    default=4.,
+    default=4.0,
 )
 
 pixel_match_scale = PartialOption(
@@ -96,11 +97,6 @@ shear = PartialOption(
     default=None,
 )
 
-tract = PartialOption(
-    "--tract",
-    help="Tract to select",
-    type=int,
-    required=True
-)
+tract = PartialOption("--tract", help="Tract to select", type=int, required=True)
 
 inputs = PartialArgument("inputs", nargs=-1)

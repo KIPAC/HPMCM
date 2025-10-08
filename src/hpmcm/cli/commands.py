@@ -1,10 +1,8 @@
-from typing import Any
 
 import numpy as np
 import tables_io
 
 import click
-import yaml
 import hpmcm
 from hpmcm import __version__
 
@@ -13,22 +11,23 @@ from . import options
 
 __all__ = [
     "cli",
-    "match_group",
-    "match_shear_command",
+    "shear_group",
+    "shear_match_command",
+    "shear_split_command",
+    "shear_report_command",    
 ]
 
 
 @click.group()
 @click.version_option(__version__)
 def cli() -> None:
-    """HPMCM Command line interface
-    """
+    """HPMCM Command line interface"""
 
 
 @cli.group(name="shear")
 def shear_group() -> None:
     """Operations on shear catalogs"""
-    
+
 
 @shear_group.command(name="match")
 @options.inputs()
@@ -40,18 +39,21 @@ def shear_group() -> None:
 def shear_match_command(
     inputs: list[str],
     output_file_base: click.Path,
-    shear: float|None,
-    pixel_r2_cut: float|None,
+    shear: float | None,
+    pixel_r2_cut: float | None,
     pixel_match_scale: int,
     deshear: bool,
 ) -> None:
-    """Match shear catalogs
-    """
+    """Match shear catalogs"""
     deshear_value: float | None = None
     if deshear:
         assert shear is not None
-        deshear_value = -1*shear
-    matcher = hpmcm.ShearMatch.createShearMatch(pixelR2Cut=pixel_r2_cut, pixelMatchScale=pixel_match_scale, deshear=deshear_value)
+        deshear_value = -1 * shear
+    matcher = hpmcm.ShearMatch.createShearMatch(
+        pixelR2Cut=pixel_r2_cut,
+        pixelMatchScale=pixel_match_scale,
+        deshear=deshear_value,
+    )
     input_files = list(inputs)
     input_files.reverse()
     visit_ids = list(np.arange(len(input_files)))
@@ -80,12 +82,11 @@ def shear_match_command(
 @options.tract()
 @options.shear(required=True)
 def shear_split_command(
-    basefile: click.Path,
+    basefile: str,
     tract: int,
     shear: float,
 ) -> None:
-    """split input shear catalogs
-    """
+    """Split input shear catalogs"""
     hpmcm.ShearMatch.splitByTypeAndClean(basefile, tract, shear)
 
 
@@ -93,11 +94,8 @@ def shear_split_command(
 @options.basefile()
 @options.shear(required=True)
 def shear_report_command(
-    basefile: click.Path,
+    basefile: str,
     shear: float,
 ) -> None:
-    """split input shear catalogs
-    """
+    """Build shear calibration reports"""
     hpmcm.ShearMatch.shear_report(basefile, shear)
-
-    

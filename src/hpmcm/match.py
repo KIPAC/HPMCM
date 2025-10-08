@@ -101,8 +101,30 @@ class Match:
     If there is not a unqiue source per-catalog redo the clustering with
     half-size pixels to try to split the cluster (down to minimum pixel scale)
 
-    Parameters
+    Attributes
     ----------
+
+    _pixSize : float
+        Pixel size in arcseconds
+
+    _nPixSide: int
+        Number of pixels in the match region
+
+    _cellSize: int
+        Number of pixel in a Cell
+
+    _cellBuffer: int
+        Number of overlapping pixel in a Cell
+
+    _cellMaxObject: int
+        Max number of objects in a cell, used to make unique IDs
+
+    _pixelR2Cut: float
+        Distance cut for Object membership, in pixels**2
+
+    _nCell: np.ndarray
+        Number of cells in match region
+
     _fullData: list[DataFrame]
         Full input DataFrames
 
@@ -121,12 +143,6 @@ class Match:
     "ra" : RA in degrees
     "dec": DEC in degress
     "SNR": Signal-to-Noise of source, used for filtering and centroiding
-
-    Optional, used in post-processing:
-    "xCell_coadd": X-postion in cell-based coadd used for metadetect
-    "yCell_coadd": Y-postion in cell-based coadd used for metadetect
-    "g_1": shape measurement
-    "g_2": shape measurement
     """
 
     def __init__(
@@ -361,7 +377,10 @@ class Match:
         raise NotImplementedError()
 
     def classifyClusters(self, **kwargs: Any) -> dict[str, list]:
+        """Sort clusters by their properties
 
+        This will return a dict of lists of clusters
+        """
         nsrcs = []
 
         cut1 = []
@@ -467,6 +486,10 @@ class Match:
         )
 
     def classifyObjects(self, **kwargs: Any) -> dict[str, list]:
+        """Sort objects by their properties
+
+        This will return a dict of lists of objects
+        """
 
         nsrcs = []
 
@@ -578,6 +601,7 @@ class Match:
 
     @staticmethod
     def printClusterTypes(clusterTypes: dict[str, list]) -> None:
+        """Print numbers of different types of clusters"""
         print(
             "All Clusters:                                  ",
             len(clusterTypes["nsrcs"]),
@@ -642,6 +666,7 @@ class Match:
 
     @staticmethod
     def printObjectTypes(objectTypes: dict[str, list]) -> None:
+        """Print numbers of different types of objects"""        
         print(
             "All Objects:                                   ", len(objectTypes["nsrcs"])
         )
@@ -703,11 +728,13 @@ class Match:
         )
 
     def getCluster(self, iK: tuple[tuple[int, int], int]) -> ClusterData:
+        """Get a particular cluster"""
         cellData = self._cellDict[iK[0]]
         cluster = cellData.clusterDict[iK[1]]
         return cluster
 
     def getObject(self, iK: tuple[tuple[int, int], int]) -> ObjectData:
+        """Get a particular object"""        
         cellData = self._cellDict[iK[0]]
         theObj = cellData.objectDict[iK[1]]
         return theObj

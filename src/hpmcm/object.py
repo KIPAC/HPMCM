@@ -15,7 +15,46 @@ RECURSE_MAX = 4
 
 
 class ObjectData:
-    """Small class to define 'Objects', i.e., sets of associated sources"""
+    """Small class to define 'Objects', i.e., sets of associated sources
+
+    Attributes
+    ----------
+    _parentCluster : ClusterData
+        Parent cluster that this object is build from
+
+    _objectId : int
+        Unique object identifier
+
+    _mask : np.ndarray[bool]
+        Mask of which source in parent cluster are in this object
+
+    _catIndices: np.ndarray
+        Indicies showing which catalog each source belongs to
+
+    _nSrc: int
+        Number of sources in this object
+
+    _nUnique: int
+        Number of catalogs contributing to this object
+
+    _data: pandas.DataFrame
+        Data for the sources in this object
+
+    _recurse: int
+        Recursion level needed to make this object
+
+    _xCent: float
+        X Centeroid of this object in global pixel coordinates
+
+    _yCent: float
+        Y Centeroid of this object in global pixel coordinates
+
+    _rmsDist: float
+        RMS distance of sources to the centroid
+
+    _dist2: np.ndarray
+        Distances of sources to the centroid
+    """
 
     def __init__(
         self,
@@ -124,16 +163,18 @@ class ObjectData:
         assert self._data is not None
         return self._data.yPix
 
+    def sourceIds(self) -> np.ndarray:
+        """Return the source ids for the sources in the object"""
+        return self._parentCluster.srcIds[self._mask]
+
+    def sourceIdxs(self) -> np.ndarray:
+        """Return the source indices for the sources in the object"""
+        return self._parentCluster.srcIdxs[self._mask]
+
     def _updateCatIndices(self) -> None:
         self._catIndices = self._parentCluster.catIndices[self._mask]
         self._nSrc = self._catIndices.size
         self._nUnique = np.unique(self._catIndices).size
-
-    def sourceIds(self) -> np.ndarray:
-        return self._parentCluster.srcIds[self._mask]
-
-    def sourceIdxs(self) -> np.ndarray:
-        return self._parentCluster.srcIdxs[self._mask]
 
     def _extract(self) -> None:
         assert self._parentCluster.data is not None
@@ -192,36 +233,32 @@ class ObjectData:
         assert self._data is not None
 
         bbox = self._parentCluster.footprint.getBBox()
-        zoom_factors = [1, 2, 4, 8, 16, 32]
-        zoom_factor = zoom_factors[recurse]
+        zoomFactors = [1, 2, 4, 8, 16, 32]
+        zoomFactor = zoomFactors[recurse]
 
-        nPix = zoom_factor * np.array([bbox.getHeight(), bbox.getWidth()])
-        zoom_x = (
-            zoom_factor * self._data.xCluster / self._parentCluster.pixelMatchScale()
-        )
-        zoom_y = (
-            zoom_factor * self._data.yCluster / self._parentCluster.pixelMatchScale()
-        )
+        nPix = zoomFactor * np.array([bbox.getHeight(), bbox.getWidth()])
+        zoomX = zoomFactor * self._data.xCluster / self._parentCluster.pixelMatchScale()
+        zoomY = zoomFactor * self._data.yCluster / self._parentCluster.pixelMatchScale()
 
-        countsMap = utils.fillCountsMapFromArrays(zoom_x, zoom_y, nPix)
+        countsMap = utils.fillCountsMapFromArrays(zoomX, zoomY, nPix)
 
         fpDict = utils.getFootprints(countsMap, buf=0)
         footprints = fpDict["footprints"]
-        n_footprints = len(footprints.getFootprints())
-        if n_footprints == 1:
+        nFootprints = len(footprints.getFootprints())
+        if nFootprints == 1:
             if recurse >= RECURSE_MAX:
                 return
             self.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
             return
 
         footprintKey = fpDict["footprintKey"]
-        footprintIds = utils.findClusterIdsFromArrays(zoom_x, zoom_y, footprintKey)
+        footprintIds = utils.findClusterIdsFromArrays(zoomX, zoomY, footprintKey)
 
         biggest = np.argmax(np.bincount(footprintIds))
-        biggest_mask = np.zeros(self._mask.shape, dtype=bool)
+        biggestMask = np.zeros(self._mask.shape, dtype=bool)
 
-        for i_fp in range(n_footprints):
-            subMask = footprintIds == i_fp
+        for iFp in range(nFootprints):
+            subMask = footprintIds == iFp
             count = 0
             newMask = np.zeros(self._mask.shape, dtype=bool)
             for i, val in enumerate(self._mask):
@@ -230,39 +267,70 @@ class ObjectData:
                     count += 1
             assert subMask.sum() == newMask.sum()
 
-            if i_fp == biggest:
-                biggest_mask = newMask
+            if iFp == biggest:
+                biggestMask = newMask
                 continue
 
             newObject = self._parentCluster.addObject(cellData, newMask)
             newObject.processObject(cellData, pixelR2Cut, recurse=recurse)
 
-        self._mask = biggest_mask
+        self._mask = biggestMask
         self._extract()
         self.processObject(cellData, pixelR2Cut, recurse=recurse)
         return
 
 
 class ShearObjectData(ObjectData):
+    """Subclass of ObjectData that can compute shear statisitics"""
 
     def shearStats(self) -> dict:
-        out_dict = {}
+        """Return the shear statistics
+
+        Returns
+        -------
+        n_{st} : int
+            Number of sources from that catalog
+
+        g1_{st} : float
+            g1 shear parameter for that catalog
+
+        g2_{st} : float
+            g2 shear parameter for that catalog
+
+        delta_g_1 : float
+            g1 shear measurment: g1_1p - g1_1m
+
+        delta_g_2 : float
+            g2 shear measurment: g2_2p - g2_2m
+
+        good: bool
+            True if every catalog has one source in this object
+
+        Notes
+        -----
+        If the cluster is not good, then delta_g_1 = delta_g_2 = np.nan
+        """
+        outDict = {}
         names = ["ns", "2p", "2m", "1p", "1m"]
-        all_good = True
+        allGood = True
         assert self._data is not None
         for i, name_ in enumerate(names):
             mask = self._data.iCat == i
-            n_cat = mask.sum()
-            if n_cat != 1:
-                all_good = False
-            out_dict[f"n_{name_}"] = n_cat
-            if n_cat:
-                out_dict[f"g1_{name_}"] = self._data.g_1[mask].mean()
-                out_dict[f"g2_{name_}"] = self._data.g_2[mask].mean()
+            nCat = mask.sum()
+            if nCat != 1:
+                allGood = False
+            outDict[f"n_{name_}"] = nCat
+            if nCat:
+                outDict[f"g1_{name_}"] = self._data.g_1[mask].mean()
+                outDict[f"g2_{name_}"] = self._data.g_2[mask].mean()
             else:
-                out_dict[f"g1_{name_}"] = np.nan
-                out_dict[f"g2_{name_}"] = np.nan
-        out_dict["delta_g_1"] = out_dict["g1_1p"] - out_dict["g1_1m"]
-        out_dict["delta_g_2"] = out_dict["g2_2p"] - out_dict["g2_2m"]
-        out_dict["good"] = all_good
-        return out_dict
+                outDict[f"g1_{name_}"] = np.nan
+                outDict[f"g2_{name_}"] = np.nan
+        if allGood:
+            outDict["delta_g_1"] = outDict["g1_1p"] - outDict["g1_1m"]
+            outDict["delta_g_2"] = outDict["g2_2p"] - outDict["g2_2m"]
+        else:
+            outDict["delta_g_1"] = np.nan
+            outDict["delta_g_2"] = np.nan
+        outDict["good"] = allGood
+        return outDict

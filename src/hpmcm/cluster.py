@@ -18,27 +18,40 @@ class ClusterData:
     A cluster is a set of sources within a footprint of
     adjacent pixels.
 
-
-    Parameters
+    Attributes
     ----------
-    iCluster : `int`
+    _iCluster : int
         Cluster ID
-    origCluster : `int`
+
+    _footprint: afwDetect.Footprint
+        Footprint of this cluster in the CellData counts map
+
+    _origCluster : int
         Id of the original cluster this cluster was made from
-    nSrc : `int`
+
+    _sources: np.ndarray
+        Data about the sources in this cluster
+
+    _nSrc : int
         Number of sources in this cluster
-    nUnique : `int`
+
+    _nUnique : int
         Number of catalogs contributing sources to this cluster
-    catIndices : `np.array`, [`int`]
-        Indices of the catalogs of sources associated to this cluster
-    sourcdIds : `np.array`, [`int`]
-        Sources IDs of the sources associated to this cluster
-    sourcdIdxs : `np.array`, [`int`]
-        Indices of the sources with their respective catalogs
-    xCent : `float`
+
+    _objects: list[ObjectData]
+        Data about the objects in this cluster
+
+    _xCent : float
         X-pixel value of cluster centroid (in WCS used to do matching)
-    yCent : `float`
+
+    _yCent : float
         Y-pixel value of cluster centroid (in WCS used to do matching)
+
+    _rmsDist: float
+        RMS distance of sources to the centroid
+
+    _dist2: np.ndarray
+        Distances of sources to the centroid
     """
 
     def __init__(
@@ -48,6 +61,8 @@ class ClusterData:
         sources: np.ndarray,
         origCluster: int | None = None,
     ):
+        """Build from a Footprint and data about the
+        sources in that Footprint"""
         self._iCluster: int = iCluster
         self._footprint: afwDetect.Footprint = footprint
         self._origCluster: int = iCluster
@@ -65,31 +80,28 @@ class ClusterData:
         self._rmsDist: float = np.nan
         self._dist2: np.ndarray = np.array([])
 
-    def pixelMatchScale(self) -> float:
-        return 1.0
+    def pixelMatchScale(self) -> int:
+        """Number of pixel merged in the original counts map"""
+        return 1
 
     def extract(self, cellData: CellData) -> None:
         """Extract the xPix, yPix and snr data from
         the sources in this cluster
         """
         bbox = self._footprint.getBBox()
-        # xOffset = cellData.minPix[0] + bbox.getBeginY()
-        # yOffset = cellData.minPix[1] + bbox.getBeginX()
 
         xOffset = bbox.getBeginY() * self.pixelMatchScale()
         yOffset = bbox.getBeginX() * self.pixelMatchScale()
 
-        series_list = []
+        seriesList = []
 
         for _i, (iCat, srcIdx) in enumerate(zip(self._sources[0], self._sources[2])):
-            series_list.append(cellData.data[iCat].iloc[srcIdx])
+            seriesList.append(cellData.data[iCat].iloc[srcIdx])
 
-        self._data = pandas.DataFrame(series_list)
+        self._data = pandas.DataFrame(seriesList)
         self._data["iCat"] = self._sources[0]
         self._data["srcId"] = self._sources[1]
         self._data["srcIdx"] = self._sources[2]
-        # self._data["xCluster"] = self._data.xPix - xOffset
-        # self._data["yCluster"] = self._data.yPix - yOffset
         self._data["xCluster"] = self._data.xCell - xOffset
         self._data["yCluster"] = self._data.yCell - yOffset
 
@@ -186,28 +198,6 @@ class ClusterData:
         """Return the objects associated with this cluster"""
         return self._objects
 
-    def shearStats(self) -> dict:
-        out_dict = {}
-        names = ["ns", "2p", "2m", "1p", "1m"]
-        all_good = True
-        assert self._data is not None
-        for i, name_ in enumerate(names):
-            mask = self._data.iCat == i
-            n_cat = mask.sum()
-            if n_cat != 1:
-                all_good = False
-            out_dict[f"n_{name_}"] = n_cat
-            if n_cat:
-                out_dict[f"g1_{name_}"] = self._data.g_1[mask].mean()
-                out_dict[f"g2_{name_}"] = self._data.g_2[mask].mean()
-            else:
-                out_dict[f"g1_{name_}"] = np.nan
-                out_dict[f"g2_{name_}"] = np.nan
-        out_dict["delta_g_1"] = out_dict["g1_1p"] - out_dict["g1_1m"]
-        out_dict["delta_g_2"] = out_dict["g2_2p"] - out_dict["g2_2m"]
-        out_dict["good"] = all_good
-        return out_dict
-
     def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
         """Function that is called recursively to
         split clusters until they consist only of sources within
@@ -253,6 +243,13 @@ class ClusterData:
 
 
 class ShearClusterData(ClusterData):
+    """Subclass of ClusterData that can compute shear statisitics
+
+    Attributes
+    ----------
+    _pixelMatchScale: int
+        Number of pixel merged in the original counts map
+    """
 
     def __init__(
         self,
@@ -265,30 +262,63 @@ class ShearClusterData(ClusterData):
         ClusterData.__init__(self, iCluster, footprint, sources, origCluster)
         self._pixelMatchScale = pixelMatchScale
 
-    def pixelMatchScale(self) -> float:
+    def pixelMatchScale(self) -> int:
+        """Number of pixel merged in the original counts map"""
         return self._pixelMatchScale
 
     def shearStats(self) -> dict:
-        out_dict = {}
+        """Return the shear statistics
+
+        Returns
+        -------
+        n_{st} : int
+            Number of sources from that catalog
+
+        g1_{st} : float
+            g1 shear parameter for that catalog
+
+        g2_{st} : float
+            g2 shear parameter for that catalog
+
+        delta_g_1 : float
+            g1 shear measurment: g1_1p - g1_1m
+
+        delta_g_2 : float
+            g2 shear measurment: g2_2p - g2_2m
+
+
+        good: bool
+            True if every catalog has one source in this object
+
+        Notes
+        -----
+        If the cluster is not good, then delta_g_1 = delta_g_2 = np.nan
+        """
+
+        outDict = {}
         names = ["ns", "2p", "2m", "1p", "1m"]
-        all_good = True
+        allGood = True
         assert self._data is not None
         for i, name_ in enumerate(names):
             mask = self._data.iCat == i
-            n_cat = mask.sum()
-            if n_cat != 1:
-                all_good = False
-            out_dict[f"n_{name_}"] = n_cat
-            if n_cat:
-                out_dict[f"g1_{name_}"] = self._data.g_1[mask].mean()
-                out_dict[f"g2_{name_}"] = self._data.g_2[mask].mean()
+            nCat = mask.sum()
+            if nCat != 1:
+                allGood = False
+            outDict[f"n_{name_}"] = nCat
+            if nCat:
+                outDict[f"g1_{name_}"] = self._data.g_1[mask].mean()
+                outDict[f"g2_{name_}"] = self._data.g_2[mask].mean()
             else:
-                out_dict[f"g1_{name_}"] = np.nan
-                out_dict[f"g2_{name_}"] = np.nan
-        out_dict["delta_g_1"] = out_dict["g1_1p"] - out_dict["g1_1m"]
-        out_dict["delta_g_2"] = out_dict["g2_2p"] - out_dict["g2_2m"]
-        out_dict["good"] = all_good
-        return out_dict
+                outDict[f"g1_{name_}"] = np.nan
+                outDict[f"g2_{name_}"] = np.nan
+        if allGood:
+            outDict["delta_g_1"] = outDict["g1_1p"] - outDict["g1_1m"]
+            outDict["delta_g_2"] = outDict["g2_2p"] - outDict["g2_2m"]
+        else:
+            outDict["delta_g_1"] = np.nan
+            outDict["delta_g_2"] = np.nan
+        outDict["good"] = allGood
+        return outDict
 
     def addObject(
         self, cellData: CellData, mask: np.ndarray | None = None
