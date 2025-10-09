@@ -137,8 +137,8 @@ def showCluster(
         cluster.footprint.getBBox().getHeight(),
     )
     cluster.extract(cellData)
-    xOffset = cellData.minPix[0] + cluster.footprint.getBBox().getBeginY()
-    yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX()
+    xOffset = cellData.minPix[0] + cluster.footprint.getBBox().getBeginY() + 25
+    yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX() + 25
     xOff = cluster.xCluster
     yOff = cluster.yCluster
     if mask is not None:

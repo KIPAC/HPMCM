@@ -467,6 +467,12 @@ class ShearCellData(CellData):
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
 
+        filteredIdx = np.bitwise_and(
+            dataframe["idx_x"] - self._idx[0] == 1,
+            dataframe["idx_y"] - self._idx[1] == 1,
+        )
+        reduced = dataframe[filteredIdx].copy(deep=True)
+        
         # These are the coeffs for the various shear catalogs
         deshear_coeffs = np.array(
             [
@@ -477,9 +483,11 @@ class ShearCellData(CellData):
                 [-1, 0, 0, 1],
             ]
         )
-        # No WCS, use the original cells
-        xCellOrig = dataframe["xCell_coadd"].values
-        yCellOrig = dataframe["yCell_coadd"].values
+
+        xCellOrig = reduced["xCell_coadd"]
+        yCellOrig = reduced["yCell_coadd"]
+        xPixOrig = reduced["xPix"]
+        yPixOrig = reduced["yPix"]
         if TYPE_CHECKING:
             assert isinstance(self._matcher, ShearMatch)
         if self._matcher.deshear is not None:
@@ -494,30 +502,29 @@ class ShearCellData(CellData):
             )
             xCell = xCellOrig + dxShear
             yCell = yCellOrig + dyShear
+            xPix = xPixOrig + dxShear
+            yPix = yPixOrig + dyShear
         else:
             dxShear = np.zeros(len(dataframe))
             dyShear = np.zeros(len(dataframe))
             xCell = xCellOrig
             yCell = yCellOrig
-
-        xCell = (xCellOrig + 100) / self._pixelMatchScale
-        yCell = (xCellOrig + 100) / self._pixelMatchScale
-        filteredIdx = np.bitwise_and(
-            dataframe["idx_x"] - self._idx[0] == 1,
-            dataframe["idx_y"] - self._idx[1] == 1,
-        )
+            xPix = xPixOrig
+            yPix = yPixOrig
+            
+        xCell = (xCell + 100) / self._pixelMatchScale
+        yCell = (yCell + 100) / self._pixelMatchScale
         filteredX = np.bitwise_and(xCell >= 0, xCell < self._nPix[0])
         filteredY = np.bitwise_and(yCell >= 0, yCell < self._nPix[1])
         filteredBounds = np.bitwise_and(filteredX, filteredY)
-        filtered = np.bitwise_and(filteredIdx, filteredBounds)
-        red = dataframe[filtered].copy(deep=True)
-        red["xCell"] = xCell[filtered]
-        red["yCell"] = yCell[filtered]
+        red = reduced[filteredBounds].copy(deep=True)
+        red["xCell"] = xCell[filteredBounds]
+        red["yCell"] = yCell[filteredBounds]
+        red["xPix"] = xPix[filteredBounds]
+        red["yPix"] = yPix[filteredBounds]
         if self._matcher.deshear is not None:
-            red["dxShear"] = dxShear[filtered]
-            red["dyShear"] = dyShear[filtered]
-            red["xPix"] += dxShear[filtered]
-            red["yPix"] += dyShear[filtered]
+            red["dxShear"] = dxShear[filteredBounds]
+            red["dyShear"] = dyShear[filteredBounds]
         return red
 
     def getObjectShearStats(self) -> pandas.DataFrame:

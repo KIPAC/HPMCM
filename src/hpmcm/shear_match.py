@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 import pandas
 import tables_io
+import yaml
 
 from .cell import CellData, ShearCellData
 from .match import Match
@@ -216,12 +217,13 @@ class ShearMatch(Match):
         std = np.sqrt(var)
         error = std / np.sqrt(w)
         inv_var = 1.0 / (error * error)
-        return mean, std, error, inv_var
+        return float(mean), float(std), float(error), float(inv_var)
 
     @classmethod
     def shear_report(
         cls,
         basefile: str,
+        outputFileBase: str,
         shear: float,
     ) -> None:
         """Report on the shear calibration"""
@@ -244,6 +246,22 @@ class ShearMatch(Match):
         good = used[good_mask]
         bad = used[~good_mask]
 
+        nGood = len(good)
+        nBad = len(bad)
+        nAll = nGood + nBad
+        effic =  nGood / nAll
+        efficErr = float(np.sqrt(nGood*nBad*nAll)/(nAll*nAll))
+        
+        outDict = {}
+        outDict["shear"] = shear
+        outDict["n_objects"] = len(merged)
+        outDict["n_in_cell"] = len(in_cell)
+        outDict["n_used"] = len(used)
+        outDict["n_good"] = nGood
+        outDict["n_bad"] = nBad
+        outDict["efficiency"] = effic
+        outDict["efficiency_err"] = efficErr
+        
         print("All Objects:                               ", len(merged))
         print("Usable                                     ", len(in_cell))
         print("Bright                                     ", len(used))
@@ -251,7 +269,7 @@ class ShearMatch(Match):
         print("Bad                                        ", len(bad))
         print(
             "Efficiency                                 ",
-            len(good) / (len(good) + len(bad)),
+            f"{effic:.4f} +- {efficErr:.4f}"
         )
 
         bin_edges = np.linspace(-1, 1, 2001)
@@ -270,6 +288,11 @@ class ShearMatch(Match):
         bad_g1_1p = np.histogram(bad.g1_1p, weights=bad.n_1p, bins=bin_edges)[0]
         bad_g1_1m = np.histogram(-1 * bad.g1_1m, weights=bad.n_1m, bins=bin_edges)[0]
 
+        all_g2_2p = bad_g2_2p + good_g2_2p
+        all_g2_2m = bad_g2_2m + good_g2_2m
+        all_g1_1p = bad_g1_1p + good_g1_1p
+        all_g1_1m = bad_g1_1m + good_g1_1m
+
         stats_delta_g1 = cls.stats(good_delta_g1, bin_centers)
         stats_delta_g2 = cls.stats(good_delta_g2, bin_centers)
 
@@ -279,21 +302,67 @@ class ShearMatch(Match):
         stats_bad_g1 = cls.stats(bad_g1_1p + bad_g1_1m, bin_centers)
         stats_bad_g2 = cls.stats(bad_g2_2p + bad_g2_2m, bin_centers)
 
+        stats_all_g1 = cls.stats(all_g1_1p + all_g1_1m, bin_centers)
+        stats_all_g2 = cls.stats(all_g2_2p + all_g2_2m, bin_centers)
+        
+        outDict["mc_delta_g1"] = stats_delta_g1[0]
+        outDict["mc_delta_g1_std"] = stats_delta_g1[1]        
+        outDict["mc_delta_g1_err"] = stats_delta_g1[2]
+        outDict["mc_delta_g1_inv_var"] = stats_delta_g1[3]
+
+        outDict["mc_delta_g2"] = stats_delta_g2[0]
+        outDict["mc_delta_g2_std"] = stats_delta_g2[1]        
+        outDict["mc_delta_g2_err"] = stats_delta_g2[2]
+        outDict["mc_delta_g2_inv_var"] = stats_delta_g2[3]
+
+        outDict["md_all_g1"] = stats_all_g1[0]
+        outDict["md_all_g1_std"] = stats_all_g1[1]        
+        outDict["md_all_g1_err"] = stats_all_g1[2]
+        outDict["md_all_g1_inv_var"] = stats_all_g1[3]
+
+        outDict["md_all_g2"] = stats_all_g2[0]
+        outDict["md_all_g2_std"] = stats_all_g2[1]        
+        outDict["md_all_g2_err"] = stats_all_g2[2]
+        outDict["md_all_g2_inv_var"] = stats_all_g2[3]
+
+        outDict["md_good_g1"] = stats_good_g1[0]
+        outDict["md_good_g1_std"] = stats_good_g1[1]        
+        outDict["md_good_g1_err"] = stats_good_g1[2]
+        outDict["md_good_g1_inv_var"] = stats_good_g1[3]
+
+        outDict["md_good_g2"] = stats_good_g2[0]
+        outDict["md_good_g2_std"] = stats_good_g2[1]        
+        outDict["md_good_g2_err"] = stats_good_g2[2]
+        outDict["md_good_g2_inv_var"] = stats_good_g2[3]
+
+        outDict["md_bad_g1"] = stats_bad_g1[0]
+        outDict["md_bad_g1_std"] = stats_bad_g1[1]        
+        outDict["md_bad_g1_err"] = stats_bad_g1[2]
+        outDict["md_bad_g1_inv_var"] = stats_bad_g1[3]
+
+        outDict["md_bad_g2"] = stats_bad_g2[0]
+        outDict["md_bad_g2_std"] = stats_bad_g2[1]        
+        outDict["md_bad_g2_err"] = stats_bad_g2[2]
+        outDict["md_bad_g2_inv_var"] = stats_bad_g2[3]
+
+        with open(f"{outputFileBase}.yaml", "w") as fout:
+            yaml.safe_dump(outDict, fout)
+                           
         fig_mc, axes_mc = plt.subplots()
         axes_mc.stairs(
             good_delta_g1[800:1200],
             bin_edges[800:1201],
-            label=f"g1: {100*stats_delta_g1[0]:.4f} +- {100*stats_delta_g1[2]:.4f}",
+            label=f"g1: {stats_delta_g1[0]:.6f} +- {stats_delta_g1[2]:.6f}",
         )
         axes_mc.stairs(
             good_delta_g2[800:1200],
             bin_edges[800:1201],
-            label=f"g2: {100*stats_delta_g2[0]:.4f} +- {100*stats_delta_g2[2]:.4f}",
+            label=f"g2: {stats_delta_g2[0]:.6f} +- {stats_delta_g2[2]:.6f}",
         )
         axes_mc.axvline(x=0, color="red", linestyle="--", linewidth=2)
         axes_mc.legend()
         fig_mc.tight_layout()
-        fig_mc.savefig(f"{basefile}_metacalib.png")
+        fig_mc.savefig(f"{outputFileBase}_metacalib.png")
 
         fig_md_good, axes_md_good = plt.subplots()
         axes_md_good.stairs(
@@ -308,7 +377,7 @@ class ShearMatch(Match):
         )
         axes_md_good.legend()
         fig_md_good.tight_layout()
-        fig_md_good.savefig(f"{basefile}_md_good.png")
+        fig_md_good.savefig(f"{outputFileBase}_md_good.png")
 
         fig_md_bad, axes_md_bad = plt.subplots()
         axes_md_bad.stairs(
@@ -323,7 +392,7 @@ class ShearMatch(Match):
         )
         axes_md_bad.legend()
         fig_md_bad.tight_layout()
-        fig_md_bad.savefig(f"{basefile}_md_bad.png")
+        fig_md_bad.savefig(f"{outputFileBase}_md_bad.png")
 
         print("Shear                                      ", f"{shear}")
 
@@ -356,3 +425,26 @@ class ShearMatch(Match):
             "g2:                                         ",
             f"{200*stats_bad_g2[0]:.4f} +- {200*stats_bad_g2[2]:.4f}"
         )
+
+
+    @classmethod
+    def merge_shear_reports(
+        cls,
+        inputs: list[str],
+        outputFile: str,
+    ) -> None:
+        """Merge report on the shear calibration"""
+
+        outDict = {}
+        for input_ in inputs:
+            with open(input_, 'r') as fin:
+                inputDict = yaml.safe_load(fin)
+
+            for key, val in inputDict.items():
+                if key in outDict:
+                    outDict[key].append(val)
+                else:
+                    outDict[key] = [val]
+
+        outDF = pandas.DataFrame(outDict)
+        outDF.to_parquet(outputFile)

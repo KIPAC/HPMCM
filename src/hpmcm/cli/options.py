@@ -8,7 +8,7 @@ __all__: list[str] = [
     "basefile",
     "deshear",
     "inputs",
-    "output_file_base",
+    "output_file",
     "pixel_match_scale",
     "pixel_r2_cut",
     "shear",
@@ -69,22 +69,22 @@ deshear = PartialOption(
     is_flag=True,
 )
 
-output_file_base = PartialOption(
-    "--output_file_base",
+output_file = PartialOption(
+    "--output-file",
     type=click.Path(),
-    help="Path for output yaml",
+    help="Path for output file",
     required=True,
 )
 
 pixel_r2_cut = PartialOption(
-    "--pixel_r2_cut",
+    "--pixel-r2-cut",
     help="Matching cut to apply in pixel distance squared",
     type=float,
     default=4.0,
 )
 
 pixel_match_scale = PartialOption(
-    "--pixel_match_scale",
+    "--pixel-match-scale",
     help="Scale factor to apply for pixel in matching",
     type=int,
     default=1,

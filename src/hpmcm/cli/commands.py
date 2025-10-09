@@ -31,14 +31,14 @@ def shear_group() -> None:
 
 @shear_group.command(name="match")
 @options.inputs()
-@options.output_file_base()
+@options.output_file()
 @options.shear()
 @options.pixel_r2_cut()
 @options.pixel_match_scale()
 @options.deshear()
 def shear_match_command(
     inputs: list[str],
-    output_file_base: click.Path,
+    output_file: click.Path,
     shear: float | None,
     pixel_r2_cut: float | None,
     pixel_match_scale: int,
@@ -73,7 +73,7 @@ def shear_match_command(
         _cluster_shear=shear_stats[0],
         _object_shear=shear_stats[1],
     )
-    tables_io.write(out_dict, output_file_base)
+    tables_io.write(out_dict, output_file)
     print("Success!")
 
 
@@ -92,10 +92,24 @@ def shear_split_command(
 
 @shear_group.command(name="report")
 @options.basefile()
+@options.output_file()
 @options.shear(required=True)
 def shear_report_command(
     basefile: str,
+    output_file: str,
     shear: float,
 ) -> None:
     """Build shear calibration reports"""
-    hpmcm.ShearMatch.shear_report(basefile, shear)
+    hpmcm.ShearMatch.shear_report(basefile, output_file, shear)
+
+    
+@shear_group.command(name="merge-reports")
+@options.inputs()
+@options.output_file()
+def shear_merge_reports_command(
+    inputs: list[str],
+    output_file: str,
+) -> None:
+    """Build shear calibration reports"""
+    hpmcm.ShearMatch.merge_shear_reports(inputs, output_file)
+
