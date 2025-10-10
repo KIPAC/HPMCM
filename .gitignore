@@ -6,6 +6,15 @@ __pycache__/
 # C extensions
 *.so
 
+# stuff in nb
+nb/*.py
+nb/*.parq
+nb/shear_tract
+nb/match_data
+nb/plots
+nb/do_report
+nb/do_match
+
 # Distribution / packaging
 .Python
 build/
