@@ -111,7 +111,7 @@ def showCluster(
     mask: np.ndarray | None = None,
 ) -> Figure | SubFigure:
     """Draw a cluster
-    
+
     Parameters
     ----------
     image:
@@ -120,7 +120,7 @@ def showCluster(
     cluster:
         Cluster being draw
 
-    cellData: 
+    cellData:
         Parent Cell for the cluster
 
     mask:
@@ -146,10 +146,18 @@ def showCluster(
         yOff = yOff[mask]
     xC = cluster.xCent - xOffset
     yC = cluster.yCent - yOffset
+
     img = plt.imshow(
         image[cluster.footprint.getBBox()].array, origin="lower", extent=extent
     )
     _cb = plt.colorbar()
+    try:
+        assert cluster.data
+        xOff_u = xOff - cluster.data.dxShear
+        yOff_u = yOff - cluster.data.dyShear
+        img.axes.scatter(yOff_u, xOff_u, marker="x")
+    except Exception:
+        pass
     img.axes.scatter(yOff, xOff)
     img.axes.scatter(yC, xC, marker="+", c="green")
     assert img.axes.figure is not None
@@ -162,7 +170,7 @@ def showObjects(
     cellData: CellData,
 ) -> Figure | SubFigure:
     """Draw a cluster, showing the objects
-    
+
     Parameters
     ----------
     image:
@@ -171,7 +179,7 @@ def showObjects(
     cluster:
         Cluster being draw
 
-    cellData: 
+    cellData:
         Parent Cell for the cluster
 
     mask:
@@ -218,7 +226,7 @@ def showObjectsV2(
     cellData: CellData,
 ) -> Figure | SubFigure:
     """Draw a cluster, showing the objects
-    
+
     Parameters
     ----------
     image:
@@ -227,7 +235,7 @@ def showObjectsV2(
     cluster:
         Cluster being draw
 
-    cellData: 
+    cellData:
         Parent Cell for the cluster
 
     Returns

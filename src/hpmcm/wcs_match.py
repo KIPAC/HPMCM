@@ -98,7 +98,7 @@ class WcsMatch(Match):
         """
         nPix = (np.array(regionSize) / pixSize).astype(int)
         matchWcs = createGlobalWcs(refDir, pixSize, nPix)
-        return cls(matchWcs, **kwargs)
+        return cls(matchWcs, nPixels=nPix, **kwargs)
 
     @property
     def wcs(self) -> wcs.WCS:
@@ -140,7 +140,5 @@ class WcsMatch(Match):
                 "xPix",
                 "yPix",
                 "SNR",
-                "idx_x",
-                "idx_y",
             ]
         ]

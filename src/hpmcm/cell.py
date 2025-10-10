@@ -472,7 +472,7 @@ class ShearCellData(CellData):
             dataframe["idx_y"] - self._idx[1] == 1,
         )
         reduced = dataframe[filteredIdx].copy(deep=True)
-        
+
         # These are the coeffs for the various shear catalogs
         deshear_coeffs = np.array(
             [
@@ -511,7 +511,7 @@ class ShearCellData(CellData):
             yCell = yCellOrig
             xPix = xPixOrig
             yPix = yPixOrig
-            
+
         xCell = (xCell + 100) / self._pixelMatchScale
         yCell = (yCell + 100) / self._pixelMatchScale
         filteredX = np.bitwise_and(xCell >= 0, xCell < self._nPix[0])

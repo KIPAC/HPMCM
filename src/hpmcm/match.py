@@ -485,6 +485,100 @@ class Match:
             caught=caught,
         )
 
+    def matchObjectsAgainstRef(self, **kwargs: Any) -> dict[str, list]:
+        """Match objects against the reference catalog"""
+        nsrcs = []
+        used = []
+
+        ideal_faint = []
+        ideal = []
+
+        faint = []
+        not_in_ref = []
+        not_in_ref_faint = []
+        in_ref = []
+
+        extra = []
+        missing = []
+        two_missing = []
+        many_missing = []
+        caught = []
+
+        snr_cut = kwargs.get("SNRCut", 7.5)
+
+        n_cat = len(self._redData)
+
+        for iC, cellData in self._cellDict.items():
+            od = cellData.objectDict
+            for key, c in od.items():
+                k = (iC, key)
+
+                assert c.data is not None
+                nsrcs.append(c.nSrc)
+                used.append(k)
+
+                is_faint = False
+                if (c.data.SNR < snr_cut).any():
+                    is_faint = True
+
+                if (c.catIndices == 0).any():
+                    in_ref.append(k)
+                else:
+                    if is_faint:
+                        not_in_ref_faint.append(k)
+                    else:
+                        not_in_ref.append(k)
+                    continue
+
+                if c.nSrc == c.nUnique and c.nSrc == n_cat and is_faint:
+                    ideal_faint.append(k)
+                elif c.nSrc == c.nUnique and c.nSrc == n_cat:
+                    ideal.append(k)
+                elif is_faint:
+                    faint.append(k)
+                elif c.nSrc == n_cat - 1:
+                    missing.append(k)
+                elif c.nSrc == n_cat - 2:
+                    two_missing.append(k)
+                elif c.nSrc < n_cat - 2:
+                    many_missing.append(k)
+                elif c.nSrc > n_cat:
+                    extra.append(k)
+                else:
+                    caught.append(k)
+
+        return dict(
+            nsrcs=nsrcs,
+            used=used,
+            ideal_faint=ideal_faint,
+            ideal=ideal,
+            faint=faint,
+            missing=missing,
+            in_ref=in_ref,
+            not_in_ref=not_in_ref,
+            not_in_ref_faint=not_in_ref_faint,
+            extra=extra,
+            two_missing=two_missing,
+            many_missing=many_missing,
+            caught=caught,
+        )
+
+    def printObjectMatchTypes(self, oDict: dict) -> None:
+        """Print numbers of different types of object matches"""
+        print("All            ", len(oDict["nsrcs"]))
+        print("Used           ", len(oDict["used"]))
+        print("  New            ", len(oDict["not_in_ref"]))
+        print("  New (faint)    ", len(oDict["not_in_ref_faint"]))
+        print("In Ref         ", len(oDict["in_ref"]))
+        print("Faint          ", len(oDict["faint"]))
+        print("Good           ", len(oDict["ideal"]))
+        print("  Good (faint)   ", len(oDict["ideal_faint"]))
+        print("Missing        ", len(oDict["missing"]))
+        print("Two Missing    ", len(oDict["two_missing"]))
+        print("All Missing    ", len(oDict["many_missing"]))
+        print("Extra          ", len(oDict["extra"]))
+        print("Caught         ", len(oDict["caught"]))
+
     def classifyObjects(self, **kwargs: Any) -> dict[str, list]:
         """Sort objects by their properties
 
@@ -529,29 +623,37 @@ class Match:
 
                 nsrcs.append(c.nSrc)
 
-                if (np.fabs(c.data.xCell_coadd) > cell_edge).all() or (
-                    np.fabs(c.data.yCell_coadd) > cell_edge
-                ).all():
-                    cut1.append(k)
-                    continue
-                if (
-                    np.fabs(c.data.xCell_coadd.mean()) > cell_edge
-                    or np.fabs(c.data.yCell_coadd.mean()) > cell_edge
-                ):
-                    cut2.append(k)
-                    continue
+                try:
+                    if (np.fabs(c.data.xCell_coadd) > cell_edge).all() or (
+                        np.fabs(c.data.yCell_coadd) > cell_edge
+                    ).all():
+                        cut1.append(k)
+                        continue
+                except Exception:
+                    pass
+                try:
+                    if (
+                        np.fabs(c.data.xCell_coadd.mean()) > cell_edge
+                        or np.fabs(c.data.yCell_coadd.mean()) > cell_edge
+                    ):
+                        cut2.append(k)
+                        continue
+                except Exception:
+                    pass
 
                 used.append(k)
 
                 edge_case = False
                 is_faint = False
-                if (np.fabs(c.data.xCell_coadd) > cell_edge - edge_cut).any() or (
-                    np.fabs(c.data.yCell_coadd) > cell_edge - edge_cut
-                ).any():
-                    edge_case = True
+                try:
+                    if (np.fabs(c.data.xCell_coadd) > cell_edge - edge_cut).any() or (
+                        np.fabs(c.data.yCell_coadd) > cell_edge - edge_cut
+                    ).any():
+                        edge_case = True
+                except Exception:
+                    edge_case = False
                 if (c.data.SNR < snr_cut).any():
                     is_faint = True
-
                 if c.nSrc == c.nUnique and c.nSrc == n_cat and is_faint:
                     ideal_faint.append(k)
                 elif c.nSrc == c.nUnique and c.nSrc == n_cat:
@@ -666,7 +768,7 @@ class Match:
 
     @staticmethod
     def printObjectTypes(objectTypes: dict[str, list]) -> None:
-        """Print numbers of different types of objects"""        
+        """Print numbers of different types of objects"""
         print(
             "All Objects:                                   ", len(objectTypes["nsrcs"])
         )
@@ -734,7 +836,7 @@ class Match:
         return cluster
 
     def getObject(self, iK: tuple[tuple[int, int], int]) -> ObjectData:
-        """Get a particular object"""        
+        """Get a particular object"""
         cellData = self._cellDict[iK[0]]
         theObj = cellData.objectDict[iK[1]]
         return theObj
