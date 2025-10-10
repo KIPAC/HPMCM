@@ -1,20 +1,18 @@
-
+import click
 import numpy as np
 import tables_io
 
-import click
 import hpmcm
 from hpmcm import __version__
 
 from . import options
-
 
 __all__ = [
     "cli",
     "shear_group",
     "shear_match_command",
     "shear_split_command",
-    "shear_report_command",    
+    "shear_report_command",
 ]
 
 
@@ -100,9 +98,14 @@ def shear_report_command(
     shear: float,
 ) -> None:
     """Build shear calibration reports"""
-    hpmcm.ShearMatch.shear_report(basefile, output_file, shear)
+    tokens = basefile.split("_")
+    tract = int(tokens[-1])
+    catType = tokens[-4]
+    hpmcm.ShearMatch.shear_report(
+        basefile, output_file, shear, catType=catType, tract=tract
+    )
 
-    
+
 @shear_group.command(name="merge-reports")
 @options.inputs()
 @options.output_file()
@@ -112,4 +115,3 @@ def shear_merge_reports_command(
 ) -> None:
     """Build shear calibration reports"""
     hpmcm.ShearMatch.merge_shear_reports(inputs, output_file)
-
