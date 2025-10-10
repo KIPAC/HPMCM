@@ -36,6 +36,16 @@ dev = [
     "pylint", # Used for static linting of files
     "jupyter", # Used to render simple test notebook
 ]
+docs = [
+    "nbsphinx",
+    "sphinx", # Used to automatically generate documentation
+    "sphinx-autodoc-typehints", 
+    "sphinx_rtd_theme", # Used to render documentation
+    "sphinx-autoapi", # Used to automatically generate api documentation    
+    "sphinx-tabs", # Used to create tabbed content within the docs
+    "sphinx-click", # Used for command line interface docs
+]
+
 
 [project.scripts]
 hpmcm = "hpmcm.cli.commands:cli"
