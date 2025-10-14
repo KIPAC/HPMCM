@@ -56,6 +56,21 @@ class ShearMatch(Match):
     "{catType}_band_flux_{band}": flux measuremnt in the reference band
     "{catType}_band_flux_err_{band}": flux measuremnt error in the reference band
     "{catType}_g_{i}": shear measurements
+
+    
+    Two additional tables are produced
+    
+    object_shear:
+    good              : True if assoicated object is well matched
+    n_{name}          : Number of sources from catalog {name}
+    g_{i}_{name}      : Shear measurement {i} from catalog {name}
+    delta_g_{i}_{j}   : g_{i}_{j}p - g_{i}_{j}m for good objects only
+
+    cluster_shear:
+    good              : True if assoicated cluster is well matched
+    n_{name}          : Number of sources from catalog {name}
+    g_{i}_{name}      : Shear measurement {i} from catalog {name}
+    delta_g_{i}_{j}   : g_{i}_{j}p - g_{i}_{j}m for good objects only
     """
 
     def __init__(

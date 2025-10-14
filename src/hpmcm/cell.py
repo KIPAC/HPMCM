@@ -247,13 +247,13 @@ class CellData:
                     id=np.array([], int),
                     idx=np.array([], int),
                     cat=np.array([], int),
-                    object=np.array([], int),
+                    cluster=np.array([], int),
                 )
             )
         distances = np.hstack(distancesList)
         distances = self._matcher.pixToArcsec() * np.sqrt(distances)
         data = dict(
-            object=np.hstack(clusterIds),
+            cluster=np.hstack(clusterIds),
             id=np.hstack(sourceIds),
             idx=np.hstack(sourceIdxs),
             cat=np.hstack(catIdxs),

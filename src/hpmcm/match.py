@@ -107,6 +107,50 @@ class Match:
     "ra" : RA in degrees
     "dec": DEC in degress
     "SNR": Signal-to-Noise of source, used for filtering and centroiding
+
+    Four output tables are produced
+
+    cluster_assoc:
+    id         : source id
+    idx        : source index
+    cluster    : cluster id
+    cat        : catalog id
+    distance   : source-cluster separation in pixels
+
+    object_assoc:
+    id         : source id
+    idx        : source index
+    parent     : parent cluster id
+    cluster    : cluster id
+    cat        : catalog id
+    distance   : source-object separation in pixels
+
+    cluster_stats:
+    clusterIds : cluster id
+    nSrcs      : number of source in cluster
+    nObject    : number of objects associated to cluster
+    nUniques   : number of unique catalogs represented in cluster
+    distRms    : RMS seperation distance in pixels
+    ra         : RA of cluster centriod
+    dec        : DEC of cluster centroid
+    xCents     : Cluster x-center in pixel coords
+    yCents     : Cluster y-center in pixel coords
+    SNRs       : Mean signal-to-noise of object in cluster
+    cellIdx    : Index of cell associated to cluster
+
+    cluster_stats:
+    clusterIds : cluster id
+    objectIds  : object id
+    nSrcs      : number of source in cluster
+    nUniques   : number of unique catalogs represented in cluster
+    distRms    : RMS seperation distance in pixels
+    ra         : RA of cluster centriod
+    dec        : DEC of cluster centroid
+    xCents     : Cluster x-center in pixel coords
+    yCents     : Cluster y-center in pixel coords
+    SNRs       : Mean signal-to-noise of object in cluster
+    cellIdx    : Index of cell associated to cluster
+
     """
 
     def __init__(
