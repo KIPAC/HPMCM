@@ -274,18 +274,17 @@ class ShearClusterData(ClusterData):
         n_{st} : int
             Number of sources from that catalog
 
-        g1_{st} : float
-            g1 shear parameter for that catalog
+        g_1_{st} : float
+            g_1 shear parameter for that catalog
 
-        g2_{st} : float
-            g2 shear parameter for that catalog
+        g_2_{st} : float
+            g_2 shear parameter for that catalog
 
         delta_g_1 : float
-            g1 shear measurment: g1_1p - g1_1m
+            g_1 shear measurment: g_1_1p - g_1_1m
 
         delta_g_2 : float
-            g2 shear measurment: g2_2p - g2_2m
-
+            g_2 shear measurment: g_2_2p - g_2_2m
 
         good: bool
             True if every catalog has one source in this object
@@ -306,17 +305,21 @@ class ShearClusterData(ClusterData):
                 allGood = False
             outDict[f"n_{name_}"] = nCat
             if nCat:
-                outDict[f"g1_{name_}"] = self._data.g_1[mask].mean()
-                outDict[f"g2_{name_}"] = self._data.g_2[mask].mean()
+                outDict[f"g_1_{name_}"] = self._data.g_1[mask].mean()
+                outDict[f"g_2_{name_}"] = self._data.g_2[mask].mean()
             else:
-                outDict[f"g1_{name_}"] = np.nan
-                outDict[f"g2_{name_}"] = np.nan
+                outDict[f"g_1_{name_}"] = np.nan
+                outDict[f"g_2_{name_}"] = np.nan
         if allGood:
-            outDict["delta_g_1"] = outDict["g1_1p"] - outDict["g1_1m"]
-            outDict["delta_g_2"] = outDict["g2_2p"] - outDict["g2_2m"]
+            outDict["delta_g_1_1"] = outDict["g_1_1p"] - outDict["g_1_1m"]
+            outDict["delta_g_2_2"] = outDict["g_2_2p"] - outDict["g_2_2m"]
+            outDict["delta_g_1_2"] = outDict["g_1_2p"] - outDict["g_1_2m"]
+            outDict["delta_g_2_1"] = outDict["g_2_1p"] - outDict["g_2_1m"]
         else:
-            outDict["delta_g_1"] = np.nan
-            outDict["delta_g_2"] = np.nan
+            outDict["delta_g_1_1"] = np.nan
+            outDict["delta_g_2_2"] = np.nan
+            outDict["delta_g_1_2"] = np.nan
+            outDict["delta_g_2_1"] = np.nan
         outDict["good"] = allGood
         return outDict
 

@@ -6,6 +6,7 @@ import click
 
 __all__: list[str] = [
     "basefile",
+    "catalog_type",
     "deshear",
     "inputs",
     "output_file",
@@ -61,6 +62,12 @@ basefile = PartialOption(
     type=click.Path(),
     help="Input file basename",
     required=True,
+)
+
+catalog_type = PartialOption(
+    "--catalog-type",
+    help="Which type of catalog 'gauss', 'pgauss', 'wmom'",
+    type=str,
 )
 
 deshear = PartialOption(

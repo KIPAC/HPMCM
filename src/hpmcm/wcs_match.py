@@ -8,8 +8,6 @@ from astropy import wcs
 
 from .match import Match
 
-COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
-
 
 def createGlobalWcs(
     refDir: tuple[float, float],

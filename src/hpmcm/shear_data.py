@@ -25,23 +25,23 @@ class ShearHistogramStats:
     error: float
         Error on histogram mean
 
-    inv_var: float
+    invVar: float
         Inverse Variance
     """
 
     def __init__(
         self,
         weights: np.ndarray,
-        bin_centers: np.ndarray,
+        binCenters: np.ndarray,
     ):
         """Compute the stats from a histogram"""
         self.w = np.sum(weights)
-        self.mean = np.sum(weights * bin_centers) / self.w
-        deltas = bin_centers - self.mean
+        self.mean = np.sum(weights * binCenters) / self.w
+        deltas = binCenters - self.mean
         var = np.sum(weights * deltas * deltas) / self.w
         self.std = np.sqrt(var)
         self.error = self.std / np.sqrt(self.w)
-        self.inv_var = 1.0 / (self.error * self.error)
+        self.invVar = 1.0 / (self.error * self.error)
 
 
 class ShearHistograms:
@@ -50,10 +50,10 @@ class ShearHistograms:
 
     Attributes
     ----------
-    bin_edges: np.ndarray
+    binEdges: np.ndarray
         Bin edges for all histograms
 
-    bin_centers: np.ndarray
+    binCenters: np.ndarray
         Bin centers for all histograms
 
     central: slice
@@ -62,8 +62,11 @@ class ShearHistograms:
     centralEdges: slice
         Slice to select edges for central region of histogram
 
-    {type}_g{i}_{cat}: np.ndarray
-       Histogram of all g{i} value of all objects of {type} in {cat}
+    good_delta_g_{i}_{j}: np.ndarray
+        Histogram of g_{i}_{j}p - g_{i}_{j}m for all well-matched objects
+
+    {type}_g_{i}_{cat}: np.ndarray
+       Histogram of all g_{i} value of all objects of {type} in {cat}
     """
 
     def __init__(
@@ -74,74 +77,107 @@ class ShearHistograms:
     ):
 
         if catType != "pgauss":
-            self.bin_edges = np.linspace(-1, 1, 2001)
+            self.binEdges = np.linspace(-1, 1, 2001)
             self.central = slice(800, 1200)
             self.centralEdges = slice(800, 1201)
         else:
-            self.bin_edges = np.linspace(-10, 10, 20001)
+            self.binEdges = np.linspace(-10, 10, 20001)
             self.central = slice(9800, 10200)
             self.centralEdges = slice(9800, 10201)
 
-        self.bin_centers = (self.bin_edges[1:] + self.bin_edges[0:-1]) / 2.0
+        self.binCenters = (self.binEdges[1:] + self.binEdges[0:-1]) / 2.0
 
-        self.good_delta_g1 = np.histogram(good.delta_g_1, bins=self.bin_edges)[0]
-        self.good_delta_g2 = np.histogram(good.delta_g_2, bins=self.bin_edges)[0]
+        self.good_delta_g_1_1 = np.histogram(good.delta_g_1_1, bins=self.binEdges)[0]
+        self.good_delta_g_2_2 = np.histogram(good.delta_g_2_2, bins=self.binEdges)[0]
+        self.good_delta_g_1_2 = np.histogram(good.delta_g_1_2, bins=self.binEdges)[0]
+        self.good_delta_g_2_1 = np.histogram(good.delta_g_2_1, bins=self.binEdges)[0]
 
-        self.good_g2_2p = np.histogram(
-            good.g2_2p, weights=good.n_2p, bins=self.bin_edges
+        self.good_g_2_2p = np.histogram(
+            good.g_2_2p, weights=good.n_2p, bins=self.binEdges
         )[0]
-        self.good_g2_2m = np.histogram(
-            -1 * good.g2_2m, weights=good.n_2m, bins=self.bin_edges
+        self.good_g_2_2m = np.histogram(
+            -1 * good.g_2_2m, weights=good.n_2m, bins=self.binEdges
         )[0]
-        self.good_g1_1p = np.histogram(
-            good.g1_1p, weights=good.n_1p, bins=self.bin_edges
+        self.good_g_1_1p = np.histogram(
+            good.g_1_1p, weights=good.n_1p, bins=self.binEdges
         )[0]
-        self.good_g1_1m = np.histogram(
-            -1 * good.g1_1m, weights=good.n_1m, bins=self.bin_edges
-        )[0]
-
-        self.bad_g2_2p = np.histogram(bad.g2_2p, weights=bad.n_2p, bins=self.bin_edges)[
-            0
-        ]
-        self.bad_g2_2m = np.histogram(
-            -1 * bad.g2_2m, weights=bad.n_2m, bins=self.bin_edges
-        )[0]
-        self.bad_g1_1p = np.histogram(bad.g1_1p, weights=bad.n_1p, bins=self.bin_edges)[
-            0
-        ]
-        self.bad_g1_1m = np.histogram(
-            -1 * bad.g1_1m, weights=bad.n_1m, bins=self.bin_edges
+        self.good_g_1_1m = np.histogram(
+            -1 * good.g_1_1m, weights=good.n_1m, bins=self.binEdges
         )[0]
 
-        self.all_g2_2p = self.bad_g2_2p + self.good_g2_2p
-        self.all_g2_2m = self.bad_g2_2m + self.good_g2_2m
-        self.all_g1_1p = self.bad_g1_1p + self.good_g1_1p
-        self.all_g1_1m = self.bad_g1_1m + self.good_g1_1m
+        self.good_g_2_1p = np.histogram(
+            good.g_2_1p, weights=good.n_1p, bins=self.binEdges
+        )[0]
+        self.good_g_2_1m = np.histogram(
+            -1 * good.g_2_1m, weights=good.n_1m, bins=self.binEdges
+        )[0]
+        self.good_g_1_2p = np.histogram(
+            good.g_1_2p, weights=good.n_2p, bins=self.binEdges
+        )[0]
+        self.good_g_1_2m = np.histogram(
+            -1 * good.g_1_2m, weights=good.n_2m, bins=self.binEdges
+        )[0]
+
+        self.bad_g_2_2p = np.histogram(
+            bad.g_2_2p, weights=bad.n_2p, bins=self.binEdges
+        )[0]
+        self.bad_g_2_2m = np.histogram(
+            -1 * bad.g_2_2m, weights=bad.n_2m, bins=self.binEdges
+        )[0]
+        self.bad_g_1_1p = np.histogram(
+            bad.g_1_1p, weights=bad.n_1p, bins=self.binEdges
+        )[0]
+        self.bad_g_1_1m = np.histogram(
+            -1 * bad.g_1_1m, weights=bad.n_1m, bins=self.binEdges
+        )[0]
+
+        self.bad_g_2_1p = np.histogram(
+            bad.g_2_1p, weights=bad.n_1p, bins=self.binEdges
+        )[0]
+        self.bad_g_2_1m = np.histogram(
+            -1 * bad.g_2_1m, weights=bad.n_1m, bins=self.binEdges
+        )[0]
+        self.bad_g_1_2p = np.histogram(
+            bad.g_1_2p, weights=bad.n_2p, bins=self.binEdges
+        )[0]
+        self.bad_g_1_2m = np.histogram(
+            -1 * bad.g_1_2m, weights=bad.n_2m, bins=self.binEdges
+        )[0]
+
+        self.all_g_2_2p = self.bad_g_2_2p + self.good_g_2_2p
+        self.all_g_2_2m = self.bad_g_2_2m + self.good_g_2_2m
+        self.all_g_1_1p = self.bad_g_1_1p + self.good_g_1_1p
+        self.all_g_1_1m = self.bad_g_1_1m + self.good_g_1_1m
+
+        self.all_g_2_1p = self.bad_g_2_1p + self.good_g_2_1p
+        self.all_g_2_1m = self.bad_g_2_1m + self.good_g_2_1m
+        self.all_g_1_2p = self.bad_g_1_2p + self.good_g_1_2p
+        self.all_g_1_2m = self.bad_g_1_2m + self.good_g_1_2m
 
     def plotMetacalib(
         self,
-        statsG1: ShearHistogramStats | None = None,
-        statsG2: ShearHistogramStats | None = None,
+        stats_g_1: ShearHistogramStats | None = None,
+        stats_g_2: ShearHistogramStats | None = None,
     ) -> Figure:
-        """Plot delta_g1 and delta_g2 for fully matched objects"""
+        """Plot delta_g_1_1 and delta_g_2_2 for fully matched objects"""
 
-        if statsG1 is None:
-            statsG1 = ShearHistogramStats(self.good_delta_g1, self.bin_centers)
-        if statsG2 is None:
-            statsG2 = ShearHistogramStats(self.good_delta_g2, self.bin_centers)
-        assert statsG1 is not None
-        assert statsG2 is not None
+        if stats_g_1 is None:
+            stats_g_1 = ShearHistogramStats(self.good_delta_g_1_1, self.binCenters)
+        if stats_g_2 is None:
+            stats_g_2 = ShearHistogramStats(self.good_delta_g_2_1, self.binCenters)
+        assert stats_g_1 is not None
+        assert stats_g_2 is not None
 
         fig, axes = plt.subplots()
         axes.stairs(
-            self.good_delta_g1[self.central],
-            self.bin_edges[self.centralEdges],
-            label=f"g1: {statsG1.mean:.6f} +- {statsG1.error:.6f}",
+            self.good_delta_g_1_1[self.central],
+            self.binEdges[self.centralEdges],
+            label=f"g_1,1: {stats_g_1.mean:.6f} +- {stats_g_1.error:.6f}",
         )
         axes.stairs(
-            self.good_delta_g2[self.central],
-            self.bin_edges[self.centralEdges],
-            label=f"g2: {statsG2.mean:.6f} +- {statsG2.error:.6f}",
+            self.good_delta_g_2_2[self.central],
+            self.binEdges[self.centralEdges],
+            label=f"g_2,2: {stats_g_2.mean:.6f} +- {stats_g_2.error:.6f}",
         )
         axes.axvline(x=0, color="red", linestyle="--", linewidth=2)
         axes.legend()
@@ -154,28 +190,28 @@ class ShearHistograms:
         hist1m: np.ndarray,
         hist2p: np.ndarray,
         hist2m: np.ndarray,
-        statsG1: ShearHistogramStats | None = None,
-        statsG2: ShearHistogramStats | None = None,
+        stats_g_1: ShearHistogramStats | None = None,
+        stats_g_2: ShearHistogramStats | None = None,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for all objects of a particular type"""
 
-        if statsG1 is None:
-            statsG1 = ShearHistogramStats(hist1p + hist1m, self.bin_centers)
-        if statsG2 is None:
-            statsG2 = ShearHistogramStats(hist2p + hist2m, self.bin_centers)
-        assert statsG1 is not None
-        assert statsG2 is not None
+        if stats_g_1 is None:
+            stats_g_1 = ShearHistogramStats(hist1p + hist1m, self.binCenters)
+        if stats_g_2 is None:
+            stats_g_2 = ShearHistogramStats(hist2p + hist2m, self.binCenters)
+        assert stats_g_1 is not None
+        assert stats_g_2 is not None
 
         fig, axes = plt.subplots()
         axes.stairs(
             (hist1p + hist1m)[self.central],
-            self.bin_edges[self.centralEdges],
-            label=f"g1: {200*statsG1.mean:.4f} +- {200*statsG1.error:.4f}",
+            self.binEdges[self.centralEdges],
+            label=f"g1: {200*stats_g_1.mean:.4f} +- {200*stats_g_1.error:.4f}",
         )
         axes.stairs(
             (hist2p + hist2m)[self.central],
-            self.bin_edges[self.centralEdges],
-            label=f"g2: {200*statsG2.mean:.4f} +- {200*statsG2.error:.4f}",
+            self.binEdges[self.centralEdges],
+            label=f"g2: {200*stats_g_2.mean:.4f} +- {200*stats_g_2.error:.4f}",
         )
         axes.legend()
         fig.tight_layout()
@@ -183,49 +219,49 @@ class ShearHistograms:
 
     def plotMetaDetectGood(
         self,
-        statsG1: ShearHistogramStats | None = None,
-        statsG2: ShearHistogramStats | None = None,
+        stats_g_1: ShearHistogramStats | None = None,
+        stats_g_2: ShearHistogramStats | None = None,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for all fully matched objects"""
 
         return self.plotMetaDetect(
-            self.good_g1_1p,
-            self.good_g1_1m,
-            self.good_g2_2p,
-            self.good_g2_2m,
-            statsG1,
-            statsG2,
+            self.good_g_1_1p,
+            self.good_g_1_1m,
+            self.good_g_2_2p,
+            self.good_g_2_2m,
+            stats_g_1,
+            stats_g_2,
         )
 
     def plotMetaDetectAll(
         self,
-        statsG1: ShearHistogramStats | None = None,
-        statsG2: ShearHistogramStats | None = None,
+        stats_g_1: ShearHistogramStats | None = None,
+        stats_g_2: ShearHistogramStats | None = None,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for all objects"""
 
         return self.plotMetaDetect(
-            self.all_g1_1p,
-            self.all_g1_1m,
-            self.all_g2_2p,
-            self.all_g2_2m,
-            statsG1,
-            statsG2,
+            self.all_g_1_1p,
+            self.all_g_1_1m,
+            self.all_g_2_2p,
+            self.all_g_2_2m,
+            stats_g_1,
+            stats_g_2,
         )
 
     def plotMetaDetectBad(
         self,
-        statsG1: ShearHistogramStats | None = None,
-        statsG2: ShearHistogramStats | None = None,
+        stats_g_1: ShearHistogramStats | None = None,
+        stats_g_2: ShearHistogramStats | None = None,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for non-fully matched objects"""
         return self.plotMetaDetect(
-            self.bad_g1_1p,
-            self.bad_g1_1m,
-            self.bad_g2_2p,
-            self.bad_g2_2m,
-            statsG1,
-            statsG2,
+            self.bad_g_1_1p,
+            self.bad_g_1_1m,
+            self.bad_g_2_2p,
+            self.bad_g_2_2m,
+            stats_g_1,
+            stats_g_2,
         )
 
 
@@ -234,17 +270,11 @@ class ShearStats:
 
     Attributes
     ----------
-    delta_g1: ShearHistogramStats
-        Stats for g1 deltas for fully matched objects
+    delta_g_{i}_{i}: ShearHistogramStats
+        Stats for g_{i}_{j} deltas for fully matched objects
 
-    delta_g2: ShearHistogramStats
-        Stats for g2 deltas for fully matched objects
-
-    {type}_g1: ShearHistogramStats
-        Stats for g1 for objects of {type}
-
-    {type}_g2: ShearHistogramStats
-        Stats for g2 for objects of {type}
+    {type}_g_{i}_{j}: ShearHistogramStats
+        Stats for g_{i}_{j} for objects of {type}
     """
 
     def __init__(
@@ -252,28 +282,49 @@ class ShearStats:
         hists: ShearHistograms,
     ):
 
-        self.delta_g1 = ShearHistogramStats(hists.good_delta_g1, hists.bin_centers)
-        self.delta_g2 = ShearHistogramStats(hists.good_delta_g2, hists.bin_centers)
+        self.delta_g_1_1 = ShearHistogramStats(hists.good_delta_g_1_1, hists.binCenters)
+        self.delta_g_2_2 = ShearHistogramStats(hists.good_delta_g_2_2, hists.binCenters)
 
-        self.good_g1 = ShearHistogramStats(
-            hists.good_g1_1p + hists.good_g1_1m, hists.bin_centers
+        self.delta_g_1_2 = ShearHistogramStats(hists.good_delta_g_1_2, hists.binCenters)
+        self.delta_g_2_1 = ShearHistogramStats(hists.good_delta_g_2_1, hists.binCenters)
+
+        self.good_g_1_1 = ShearHistogramStats(
+            hists.good_g_1_1p + hists.good_g_1_1m, hists.binCenters
         )
-        self.good_g2 = ShearHistogramStats(
-            hists.good_g2_2p + hists.good_g2_2m, hists.bin_centers
+        self.good_g_2_2 = ShearHistogramStats(
+            hists.good_g_2_2p + hists.good_g_2_2m, hists.binCenters
+        )
+        self.good_g_1_2 = ShearHistogramStats(
+            hists.good_g_1_2p + hists.good_g_1_2m, hists.binCenters
+        )
+        self.good_g_2_1 = ShearHistogramStats(
+            hists.good_g_2_1p + hists.good_g_2_1m, hists.binCenters
         )
 
-        self.bad_g1 = ShearHistogramStats(
-            hists.bad_g1_1p + hists.bad_g1_1m, hists.bin_centers
+        self.bad_g_1_1 = ShearHistogramStats(
+            hists.bad_g_1_1p + hists.bad_g_1_1m, hists.binCenters
         )
-        self.bad_g2 = ShearHistogramStats(
-            hists.bad_g2_2p + hists.bad_g2_2m, hists.bin_centers
+        self.bad_g_2_2 = ShearHistogramStats(
+            hists.bad_g_2_2p + hists.bad_g_2_2m, hists.binCenters
+        )
+        self.bad_g_1_2 = ShearHistogramStats(
+            hists.bad_g_1_2p + hists.bad_g_1_2m, hists.binCenters
+        )
+        self.bad_g_2_1 = ShearHistogramStats(
+            hists.bad_g_2_1p + hists.bad_g_2_1m, hists.binCenters
         )
 
-        self.all_g1 = ShearHistogramStats(
-            hists.all_g1_1p + hists.all_g1_1m, hists.bin_centers
+        self.all_g_1_1 = ShearHistogramStats(
+            hists.all_g_1_1p + hists.all_g_1_1m, hists.binCenters
         )
-        self.all_g2 = ShearHistogramStats(
-            hists.all_g2_2p + hists.all_g2_2m, hists.bin_centers
+        self.all_g_2_2 = ShearHistogramStats(
+            hists.all_g_2_2p + hists.all_g_2_2m, hists.binCenters
+        )
+        self.all_g_1_2 = ShearHistogramStats(
+            hists.all_g_1_2p + hists.all_g_1_2m, hists.binCenters
+        )
+        self.all_g_2_1 = ShearHistogramStats(
+            hists.all_g_2_1p + hists.all_g_2_1m, hists.binCenters
         )
 
 
@@ -380,16 +431,16 @@ class ShearData:
         """Make the standard plots"""
         plotDict = dict(
             metacalib=self.hists.plotMetacalib(
-                self.stats.delta_g1, self.stats.delta_g2
+                self.stats.delta_g_1_1, self.stats.delta_g_2_2
             ),
             metadetect_good=self.hists.plotMetaDetectGood(
-                self.stats.good_g1, self.stats.good_g2
+                self.stats.good_g_1_1, self.stats.good_g_2_2
             ),
             metadetect_bad=self.hists.plotMetaDetectBad(
-                self.stats.bad_g1, self.stats.bad_g2
+                self.stats.bad_g_1_1, self.stats.bad_g_2_2
             ),
             metadetect_all=self.hists.plotMetaDetectAll(
-                self.stats.all_g1, self.stats.all_g2
+                self.stats.all_g_1_1, self.stats.all_g_2_2
             ),
         )
         return plotDict
@@ -407,31 +458,47 @@ class ShearData:
         outDict["efficiency_err"] = self.efficErr
 
         prefixes = [
-            "mc_delta_g1",
-            "mc_delta_g2",
-            "md_all_g1",
-            "md_all_g2",
-            "md_good_g1",
-            "md_good_g2",
-            "md_bad_g1",
-            "md_bad_g2",
+            "mc_delta_g_1_1",
+            "mc_delta_g_2_2",
+            "mc_delta_g_1_2",
+            "mc_delta_g_2_1",
+            "md_all_g_1_1",
+            "md_all_g_2_2",
+            "md_all_g_1_2",
+            "md_all_g_2_1",
+            "md_good_g_1_1",
+            "md_good_g_2_2",
+            "md_good_g_1_2",
+            "md_good_g_2_1",
+            "md_bad_g_1_1",
+            "md_bad_g_2_2",
+            "md_bad_g_1_2",
+            "md_bad_g_2_1",
         ]
         all_stats = [
-            self.stats.delta_g1,
-            self.stats.delta_g2,
-            self.stats.all_g1,
-            self.stats.all_g2,
-            self.stats.good_g1,
-            self.stats.good_g2,
-            self.stats.bad_g1,
-            self.stats.bad_g2,
+            self.stats.delta_g_1_1,
+            self.stats.delta_g_2_2,
+            self.stats.delta_g_1_2,
+            self.stats.delta_g_2_1,
+            self.stats.all_g_1_1,
+            self.stats.all_g_2_2,
+            self.stats.all_g_1_2,
+            self.stats.all_g_2_1,
+            self.stats.good_g_1_1,
+            self.stats.good_g_2_2,
+            self.stats.good_g_1_2,
+            self.stats.good_g_2_1,
+            self.stats.bad_g_1_1,
+            self.stats.bad_g_2_2,
+            self.stats.bad_g_1_2,
+            self.stats.bad_g_2_1,
         ]
 
         for prefix_, stats_ in zip(prefixes, all_stats):
             outDict[f"{prefix_}"] = stats_.mean
             outDict[f"{prefix_}_std"] = stats_.std
             outDict[f"{prefix_}_err"] = stats_.error
-            outDict[f"{prefix_}_inv_var"] = stats_.inv_var
+            outDict[f"{prefix_}_invVar"] = stats_.invVar
         return outDict
 
     def save(self, filepath: str) -> None:

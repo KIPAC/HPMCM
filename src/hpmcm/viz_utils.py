@@ -8,9 +8,7 @@ from .cluster import ClusterData
 from .match import Match
 
 
-def showShearObjs(
-    matcher: Match, iK: tuple[tuple[int, int], int]
-) -> Figure | SubFigure:
+def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     """Draw the objects in a cluster
 
     Parameters
@@ -55,7 +53,7 @@ def showShearObjs(
     return img.axes.figure
 
 
-def showShearObj(matcher: Match, iK: tuple[tuple[int, int], int]) -> Figure | SubFigure:
+def showShearObj(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     """Draw a single object
 
     Parameters

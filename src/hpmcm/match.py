@@ -8,46 +8,10 @@ from typing import Any
 import numpy as np
 import pandas
 import pyarrow.parquet as pq
-from astropy import wcs
 
 from .cell import CellData
 from .cluster import ClusterData
 from .object import ObjectData
-
-COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
-
-
-def createGlobalWcs(
-    refDir: tuple[float, float],
-    pixSize: float,
-    nPix: np.ndarray,
-) -> wcs.WCS:
-    """Helper function to create the WCS used to project the
-    sources in a skymap
-
-
-    Parameters
-    ----------
-    refDir:
-        Reference Direction (RA, DEC) in degrees
-
-    pixSize:
-        Pixel size in degrees
-
-    nPix:
-        Number of pixels in x, y
-
-
-    Returns
-    -------
-    wcs.WCS
-        WCS to create the pixel grid
-    """
-    w = wcs.WCS(naxis=2)
-    w.wcs.cdelt = [-pixSize, pixSize]
-    w.wcs.crpix = [nPix[0] / 2, nPix[1] / 2]
-    w.wcs.crval = [refDir[0], refDir[1]]
-    return w
 
 
 def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
@@ -111,7 +75,7 @@ class Match:
         Number of pixels in the match region
 
     _cellSize: int
-        Number of pixel in a Cell
+        Number of pixels in a Cell
 
     _cellBuffer: int
         Number of overlapping pixel in a Cell
@@ -131,7 +95,7 @@ class Match:
     _redData : list[DataFrame]
         Reduced DataFrames with only the columns needed for matching
 
-    _cellDict : OrderedDict[tuple[int, int], CellData]
+    _cellDict : OrderedDict[int, CellData]
         Dictionary providing access to cell data
 
     Notes
@@ -149,7 +113,7 @@ class Match:
         self,
         **kwargs: Any,
     ):
-        self._pixSize = kwargs.get("pixelSize", 1.0)
+        self._pixSize = kwargs["pixelSize"]
         self._nPixSide = kwargs["nPixels"]
         self._cellSize: int = kwargs.get("cellSize", 3000)
         self._cellBuffer: int = kwargs.get("cellBuffer", 10)
@@ -159,7 +123,7 @@ class Match:
 
         self._fullData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._cellDict: OrderedDict[tuple[int, int], CellData] = OrderedDict()
+        self._cellDict: OrderedDict[int, CellData] = OrderedDict()
 
     @property
     def fullData(self) -> OrderedDict[int, pandas.DataFrame]:
@@ -173,7 +137,7 @@ class Match:
         return self._redData
 
     @property
-    def cellDict(self) -> OrderedDict[tuple[int, int], CellData]:
+    def cellDict(self) -> OrderedDict[int, CellData]:
         """Return the dictionary of CellData"""
         return self._cellDict
 
@@ -194,13 +158,21 @@ class Match:
         """Convert locals in pixels to world coordinates (RA, DEC)"""
         return np.repeat(np.nan, len(xPix)), np.repeat(np.nan, len(yPix))
 
+    def getCellIdx(
+        self,
+        ix: int,
+        iy: int,
+    ) -> int:
+        """Get the Index to use for a given cell"""
+        return int(self._nCell[1] * ix + iy)
+
     def getIdOffset(
         self,
         ix: int,
         iy: int,
     ) -> int:
         """Get the ID offset to use for a given cell"""
-        cellIdx = self._nCell[1] * ix + iy
+        cellIdx = self.getCellIdx(ix, iy)
         return int(self._cellMaxObject * cellIdx)
 
     def reduceData(
@@ -228,7 +200,7 @@ class Match:
         idOffset: int,
         corner: np.ndarray,
         size: np.ndarray,
-        idx: np.ndarray,
+        idx: int,
     ) -> CellData:
         return CellData(self, idOffset, corner, size, idx, self._cellBuffer)
 
@@ -268,8 +240,7 @@ class Match:
             Map of cell with pixels filled with index of
             associated Footprints
         """
-        cellKey = (ix, iy)
-        iCell = np.array(cellKey).astype(int)
+        iCell = self.getCellIdx(ix, iy)
         cellStep = np.array([self._cellSize, self._cellSize])
         corner = iCell * cellStep
         idOffset = self.getIdOffset(ix, iy)
@@ -279,7 +250,7 @@ class Match:
         if cellData.nObjects >= self._cellMaxObject:
             print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
 
-        self._cellDict[cellKey] = cellData
+        self._cellDict[iCell] = cellData
         if oDict is None:
             return None
         if fullData:
@@ -325,7 +296,7 @@ class Match:
 
         for ix in range(int(self._nCell[0])):
             for iy in range(int(self._nCell[1])):
-                iCell = (ix, iy)
+                iCell = self.getCellIdx(ix, iy)
                 if iCell not in self._cellDict:
                     continue
                 cellData = self._cellDict[iCell]
@@ -347,8 +318,7 @@ class Match:
         for key, cellData in self._cellDict.items():
             cellStats = clusterStats(cellData.clusterDict)
             print(
-                f"{key[0]:%3} "
-                f"{key[1]:%3}: "
+                f"{key:%5}: "
                 f"{cellStats[0]:%8i} "
                 f"{cellStats[1]:%8i} "
                 f"{cellStats[2]:%8i} "
@@ -418,14 +388,14 @@ class Match:
 
                 nsrcs.append(c.nSrc)
 
-                if (np.fabs(c.data.xCell_coadd) > cell_edge).all() or (
-                    np.fabs(c.data.yCell_coadd) > cell_edge
+                if (np.fabs(c.data.xCellCoadd) > cell_edge).all() or (
+                    np.fabs(c.data.yCellCoadd) > cell_edge
                 ).all():
                     cut1.append(k)
                     continue
                 if (
-                    np.fabs(c.data.xCell_coadd.mean()) > cell_edge
-                    or np.fabs(c.data.yCell_coadd.mean()) > cell_edge
+                    np.fabs(c.data.xCellCoadd.mean()) > cell_edge
+                    or np.fabs(c.data.yCellCoadd.mean()) > cell_edge
                 ):
                     cut2.append(k)
                     continue
@@ -434,8 +404,8 @@ class Match:
 
                 edge_case = False
                 is_faint = False
-                if (np.fabs(c.data.xCell_coadd) > cell_edge - edge_cut).any() or (
-                    np.fabs(c.data.yCell_coadd) > cell_edge - edge_cut
+                if (np.fabs(c.data.xCellCoadd) > cell_edge - edge_cut).any() or (
+                    np.fabs(c.data.yCellCoadd) > cell_edge - edge_cut
                 ).any():
                     edge_case = True
                 if (c.data.SNR < snr_cut).any():
@@ -624,8 +594,8 @@ class Match:
                 nsrcs.append(c.nSrc)
 
                 try:
-                    if (np.fabs(c.data.xCell_coadd) > cell_edge).all() or (
-                        np.fabs(c.data.yCell_coadd) > cell_edge
+                    if (np.fabs(c.data.xCellCoadd) > cell_edge).all() or (
+                        np.fabs(c.data.yCellCoadd) > cell_edge
                     ).all():
                         cut1.append(k)
                         continue
@@ -633,8 +603,8 @@ class Match:
                     pass
                 try:
                     if (
-                        np.fabs(c.data.xCell_coadd.mean()) > cell_edge
-                        or np.fabs(c.data.yCell_coadd.mean()) > cell_edge
+                        np.fabs(c.data.xCellCoadd.mean()) > cell_edge
+                        or np.fabs(c.data.yCellCoadd.mean()) > cell_edge
                     ):
                         cut2.append(k)
                         continue
@@ -646,8 +616,8 @@ class Match:
                 edge_case = False
                 is_faint = False
                 try:
-                    if (np.fabs(c.data.xCell_coadd) > cell_edge - edge_cut).any() or (
-                        np.fabs(c.data.yCell_coadd) > cell_edge - edge_cut
+                    if (np.fabs(c.data.xCellCoadd) > cell_edge - edge_cut).any() or (
+                        np.fabs(c.data.yCellCoadd) > cell_edge - edge_cut
                     ).any():
                         edge_case = True
                 except Exception:
@@ -829,13 +799,13 @@ class Match:
             "extra (> n sources, not near edge):            ", len(objectTypes["extra"])
         )
 
-    def getCluster(self, iK: tuple[tuple[int, int], int]) -> ClusterData:
+    def getCluster(self, iK: tuple[int, int]) -> ClusterData:
         """Get a particular cluster"""
         cellData = self._cellDict[iK[0]]
         cluster = cellData.clusterDict[iK[1]]
         return cluster
 
-    def getObject(self, iK: tuple[tuple[int, int], int]) -> ObjectData:
+    def getObject(self, iK: tuple[int, int]) -> ObjectData:
         """Get a particular object"""
         cellData = self._cellDict[iK[0]]
         theObj = cellData.objectDict[iK[1]]

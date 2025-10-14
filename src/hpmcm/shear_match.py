@@ -10,8 +10,6 @@ from .cell import CellData, ShearCellData
 from .match import Match
 from .shear_data import ShearData
 
-COLUMNS = ["ra", "dec", "id", "patch_x", "patch_y", "cell_x", "cell_y", "row", "col"]
-
 
 class ShearMatch(Match):
     """Class to do N-way matching for shear calibration.
@@ -41,12 +39,23 @@ class ShearMatch(Match):
     that contain the following columns.
 
     "id" : source ID
-    "xCell_coadd": X-postion in cell-based coadd used for metadetect
-    "yCell_coadd": Y-postion in cell-based coadd used for metadetect
+    "xCellCoadd": X-postion in cell-based coadd used for metadetect
+    "yCellCoadd": Y-postion in cell-based coadd used for metadetect
     "g_1": shape measurement
     "g_2": shape measurement
     "SNR": Signal-to-Noise of source, used for filtering and centroiding
 
+    These parquet files can be generate from files with the following
+    columns using the ShearMatch.splitByTypeAndClean() function.
+
+    "id": source ID
+    "shear_type": one of "ns", "1p", "1m", "2p" "2m"
+    "patch_{x,y}": id of the patch within the tract
+    "cell_{x,y}": id of the cell withing the patch
+    "row, col": global row/col in the tract WCS
+    "{catType}_band_flux_{band}": flux measuremnt in the reference band
+    "{catType}_band_flux_err_{band}": flux measuremnt error in the reference band
+    "{catType}_g_{i}": shear measurements
     """
 
     def __init__(
@@ -86,7 +95,7 @@ class ShearMatch(Match):
         """
         nPix = np.array([30000, 30000])
         kw = dict(
-            pixelSize=0.2 * 3600.0,
+            pixelSize=0.2,
             nPixels=nPix,
             cellSize=150,
             cellBuffer=25,
@@ -100,6 +109,7 @@ class ShearMatch(Match):
         basefile: str,
         tract: int,
         shear: float,
+        catType: str,
     ) -> None:
         """Split a parquet file by shear catalog type"""
         TYPES = ["ns", "1m", "2m", "1p", "2p"]
@@ -107,23 +117,25 @@ class ShearMatch(Match):
         for type_ in TYPES:
             mask = p["shear_type"] == type_
             sub = p[mask].copy(deep=True)
-            idx_x = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
-            idx_y = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
-            cent_x = 150 * idx_x - 75
-            cent_y = 150 * idx_y - 75
-            xCell_coadd = sub["col"] - cent_x
-            yCell_coadd = sub["row"] - cent_y
-            sub["xCell_coadd"] = xCell_coadd
-            sub["yCell_coadd"] = yCell_coadd
-            sub["SNR"] = sub["wmom_band_flux_r"] / sub["wmom_band_flux_err_r"]
-            sub["g_1"] = sub["wmom_g_1"]
-            sub["g_2"] = sub["wmom_g_2"]
-            sub["idx_x"] = idx_x
-            sub["idx_y"] = idx_y
+            cellIdxX = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
+            cellIdxY = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
+            cent_x = 150 * cellIdxX - 75
+            cent_y = 150 * cellIdxY - 75
+            xCellCoadd = sub["col"] - cent_x
+            yCellCoadd = sub["row"] - cent_y
+            sub["xCellCoadd"] = xCellCoadd
+            sub["yCellCoadd"] = yCellCoadd
+            sub["SNR"] = (
+                sub[f"{catType}_band_flux_r"] / sub[f"{catType}_band_flux_err_r"]
+            )
+            sub["g_1"] = sub[f"{catType}_g_1"]
+            sub["g_2"] = sub[f"{catType}_g_2"]
+            sub["cellIdxX"] = cellIdxX
+            sub["cellIdxY"] = cellIdxY
             sub["orig_id"] = sub.id
             sub["id"] = np.arange(len(sub))
             central_to_cell = np.bitwise_and(
-                np.fabs(xCell_coadd) < 80, np.fabs(yCell_coadd) < 80
+                np.fabs(xCellCoadd) < 80, np.fabs(yCellCoadd) < 80
             )
             central_to_patch = np.bitwise_and(
                 np.fabs(sub["cell_x"].values - 10.5) < 10,
@@ -138,12 +150,19 @@ class ShearMatch(Match):
                 basefile.replace(".parq", f"_uncleaned_{tract}_{type_}.pq")
             )
 
+    def getCellIndices(
+        self,
+        df: pandas.DataFrame,
+    ) -> np.ndarray:
+        """Get the Index to use for a given cell"""
+        return (self._nCell[1] * df["cellIdxX"] + df["cellIdxY"]).astype(int)
+
     def _buildCellData(
         self,
         idOffset: int,
         corner: np.ndarray,
         size: np.ndarray,
-        idx: np.ndarray,
+        idx: int,
     ) -> CellData:
         return ShearCellData(self, idOffset, corner, size, idx, self._cellBuffer)
 
@@ -154,7 +173,7 @@ class ShearMatch(Match):
 
         for ix in range(int(self._nCell[0])):
             for iy in range(int(self._nCell[1])):
-                iCell = (ix, iy)
+                iCell = self.getCellIdx(ix, iy)
                 if iCell not in self._cellDict:
                     continue
                 cellData = self._cellDict[iCell]
@@ -192,13 +211,13 @@ class ShearMatch(Match):
                 "dec",
                 "xPix",
                 "yPix",
-                "xCell_coadd",
-                "yCell_coadd",
+                "xCellCoadd",
+                "yCellCoadd",
                 "SNR",
                 "g_1",
                 "g_2",
-                "idx_x",
-                "idx_y",
+                "cellIdxX",
+                "cellIdxY",
             ]
         ]
 

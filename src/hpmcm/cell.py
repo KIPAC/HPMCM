@@ -49,8 +49,8 @@ class CellData:
     _size: np.ndarray
         size of the cell (in pixels)
 
-    _idx: np.ndarray
-        Id of the cell (ix, iy)
+    _idx: int
+        Id of the cell
 
     _buf: int
         Number of buffer pixels around the edge of the cell
@@ -89,7 +89,7 @@ class CellData:
         idOffset: int,
         corner: np.ndarray,
         size: np.ndarray,
-        idx: np.ndarray,
+        idx: int,
         buf: int = 10,
     ):
         self._matcher: Match = matcher
@@ -97,7 +97,7 @@ class CellData:
         self._idOffset: int = idOffset
         self._corner: np.ndarray = corner  # pixX, pixY for corner of cell
         self._size: np.ndarray = size  # size of cell
-        self._idx: np.ndarray = idx
+        self._idx: int = idx  # cell index
         self._buf: int = buf
         self._minPix: np.ndarray = corner - buf
         self._maxPix: np.ndarray = corner + size + buf
@@ -258,6 +258,7 @@ class CellData:
             idx=np.hstack(sourceIdxs),
             cat=np.hstack(catIdxs),
             distance=distances,
+            cellIdx=np.repeat(self._idx, len(distances)).astype(int),
         )
         return pandas.DataFrame(data)
 
@@ -300,6 +301,7 @@ class CellData:
             idx=np.hstack(sourceIdxs),
             cat=np.hstack(catIdxs),
             distance=distances,
+            cellIdx=np.repeat(self._idx, len(distances)).astype(int),
         )
         return pandas.DataFrame(data)
 
@@ -341,6 +343,7 @@ class CellData:
             xCents=xCents,
             yCents=yCents,
             SNRs=SNRs,
+            cellIdx=np.repeat(self._idx, len(distRms)).astype(int),
         )
 
         return pandas.DataFrame(data)
@@ -385,6 +388,7 @@ class CellData:
             xCents=xCents,
             yCents=yCents,
             SNRs=SNRs,
+            cellIdx=np.repeat(self._idx, len(distRms)).astype(int),
         )
 
         return pandas.DataFrame(data)
@@ -456,7 +460,7 @@ class ShearCellData(CellData):
         idOffset: int,
         corner: np.ndarray,
         size: np.ndarray,
-        idx: np.ndarray,
+        idx: int,
         buf: int = 10,
     ):
         CellData.__init__(self, matcher, idOffset, corner, size, idx, buf)
@@ -467,10 +471,10 @@ class ShearCellData(CellData):
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
 
-        filteredIdx = np.bitwise_and(
-            dataframe["idx_x"] - self._idx[0] == 1,
-            dataframe["idx_y"] - self._idx[1] == 1,
-        )
+        if TYPE_CHECKING:
+            assert isinstance(self._matcher, ShearMatch)
+
+        filteredIdx = self._matcher.getCellIndices(dataframe) == self._idx
         reduced = dataframe[filteredIdx].copy(deep=True)
 
         # These are the coeffs for the various shear catalogs
@@ -484,8 +488,8 @@ class ShearCellData(CellData):
             ]
         )
 
-        xCellOrig = reduced["xCell_coadd"]
-        yCellOrig = reduced["yCell_coadd"]
+        xCellOrig = reduced["xCellCoadd"]
+        yCellOrig = reduced["yCellCoadd"]
         xPixOrig = reduced["xPix"]
         yPixOrig = reduced["yPix"]
         if TYPE_CHECKING:
@@ -535,11 +539,13 @@ class ShearCellData(CellData):
 
         for name_ in names:
             outDict[f"n_{name_}"] = np.zeros((nObj), dtype=int)
-            outDict[f"g1_{name_}"] = np.zeros((nObj), dtype=float)
-            outDict[f"g2_{name_}"] = np.zeros((nObj), dtype=float)
+            outDict[f"g_1_{name_}"] = np.zeros((nObj), dtype=float)
+            outDict[f"g_2_{name_}"] = np.zeros((nObj), dtype=float)
         outDict["good"] = np.zeros((nObj), dtype=bool)
-        outDict["delta_g_1"] = np.zeros((nObj), dtype=float)
-        outDict["delta_g_2"] = np.zeros((nObj), dtype=float)
+        outDict["delta_g_1_1"] = np.zeros((nObj), dtype=float)
+        outDict["delta_g_2_2"] = np.zeros((nObj), dtype=float)
+        outDict["delta_g_1_2"] = np.zeros((nObj), dtype=float)
+        outDict["delta_g_2_1"] = np.zeros((nObj), dtype=float)
         for idx, obj in enumerate(self._objectDict.values()):
             assert isinstance(obj, ShearObjectData)
             objStats = obj.shearStats()
@@ -555,10 +561,12 @@ class ShearCellData(CellData):
 
         for name_ in names:
             outDict[f"n_{name_}"] = np.zeros((nClusters), dtype=int)
-            outDict[f"g1_{name_}"] = np.zeros((nClusters), dtype=float)
-            outDict[f"g2_{name_}"] = np.zeros((nClusters), dtype=float)
-        outDict["delta_g_1"] = np.zeros((nClusters), dtype=float)
-        outDict["delta_g_2"] = np.zeros((nClusters), dtype=float)
+            outDict[f"g_1_{name_}"] = np.zeros((nClusters), dtype=float)
+            outDict[f"g_2_{name_}"] = np.zeros((nClusters), dtype=float)
+        outDict["delta_g_1_1"] = np.zeros((nClusters), dtype=float)
+        outDict["delta_g_2_2"] = np.zeros((nClusters), dtype=float)
+        outDict["delta_g_1_2"] = np.zeros((nClusters), dtype=float)
+        outDict["delta_g_2_1"] = np.zeros((nClusters), dtype=float)
         outDict["good"] = np.zeros((nClusters), dtype=bool)
         for idx, cluster in enumerate(self._clusterDict.values()):
             assert isinstance(cluster, ShearClusterData)
