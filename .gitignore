@@ -17,6 +17,7 @@ nb/do_match
 
 # Distribution / packaging
 .Python
+docs/api
 build/
 develop-eggs/
 dist/
