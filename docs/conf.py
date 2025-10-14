@@ -18,8 +18,6 @@ import sys
 
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../src'))
-
-#print(sys.path)
     
 
 # Use unittest mock module to shield some modules away from docs building.
@@ -166,30 +164,3 @@ html_sidebars = {
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'hpmcm_doc'
-
-
-# -- Options for Autodoc--------------------------------------------------
-# Autodoc collects docstrings and builds API pages
-# from sphinxcontrib.apidoc import main as apidoc_main
-
-def run_apidoc(_):
-
-#    if not os.path.exists('examples'):
-#        os.system('ln -s ../nb examples')
-
-    from sphinx.ext.apidoc import main as apidoc_main
-    cur_dir = os.path.normpath(os.path.dirname(__file__))
-    output_path = os.path.join(cur_dir, 'api')
-
-    base_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-    srcpath = os.path.normpath(os.path.join(base_path, 'hpmcm'))
-    paramlist = ['--separate', '--implicit-namespaces', '--no-toc', '-M', '-o', output_path, '-f', srcpath]
-    print(f"running {paramlist}")
-    apidoc_main(paramlist)
-
-
-def setup(app):
-    app.connect('builder-inited', run_apidoc)
-
-

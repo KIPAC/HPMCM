@@ -1,12 +1,12 @@
-################################################
-HPMCM: Heirarchical Pixel Multi-Catalog Matching
-################################################
+###############################################
+HPMCM: Heirarchical Pixel Multi-Catalog Matcher
+###############################################
 
 ***********
 Description
 ***********
 
-`HPMCM` 
+`HPMCM` does catalog cross matching.
 
 
 .. toctree::
@@ -28,7 +28,7 @@ Description
    demos
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 3
    :caption: API
 
    api/hpmcm

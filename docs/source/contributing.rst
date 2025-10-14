@@ -4,17 +4,15 @@ Contribution Overview
 
 HPMCM welcomes all interested developers, regardless of DESC membership or LSST data rights.
 
-
 =========================
-Contributing to ``HPCMC``
+Contributing to ``HPMCM``
 =========================
 
-If you're interested in contributing to `HPCMC`, but don't know where to start, take a look 
+If you're interested in contributing to `HPMCM`, but don't know where to start, take a look 
 at the
-`list of issues <https://github.com/KIPAC/HPCMC/issues>`_.
-Or, `create a new issue <https://github.com/KIPAC/HPCMC/issues/new>`_ to 
+`list of issues <https://github.com/KIPAC/HPMCM/issues>`_.
+Or, `create a new issue <https://github.com/KIPAC/HPMCM/issues/new>`_ to 
 suggest a change.
-
 
 ====================
 Where to contribute:
@@ -23,13 +21,12 @@ Where to contribute:
 In all cases, begin by following the developer installation instructions 
 :ref:`Developer Installation` and follow the contribution workflow instructions below.
 
-
      
 =====================
 Contribution workflow
 =====================
 
-The ``HPCMC`` repository use an issue-branch-review workflow, 
+The ``HPMCM`` repository use an issue-branch-review workflow, 
 similar to the standard `GitHub Flow <https://docs.github.com/en/get-started/quickstart/github-flow>`_.
 We typically use ``git`` as our version control tool, there are many resources
 available online, but here is a `nice cheat sheet <https://education.github.com/git-cheat-sheet-education.pdf>`_
@@ -39,7 +36,8 @@ created by GitHub.
 Issue
 -----
 
-When you identify something that should be done, `make an issue <https://github.com/KIPAC/HPCMC/issues/new>`_
+=======
+When you identify something that should be done, `make an issue <https://github.com/KIPAC/HPMCM/issues/new>`_
 for it.
 
 ------
