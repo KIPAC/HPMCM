@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+# This is to simplify sphinx builds
 try:
-    import lsst.afw.image as afwImage
     import lsst.afw.detection as afwDetect
-except Exception:
+    import lsst.afw.image as afwImage
+except ImportError:
     pass
-
 import numpy as np
 import pandas
 

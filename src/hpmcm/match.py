@@ -266,23 +266,25 @@ class Match:
 
         Returns
         -------
-        dict:
-            Dict with the information listed below
-
-        'cellData' : `CellData`
+        cellData : CellData
             The analysis data for the Cell
 
-        if fullData is True the return dict will include
-
-        'image' : `afwImage.ImageI`
+        image : afwImage.ImageI
             Image of cell source counts map
-        'countsMap' : `np.array`
+
+        countsMap : np.array
             Numpy array with same
-        'clusters' : `afwDetect.FootprintSet`
+
+        clusters : afwDetect.FootprintSet
             Clusters as dectected by finding FootprintSet on source counts map
-        'clusterKey' : `afwImage.ImageI`
+
+        clusterKey : afwImage.ImageI
             Map of cell with pixels filled with index of
             associated Footprints
+
+        Notes
+        -----
+        If fullData is False, only cellData will be returned
         """
         iCell = self.getCellIdx(ix, iy)
         cellStep = np.array([self._cellSize, self._cellSize])

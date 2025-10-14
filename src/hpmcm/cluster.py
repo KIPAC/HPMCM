@@ -5,9 +5,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas
 
+from . import shear_utils
 from .object import ObjectData
 
 if TYPE_CHECKING:
+    try:
+        import lsst.afw.detection as afwDetect
+    except ImportError:
+        pass
     from .cell import CellData
     import lsst.afw.detection as afwDetect
 
@@ -267,61 +272,9 @@ class ShearClusterData(ClusterData):
         return self._pixelMatchScale
 
     def shearStats(self) -> dict:
-        """Return the shear statistics
-
-        Returns
-        -------
-        n_{st} : int
-            Number of sources from that catalog
-
-        g_1_{st} : float
-            g_1 shear parameter for that catalog
-
-        g_2_{st} : float
-            g_2 shear parameter for that catalog
-
-        delta_g_1 : float
-            g_1 shear measurment: g_1_1p - g_1_1m
-
-        delta_g_2 : float
-            g_2 shear measurment: g_2_2p - g_2_2m
-
-        good: bool
-            True if every catalog has one source in this object
-
-        Notes
-        -----
-        If the cluster is not good, then delta_g_1 = delta_g_2 = np.nan
-        """
-
-        outDict = {}
-        names = ["ns", "2p", "2m", "1p", "1m"]
-        allGood = True
+        """Return the shear statistics"""
         assert self._data is not None
-        for i, name_ in enumerate(names):
-            mask = self._data.iCat == i
-            nCat = mask.sum()
-            if nCat != 1:
-                allGood = False
-            outDict[f"n_{name_}"] = nCat
-            if nCat:
-                outDict[f"g_1_{name_}"] = self._data.g_1[mask].mean()
-                outDict[f"g_2_{name_}"] = self._data.g_2[mask].mean()
-            else:
-                outDict[f"g_1_{name_}"] = np.nan
-                outDict[f"g_2_{name_}"] = np.nan
-        if allGood:
-            outDict["delta_g_1_1"] = outDict["g_1_1p"] - outDict["g_1_1m"]
-            outDict["delta_g_2_2"] = outDict["g_2_2p"] - outDict["g_2_2m"]
-            outDict["delta_g_1_2"] = outDict["g_1_2p"] - outDict["g_1_2m"]
-            outDict["delta_g_2_1"] = outDict["g_2_1p"] - outDict["g_2_1m"]
-        else:
-            outDict["delta_g_1_1"] = np.nan
-            outDict["delta_g_2_2"] = np.nan
-            outDict["delta_g_1_2"] = np.nan
-            outDict["delta_g_2_1"] = np.nan
-        outDict["good"] = allGood
-        return outDict
+        return shear_utils.shearStats(self._data)
 
     def addObject(
         self, cellData: CellData, mask: np.ndarray | None = None

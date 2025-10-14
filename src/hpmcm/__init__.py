@@ -1,4 +1,9 @@
-from . import utils, viz_utils
+"""
+The :py:mod:`hpmcm` package collects a set of tools to do catalog
+cross matching.
+"""
+
+from . import shear_utils, utils, viz_utils
 from ._version import __version__
 from .cell import CellData, ShearCellData
 from .cluster import ClusterData, ShearClusterData
@@ -19,6 +24,7 @@ __all__ = [
     "ShearObjectData",
     "ShearMatch",
     "WcsMatch",
+    "shear_utils",
     "utils",
     "viz_utils",
     "__version__",

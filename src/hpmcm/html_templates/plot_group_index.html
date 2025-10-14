@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" href="bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Metadetect outputs</h1>
+        <table class="table table-striped">
+            <thead>
+	      <tr>
+		<th>Link</th>
+	      </tr>
+            </thead>
+            <tbody>
+            {% for output_page in output_pages %}
+	      <tr>
+		<td><a href="{{ os.path.basename(output_page) }}">{{ output_page }}</a>
+		</td>
+	      </tr>
+	    {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

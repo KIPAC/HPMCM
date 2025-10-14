@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" href="bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Plots for {{ plot_group.name}}</h1>
+        <table class="table table-striped">
+            <thead>
+	      <tr>
+		<th>Datset</th>
+		{% for plotter in plot_group.plotter_list %}
+		  <th>{{ plotter.config.name }}</th>
+		{% endfor %}
+	      </tr>
+            </thead>
+            <tbody>
+            {% for dataset in plot_group.dataset_list %}
+	      <tr>
+		<td>{{ dataset.config.name }}</td>
+		{% for plotter in plot_group.plotter_list %}
+		<td><img src="{{ plot_group.find_plot_path(dataset.config.name,plotter.config.name) }}">
+		</td>
+		{% endfor %}
+	      </tr>
+	    {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

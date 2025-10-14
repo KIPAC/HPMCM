@@ -11,7 +11,10 @@ from .cluster import ClusterData
 from .match import Match
 
 if TYPE_CHECKING:
-    import lsst.afw.image as afwImage
+    try:
+        import lsst.afw.image as afwImage
+    except ImportError:
+        pass
 
 
 def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:

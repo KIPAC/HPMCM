@@ -11,6 +11,11 @@ from .cluster import ClusterData, ShearClusterData
 from .object import ObjectData, ShearObjectData
 
 if TYPE_CHECKING:
+    try:
+        import lsst.afw.detection as afwDetect
+    except ImportError:
+        pass
+
     from .match import Match
     from .shear_match import ShearMatch
     import lsst.afw.detection as afwDetect
@@ -554,7 +559,7 @@ class ShearCellData(CellData):
         return pandas.DataFrame(outDict)
 
     def getClusterShearStats(self) -> pandas.DataFrame:
-        """Get the shear stats for all the objects"""
+        """Get the shear stats for all the clusters"""
         nClusters = self.nClusters
         outDict: dict[str, np.ndarray] = {}
         names = ["ns", "2p", "2m", "1p", "1m"]
