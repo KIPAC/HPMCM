@@ -20,40 +20,40 @@ class ObjectData:
 
     Attributes
     ----------
-    _parentCluster : ClusterData
+    parentCluster : ClusterData
         Parent cluster that this object is build from
 
-    _objectId : int
+    objectId : int
         Unique object identifier
 
-    _mask : np.ndarray[bool]
+    mask : np.ndarray[bool]
         Mask of which source in parent cluster are in this object
 
-    _catIndices: np.ndarray
+    catIndices: np.ndarray[int]
         Indicies showing which catalog each source belongs to
 
-    _nSrc: int
+    nSrc: int
         Number of sources in this object
 
-    _nUnique: int
+    nUnique: int
         Number of catalogs contributing to this object
 
-    _data: pandas.DataFrame
+    data: pandas.DataFrame
         Data for the sources in this object
 
-    _recurse: int
+    recurse: int
         Recursion level needed to make this object
 
-    _xCent: float
+    xCent: float
         X Centeroid of this object in global pixel coordinates
 
-    _yCent: float
+    yCent: float
         Y Centeroid of this object in global pixel coordinates
 
-    _rmsDist: float
+    rmsDist: float
         RMS distance of sources to the centroid
 
-    _dist2: np.ndarray
+    dist2: np.ndarray
         Distances of sources to the centroid
     """
 
@@ -66,120 +66,64 @@ class ObjectData:
     ):
         """Build from `ClusterData`, an objectId and mask specifying with sources
         in the cluster are part of the object"""
-        self._parentCluster: ClusterData = cluster
-        self._objectId: int = objectId
+        self.parentCluster: ClusterData = cluster
+        self.objectId: int = objectId
         if mask is None:
-            self._mask = np.ones((self._parentCluster.nSrc), dtype=bool)
+            self.mask = np.ones((self.parentCluster.nSrc), dtype=bool)
         else:
-            self._mask = mask
-        self._catIndices: np.ndarray = self._parentCluster.catIndices[self._mask]
-        self._nSrc: int = self._catIndices.size
-        self._nUnique: int = np.unique(self._catIndices).size
-        self._data: pandas.DataFrame | None = None
+            self.mask = mask
+        self.catIndices: np.ndarray = self.parentCluster.catIndices[self.mask]
+        self.nSrc: int = self.catIndices.size
+        self.nUnique: int = np.unique(self.catIndices).size
+        self.data: pandas.DataFrame | None = None
 
-        self._recurse: int = recurse
-        self._xCent: float = np.nan
-        self._yCent: float = np.nan
-        self._rmsDist: float = np.nan
-        self._dist2: np.ndarray = np.array([])
+        self.recurse: int = recurse
+        self.xCent: float = np.nan
+        self.yCent: float = np.nan
+        self.rmsDist: float = np.nan
+        self.dist2: np.ndarray = np.array([])
         self._extract()
-
-    @property
-    def parentCluster(self) -> ClusterData:
-        """Return the parent cluster"""
-        return self._parentCluster
-
-    @property
-    def objectId(self) -> int:
-        """Return the object id"""
-        return self._objectId
-
-    @property
-    def catIndices(self) -> np.ndarray:
-        """Return the catalog indcies associated to this object"""
-        return self._catIndices
-
-    @property
-    def data(self) -> pandas.DataFrame | None:
-        """Return the data for this object"""
-        return self._data
-
-    @property
-    def mask(self) -> np.ndarray:
-        """Return the mask of object membership in the cluster"""
-        return self._mask
-
-    @property
-    def nSrc(self) -> int:
-        """Return the number of sources associated to the object"""
-        return self._nSrc
-
-    @property
-    def nUnique(self) -> int:
-        """Return the number of catalogs contributing sources to the object"""
-        return self._nUnique
-
-    @property
-    def xCent(self) -> float:
-        """Return the x-position of the centroid of the object"""
-        return self._xCent
-
-    @property
-    def yCent(self) -> float:
-        """Return the y-position of the centroid of the object"""
-        return self._yCent
-
-    @property
-    def rmsDist(self) -> float:
-        """Return the RMS distance of the sources in the object"""
-        return self._rmsDist
-
-    @property
-    def dist2(self) -> np.ndarray:
-        """Return an array with the distance squared (in cells)
-        between each source and the object centroid"""
-        return self._dist2
 
     @property
     def xCluster(self) -> np.ndarray:
         """Return the x-position of the sources within the footprint"""
-        assert self._data is not None
-        return self._data.xCluster
+        assert self.data is not None
+        return self.data.xCluster
 
     @property
     def yCluster(self) -> np.ndarray:
         """Return the y-position of the sources within the footprint"""
-        assert self._data is not None
-        return self._data.yCluster
+        assert self.data is not None
+        return self.data.yCluster
 
     @property
     def xPix(self) -> np.ndarray:
         """Return the x-position of the sources within the cell"""
-        assert self._data is not None
-        return self._data.xPix
+        assert self.data is not None
+        return self.data.xPix
 
     @property
     def yPix(self) -> np.ndarray:
         """Return the y-position of the sources within the cell"""
-        assert self._data is not None
-        return self._data.yPix
+        assert self.data is not None
+        return self.data.yPix
 
     def sourceIds(self) -> np.ndarray:
         """Return the source ids for the sources in the object"""
-        return self._parentCluster.srcIds[self._mask]
+        return self.parentCluster.srcIds[self.mask]
 
     def sourceIdxs(self) -> np.ndarray:
         """Return the source indices for the sources in the object"""
-        return self._parentCluster.srcIdxs[self._mask]
+        return self.parentCluster.srcIdxs[self.mask]
 
     def _updateCatIndices(self) -> None:
-        self._catIndices = self._parentCluster.catIndices[self._mask]
-        self._nSrc = self._catIndices.size
-        self._nUnique = np.unique(self._catIndices).size
+        self.catIndices = self.parentCluster.catIndices[self.mask]
+        self.nSrc = self.catIndices.size
+        self.nUnique = np.unique(self.catIndices).size
 
     def _extract(self) -> None:
-        assert self._parentCluster.data is not None
-        self._data = self._parentCluster.data.iloc[self._mask]
+        assert self.parentCluster.data is not None
+        self.data = self.parentCluster.data.iloc[self.mask]
         self._updateCatIndices()
 
     def processObject(
@@ -188,29 +132,29 @@ class ObjectData:
         """Recursively process an object and make sub-objects"""
         if recurse > RECURSE_MAX:
             return
-        self._recurse = recurse
+        self.recurse = recurse
 
-        if self._nSrc == 0:
-            print("Empty object", self._nSrc, self._nUnique, recurse)
+        if self.nSrc == 0:
+            print("Empty object", self.nSrc, self.nUnique, recurse)
             return
 
-        assert self._data is not None
-        if self._mask.sum() == 1:
-            self._xCent = self._data.xPix.values[0]
-            self._yCent = self._data.yPix.values[0]
-            self._dist2 = np.zeros((1), float)
-            self._rmsDist = 0.0
+        assert self.data is not None
+        if self.mask.sum() == 1:
+            self.xCent = self.data.xPix.values[0]
+            self.yCent = self.data.yPix.values[0]
+            self.dist2 = np.zeros((1), float)
+            self.rmsDist = 0.0
             return
 
-        sumSnr = np.sum(self._data.SNR)
-        self._xCent = np.sum(self._data.xPix * self._data.SNR) / sumSnr
-        self._yCent = np.sum(self._data.yPix * self._data.SNR) / sumSnr
-        self._dist2 = np.array(
-            (self._xCent - self._data.xPix) ** 2 + (self._yCent - self._data.yPix) ** 2
+        sumSnr = np.sum(self.data.SNR)
+        self.xCent = np.sum(self.data.xPix * self.data.SNR) / sumSnr
+        self.yCent = np.sum(self.data.yPix * self.data.SNR) / sumSnr
+        self.dist2 = np.array(
+            (self.xCent - self.data.xPix) ** 2 + (self.yCent - self.data.yPix) ** 2
         )
-        self._rmsDist = np.sqrt(np.mean(self._dist2))
+        self.rmsDist = np.sqrt(np.mean(self.dist2))
 
-        subMask = self._dist2 < pixelR2Cut
+        subMask = self.dist2 < pixelR2Cut
         if subMask.all():
             return
 
@@ -228,18 +172,18 @@ class ObjectData:
         """
         if recurse > RECURSE_MAX:
             return
-        self._recurse = recurse
+        self.recurse = recurse
         self._extract()
 
-        assert self._data is not None
+        assert self.data is not None
 
-        bbox = self._parentCluster.footprint.getBBox()
+        bbox = self.parentCluster.footprint.getBBox()
         zoomFactors = [1, 2, 4, 8, 16, 32]
         zoomFactor = zoomFactors[recurse]
 
         nPix = zoomFactor * np.array([bbox.getHeight(), bbox.getWidth()])
-        zoomX = zoomFactor * self._data.xCluster / self._parentCluster.pixelMatchScale()
-        zoomY = zoomFactor * self._data.yCluster / self._parentCluster.pixelMatchScale()
+        zoomX = zoomFactor * self.data.xCluster / self.parentCluster.pixelMatchScale
+        zoomY = zoomFactor * self.data.yCluster / self.parentCluster.pixelMatchScale
 
         countsMap = utils.fillCountsMapFromArrays(zoomX, zoomY, nPix)
 
@@ -256,13 +200,13 @@ class ObjectData:
         footprintIds = utils.findClusterIdsFromArrays(zoomX, zoomY, footprintKey)
 
         biggest = np.argmax(np.bincount(footprintIds))
-        biggestMask = np.zeros(self._mask.shape, dtype=bool)
+        biggestMask = np.zeros(self.mask.shape, dtype=bool)
 
         for iFp in range(nFootprints):
             subMask = footprintIds == iFp
             count = 0
-            newMask = np.zeros(self._mask.shape, dtype=bool)
-            for i, val in enumerate(self._mask):
+            newMask = np.zeros(self.mask.shape, dtype=bool)
+            for i, val in enumerate(self.mask):
                 if val:
                     newMask[i] = subMask[count]
                     count += 1
@@ -272,10 +216,10 @@ class ObjectData:
                 biggestMask = newMask
                 continue
 
-            newObject = self._parentCluster.addObject(cellData, newMask)
+            newObject = self.parentCluster.addObject(cellData, newMask)
             newObject.processObject(cellData, pixelR2Cut, recurse=recurse)
 
-        self._mask = biggestMask
+        self.mask = biggestMask
         self._extract()
         self.processObject(cellData, pixelR2Cut, recurse=recurse)
         return
@@ -286,5 +230,5 @@ class ShearObjectData(ObjectData):
 
     def shearStats(self) -> dict:
         """Return the shear statistics"""
-        assert self._data is not None
-        return shear_utils.shearStats(self._data)
+        assert self.data is not None
+        return shear_utils.shearStats(self.data)

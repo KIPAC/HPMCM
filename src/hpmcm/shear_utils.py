@@ -31,17 +31,17 @@ def shearStats(df: pandas.DataFrame) -> dict:
     -----
     If the matching is not good, then delta_g_1 = delta_g_2 = np.nan
     """
-    outDict = {}
+    outDict: dict[str, float | int] = {}
     allGood = True
     for i, name_ in enumerate(SHEAR_NAMES):
         mask = df.iCat == i
         nCat = mask.sum()
         if nCat != 1:
             allGood = False
-        outDict[f"n_{name_}"] = nCat
+        outDict[f"n_{name_}"] = int(nCat)
         if nCat:
-            outDict[f"g_1_{name_}"] = df[mask].mean()
-            outDict[f"g_2_{name_}"] = df[mask].mean()
+            outDict[f"g_1_{name_}"] = df[mask].values.mean()
+            outDict[f"g_2_{name_}"] = df[mask].values.mean()
         else:
             outDict[f"g_1_{name_}"] = np.nan
             outDict[f"g_2_{name_}"] = np.nan

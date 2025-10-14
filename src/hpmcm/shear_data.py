@@ -47,6 +47,9 @@ class ShearHistogramStats:
 class ShearHistograms:
     """Simple class to store histogram relating to shear calibration
 
+    {type} is the matching type, one of "good", "bad", "all"
+
+    {i}, {j} are the components of the shear: 1, 2
 
     Attributes
     ----------
@@ -268,10 +271,14 @@ class ShearHistograms:
 class ShearStats:
     """Simple class to store shear statisitics
 
+    {type} is the matching type, one of "good", "bad", "all"
+
+    {i}, {j} are the components of the shear: 1, 2
+
     Attributes
     ----------
     delta_g_{i}_{i}: ShearHistogramStats
-        Stats for g_{i}_{j} deltas for fully matched objects
+        Stats for g_{i}_{j}p - g_{i}_{j}m for fully matched objects
 
     {type}_g_{i}_{j}: ShearHistogramStats
         Stats for g_{i}_{j} for objects of {type}
@@ -333,43 +340,43 @@ class ShearData:
 
     Attritubes
     ----------
-    self.shear: float
+    shear: float
         Applied shear
 
-    self.catType: str
+    catType: str
         Catalog type
 
-    self.tract: int
+    tract: int
         Tract
 
-    self.nObjects: int
+    nObjects: int
         Number of objects in catalog
 
-    self.nInCell: int
+    nInCell: int
         Nubmer of objects in the central region of cell
 
-    self.nUsed: int
+    nUsed: int
         Number of objects passing SNR cut and in central region of cell
 
-    self.nGood: int
+    nGood: int
         Number of fully matched objects
 
-    self.nBad: int
+    nBad: int
         Number on non-fully matched objects
 
-    self.nAll: int
+    nAll: int
         Number of fully and non-fully matched objects
 
-    self.effic: float
+    effic: float
         Efficiency to fully match objects
 
-    self.efficErr: float
+    efficErr: float
         Error on efficiency to fully match objects
 
-    self.hists = ShearHistograms
+    hists: ShearHistograms
         Histograms of shear data
 
-    self.stats = ShearStats
+    stats: ShearStats
         Summary statistics
     """
 

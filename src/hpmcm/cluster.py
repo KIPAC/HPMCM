@@ -13,8 +13,9 @@ if TYPE_CHECKING:
         import lsst.afw.detection as afwDetect
     except ImportError:
         pass
-    from .cell import CellData
     import lsst.afw.detection as afwDetect
+
+    from .cell import CellData
 
 
 class ClusterData:
@@ -25,37 +26,37 @@ class ClusterData:
 
     Attributes
     ----------
-    _iCluster : int
+    iCluster : int
         Cluster ID
 
-    _footprint: afwDetect.Footprint
+    footprint: afwDetect.Footprint
         Footprint of this cluster in the CellData counts map
 
-    _origCluster : int
+    origCluster : int
         Id of the original cluster this cluster was made from
 
-    _sources: np.ndarray
+    sources: np.ndarray
         Data about the sources in this cluster
 
-    _nSrc : int
+    nSrc : int
         Number of sources in this cluster
 
-    _nUnique : int
+    nUnique : int
         Number of catalogs contributing sources to this cluster
 
-    _objects: list[ObjectData]
+    objects: list[ObjectData]
         Data about the objects in this cluster
 
-    _xCent : float
+    xCent : float
         X-pixel value of cluster centroid (in WCS used to do matching)
 
-    _yCent : float
+    yCent : float
         Y-pixel value of cluster centroid (in WCS used to do matching)
 
-    _rmsDist: float
+    rmsDist: float
         RMS distance of sources to the centroid
 
-    _dist2: np.ndarray
+    dist2: np.ndarray
         Distances of sources to the centroid
     """
 
@@ -68,140 +69,86 @@ class ClusterData:
     ):
         """Build from a Footprint and data about the
         sources in that Footprint"""
-        self._iCluster: int = iCluster
-        self._footprint: afwDetect.Footprint = footprint
-        self._origCluster: int = iCluster
+        self.iCluster: int = iCluster
+        self.footprint: afwDetect.Footprint = footprint
+        self.origCluster: int = iCluster
         if origCluster is not None:
-            self._origCluster = origCluster
-        self._sources: np.ndarray = sources
+            self.origCluster = origCluster
+        self.sources: np.ndarray = sources
 
-        self._nSrc: int = self._sources[0].size
-        self._nUnique: int = len(np.unique(self._sources[0]))
-        self._objects: list[ObjectData] = []
-        self._data: pandas.DataFrame | None = None
+        self.nSrc: int = self.sources[0].size
+        self.nUnique: int = len(np.unique(self.sources[0]))
+        self.objects: list[ObjectData] = []
+        self.data: pandas.DataFrame | None = None
 
-        self._xCent: float = np.nan
-        self._yCent: float = np.nan
-        self._rmsDist: float = np.nan
-        self._dist2: np.ndarray = np.array([])
-
-    def pixelMatchScale(self) -> int:
-        """Number of pixel merged in the original counts map"""
-        return 1
+        self.xCent: float = np.nan
+        self.yCent: float = np.nan
+        self.rmsDist: float = np.nan
+        self.dist2: np.ndarray = np.array([])
+        self.pixelMatchScale: int = 1
 
     def extract(self, cellData: CellData) -> None:
         """Extract the xPix, yPix and snr data from
         the sources in this cluster
         """
-        bbox = self._footprint.getBBox()
+        bbox = self.footprint.getBBox()
 
-        xOffset = bbox.getBeginY() * self.pixelMatchScale()
-        yOffset = bbox.getBeginX() * self.pixelMatchScale()
+        xOffset = bbox.getBeginY() * self.pixelMatchScale
+        yOffset = bbox.getBeginX() * self.pixelMatchScale
 
         seriesList = []
 
-        for _i, (iCat, srcIdx) in enumerate(zip(self._sources[0], self._sources[2])):
+        for _i, (iCat, srcIdx) in enumerate(zip(self.sources[0], self.sources[2])):
             seriesList.append(cellData.data[iCat].iloc[srcIdx])
 
-        self._data = pandas.DataFrame(seriesList)
-        self._data["iCat"] = self._sources[0]
-        self._data["srcId"] = self._sources[1]
-        self._data["srcIdx"] = self._sources[2]
-        self._data["xCluster"] = self._data.xCell - xOffset
-        self._data["yCluster"] = self._data.yCell - yOffset
-
-    @property
-    def data(self) -> pandas.DataFrame | None:
-        """Return the data for this cluster"""
-        return self._data
-
-    @property
-    def footprint(self) -> afwDetect.Footprint:
-        """Return the footprint associated to this cluster"""
-        return self._footprint
-
-    @property
-    def iCluster(self) -> int:
-        """Return the cluster ID"""
-        return self._iCluster
-
-    @property
-    def nSrc(self) -> int:
-        """Return the number of sources associated to the cluster"""
-        return self._nSrc
-
-    @property
-    def nUnique(self) -> int:
-        """Return the number of catalogs contributing sources to the cluster"""
-        return self._nUnique
+        self.data = pandas.DataFrame(seriesList)
+        self.data["iCat"] = self.sources[0]
+        self.data["srcId"] = self.sources[1]
+        self.data["srcIdx"] = self.sources[2]
+        self.data["xCluster"] = self.data.xCell - xOffset
+        self.data["yCluster"] = self.data.yCell - yOffset
 
     @property
     def catIndices(self) -> np.ndarray:
         """Return the catalog indices for all the sources in the cluster"""
-        assert self._data is not None
-        return self._data.iCat
+        assert self.data is not None
+        return self.data.iCat
 
     @property
     def srcIds(self) -> np.ndarray:
         """Return the ids for all the sources in the cluster"""
-        assert self._data is not None
-        return self._data.srcId
+        assert self.data is not None
+        return self.data.srcId
 
     @property
     def srcIdxs(self) -> np.ndarray:
         """Return the indices for all the sources in the cluster"""
-        assert self._data is not None
-        return self._data.srcIdx
+        assert self.data is not None
+        return self.data.srcIdx
 
     @property
     def xCluster(self) -> np.ndarray:
         """Return the x-positions of the soures w.r.t. the footprint"""
-        assert self._data is not None
-        return self._data.xCluster
+        assert self.data is not None
+        return self.data.xCluster
 
     @property
     def yCluster(self) -> np.ndarray:
         """Return the y-positions of the soures w.r.t. the footprint"""
-        assert self._data is not None
-        return self._data.yCluster
+        assert self.data is not None
+        return self.data.yCluster
 
     @property
     def xPix(self) -> np.ndarray:
         """Return the x-positions of the soures w.r.t. the WCS"""
-        assert self._data is not None
-        return self._data.xPix
+        assert self.data is not None
+        return self.data.xPix
 
     @property
     def yPix(self) -> np.ndarray:
         """Return the x-positions of the soures w.r.t. the WCS"""
-        assert self._data is not None
-        return self._data.yPix
-
-    @property
-    def xCent(self) -> float:
-        """Return the x-position of the centroid of the cluster in the WCS"""
-        return self._xCent
-
-    @property
-    def yCent(self) -> float:
-        """Return the y-position of the centroid of the cluster in the WCS"""
-        return self._yCent
-
-    @property
-    def rmsDist(self) -> float:
-        """Return the RMS distance of the sources in the cluster"""
-        return self._rmsDist
-
-    @property
-    def dist2(self) -> np.ndarray:
-        """Return an array with the distance squared (in cells)
-        between each source and the cluster centroid"""
-        return self._dist2
-
-    @property
-    def objects(self) -> list[ObjectData]:
-        """Return the objects associated with this cluster"""
-        return self._objects
+        assert self.data is not None
+        return self.data.yPix
 
     def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
         """Function that is called recursively to
@@ -209,41 +156,41 @@ class ClusterData:
         the match radius of the cluster centroid.
         """
         self.extract(cellData)
-        assert self._data is not None
+        assert self.data is not None
 
-        self._nSrc = len(self._data.iCat)
-        self._nUnique = len(np.unique(self._data.iCat.values))
-        if self._nSrc == 0:
-            print("Empty cluster", self._nSrc, self._nUnique)
-            return self._objects
+        self.nSrc = len(self.data.iCat)
+        self.nUnique = len(np.unique(self.data.iCat.values))
+        if self.nSrc == 0:
+            print("Empty cluster", self.nSrc, self.nUnique)
+            return self.objects
 
-        if self._nSrc == 1:
-            self._xCent = self._data.xPix.values[0]
-            self._yCent = self._data.yPix.values[0]
-            self._dist2 = np.zeros((1))
-            self._rmsDist = 0.0
+        if self.nSrc == 1:
+            self.xCent = self.data.xPix.values[0]
+            self.yCent = self.data.yPix.values[0]
+            self.dist2 = np.zeros((1))
+            self.rmsDist = 0.0
             initialObject = self.addObject(cellData)
             initialObject.processObject(cellData, pixelR2Cut)
-            return self._objects
+            return self.objects
 
-        sumSnr = np.sum(self._data.SNR)
-        self._xCent = np.sum(self._data.xPix * self._data.SNR) / sumSnr
-        self._yCent = np.sum(self._data.yPix * self._data.SNR) / sumSnr
-        self._dist2 = (self._xCent - self._data.xPix) ** 2 + (
-            self._yCent - self._data.yPix
+        sumSnr = np.sum(self.data.SNR)
+        self.xCent = np.sum(self.data.xPix * self.data.SNR) / sumSnr
+        self.yCent = np.sum(self.data.yPix * self.data.SNR) / sumSnr
+        self.dist2 = (self.xCent - self.data.xPix) ** 2 + (
+            self.yCent - self.data.yPix
         ) ** 2
-        self._rmsDist = np.sqrt(np.mean(self._dist2))
+        self.rmsDist = np.sqrt(np.mean(self.dist2))
 
         initialObject = self.addObject(cellData)
         initialObject.processObject(cellData, pixelR2Cut)
-        return self._objects
+        return self.objects
 
     def addObject(
         self, cellData: CellData, mask: np.ndarray | None = None
     ) -> ObjectData:
         """Add a new object to this cluster"""
         newObject = cellData.addObject(self, mask)
-        self._objects.append(newObject)
+        self.objects.append(newObject)
         return newObject
 
 
@@ -252,7 +199,7 @@ class ShearClusterData(ClusterData):
 
     Attributes
     ----------
-    _pixelMatchScale: int
+    pixelMatchScale: int
         Number of pixel merged in the original counts map
     """
 
@@ -265,21 +212,17 @@ class ShearClusterData(ClusterData):
         pixelMatchScale: int = 1,
     ):
         ClusterData.__init__(self, iCluster, footprint, sources, origCluster)
-        self._pixelMatchScale = pixelMatchScale
-
-    def pixelMatchScale(self) -> int:
-        """Number of pixel merged in the original counts map"""
-        return self._pixelMatchScale
+        self.pixelMatchScale = pixelMatchScale
 
     def shearStats(self) -> dict:
         """Return the shear statistics"""
-        assert self._data is not None
-        return shear_utils.shearStats(self._data)
+        assert self.data is not None
+        return shear_utils.shearStats(self.data)
 
     def addObject(
         self, cellData: CellData, mask: np.ndarray | None = None
     ) -> ObjectData:
         """Add a new object to this cluster"""
         newObject = cellData.addObject(self, mask)
-        self._objects.append(newObject)
+        self.objects.append(newObject)
         return newObject
