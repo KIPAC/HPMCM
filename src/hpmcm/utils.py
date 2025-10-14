@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-import lsst.afw.detection as afwDetect
-import lsst.afw.image as afwImage
+try:
+    import lsst.afw.image as afwImage
+    import lsst.afw.detection as afwDetect
+except Exception:
+    pass
+
 import numpy as np
 import pandas
 

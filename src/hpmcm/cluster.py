@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import lsst.afw.detection as afwDetect
 import numpy as np
 import pandas
 
@@ -10,6 +9,7 @@ from .object import ObjectData
 
 if TYPE_CHECKING:
     from .cell import CellData
+    import lsst.afw.detection as afwDetect
 
 
 class ClusterData:

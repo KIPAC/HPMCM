@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-import lsst.afw.detection as afwDetect
 import numpy as np
 import pandas
 
@@ -14,6 +13,7 @@ from .object import ObjectData, ShearObjectData
 if TYPE_CHECKING:
     from .match import Match
     from .shear_match import ShearMatch
+    import lsst.afw.detection as afwDetect
 
 
 class CellData:

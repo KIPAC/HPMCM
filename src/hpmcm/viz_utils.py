@@ -1,4 +1,7 @@
-import lsst.afw.image as afwImage
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure, SubFigure
@@ -6,6 +9,9 @@ from matplotlib.figure import Figure, SubFigure
 from .cell import CellData
 from .cluster import ClusterData
 from .match import Match
+
+if TYPE_CHECKING:
+    import lsst.afw.image as afwImage
 
 
 def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
