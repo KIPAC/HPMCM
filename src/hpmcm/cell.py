@@ -298,6 +298,8 @@ class CellData:
         xCents = np.zeros((nClust), dtype=float)
         yCents = np.zeros((nClust), dtype=float)
         SNRs = np.zeros((nClust), dtype=float)
+        SNRRms = np.zeros((nClust), dtype=float)
+        
         for idx, cluster in enumerate(self.clusterDict.values()):
             clusterIds[idx] = cluster.iCluster
             nSrcs[idx] = cluster.nSrc
@@ -309,7 +311,9 @@ class CellData:
             sumSNR = cluster.data.SNR.sum()
             xCents[idx] = np.sum(cluster.data.SNR * cluster.data.xCell) / sumSNR
             yCents[idx] = np.sum(cluster.data.SNR * cluster.data.yCell) / sumSNR
-            SNRs[idx] = cluster.data.SNR.min()
+            SNRs[idx] = cluster.snrMean
+            SNRRms[idx] = cluster.snrRms
+
         ra, dec = self._getRaDec(xCents, yCents)
         distRms *= self.matcher.pixToArcsec()
 
@@ -324,6 +328,7 @@ class CellData:
             xCents=xCents,
             yCents=yCents,
             SNRs=SNRs,
+            SNRRms=SNRRms,            
             cellIdx=np.repeat(self.idx, len(distRms)).astype(int),
         )
 
@@ -340,6 +345,7 @@ class CellData:
         xCents = np.zeros((nObj), dtype=float)
         yCents = np.zeros((nObj), dtype=float)
         SNRs = np.zeros((nObj), dtype=float)
+        SNRRms = np.zeros((nObj), dtype=float)
 
         for idx, obj in enumerate(self.objectDict.values()):
             clusterIds[idx] = obj.parentCluster.iCluster
@@ -353,7 +359,8 @@ class CellData:
             sumSNR = obj.data.SNR.sum()
             xCents[idx] = np.sum(obj.data.SNR * obj.data.xCell) / sumSNR
             yCents[idx] = np.sum(obj.data.SNR * obj.data.yCell) / sumSNR
-            SNRs[idx] = obj.data.SNR.min()
+            SNRs[idx] = obj.snrMean
+            SNRRms[idx] = obj.snrRms
 
         ra, dec = self._getRaDec(xCents, yCents)
         distRms *= self.matcher.pixToArcsec()
@@ -369,6 +376,7 @@ class CellData:
             xCents=xCents,
             yCents=yCents,
             SNRs=SNRs,
+            SNRRms=SNRRms,
             cellIdx=np.repeat(self.idx, len(distRms)).astype(int),
         )
 
@@ -431,7 +439,7 @@ class ShearCellData(CellData):
 
     Attributes
     ----------
-    _pixelMatchScale: int
+    pixelMatchScale: int
         Number of pixel merged in the original counts map
     """
 
@@ -445,7 +453,7 @@ class ShearCellData(CellData):
         buf: int = 10,
     ):
         CellData.__init__(self, matcher, idOffset, corner, size, idx, buf)
-        self.pixelMatchScale = matcher._pixelMatchScale
+        self.pixelMatchScale = matcher.pixelMatchScale
 
     def reduceDataframe(
         self, iCat: int, dataframe: pandas.DataFrame

@@ -94,10 +94,12 @@ def shear_split_command(
 @options.basefile()
 @options.output_file()
 @options.shear(required=True)
+@options.snr_cut()
 def shear_report_command(
     basefile: str,
     output_file: str,
     shear: float,
+    snr_cut: float,
 ) -> None:
     """Build shear calibration reports"""
     tokens = basefile.split("_")

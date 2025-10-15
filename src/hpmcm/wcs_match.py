@@ -66,17 +66,17 @@ class WcsMatch(Match):
         matchWcs: wcs.WCS,
         **kwargs: Any,
     ):
-        self._wcs: wcs.WCS = matchWcs
-        pixSize: float = self._wcs.wcs.cdelt[1]
-        nPixSide: np.ndarray = np.ceil(2 * np.array(self._wcs.wcs.crpix)).astype(int)
-        Match.__init__(self, pixSize=pixSize, nPixSide=nPixSide, **kwargs)
+        self.wcs: wcs.WCS = matchWcs
+        pixelSize: float = self.wcs.wcs.cdelt[1]
+        nPixSide: np.ndarray = np.ceil(2 * np.array(self.wcs.wcs.crpix)).astype(int)
+        Match.__init__(self, pixelSize=pixelSize, nPixSide=nPixSide, **kwargs)
 
     @classmethod
     def create(
         cls,
         refDir: tuple[float, float],
         regionSize: tuple[float, float],
-        pixSize: float,
+        pixelSize: float,
         **kwargs: Any,
     ) -> Match:
         """Helper function to create a Match object
@@ -94,17 +94,12 @@ class WcsMatch(Match):
         Match:
             Object to create matches for the requested region
         """
-        nPix = (np.array(regionSize) / pixSize).astype(int)
-        matchWcs = createGlobalWcs(refDir, pixSize, nPix)
+        nPix = (np.array(regionSize) / pixelSize).astype(int)
+        matchWcs = createGlobalWcs(refDir, pixelSize, nPix)
         return cls(matchWcs, nPixels=nPix, **kwargs)
 
-    @property
-    def wcs(self) -> wcs.WCS:
-        """Return the WCS used to pixelize the region"""
-        return self._wcs
-
     def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        xPix, yPix = self._wcs.wcs_world2pix(df["ra"].values, df["dec"].values, 0)
+        xPix, yPix = self.wcs.wcs_world2pix(df["ra"].values, df["dec"].values, 0)
         return xPix, yPix
 
     def pixToWorld(
@@ -113,8 +108,8 @@ class WcsMatch(Match):
         yPix: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Convert locals in pixels to world coordinates (RA, DEC)"""
-        assert self._wcs is not None
-        return self._wcs.wcs_pix2world(xPix, yPix, 0)
+        assert self.wcs is not None
+        return self.wcs.wcs_pix2world(xPix, yPix, 0)
 
     def _reduceDataFrame(
         self,
@@ -122,7 +117,7 @@ class WcsMatch(Match):
     ) -> pandas.DataFrame:
         """Reduce a single input DataFrame"""
         df_clean = df[(df.SNR > 1)]
-        xPix, yPix = self._wcs.wcs_world2pix(
+        xPix, yPix = self.wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
         )
         df_red = df_clean.copy(deep=True)

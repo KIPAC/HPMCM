@@ -40,8 +40,8 @@ def shearStats(df: pandas.DataFrame) -> dict:
             allGood = False
         outDict[f"n_{name_}"] = int(nCat)
         if nCat:
-            outDict[f"g_1_{name_}"] = df[mask].values.mean()
-            outDict[f"g_2_{name_}"] = df[mask].values.mean()
+            outDict[f"g_1_{name_}"] = df[mask].g_1.values.mean()
+            outDict[f"g_2_{name_}"] = df[mask].g_2.values.mean()
         else:
             outDict[f"g_1_{name_}"] = np.nan
             outDict[f"g_2_{name_}"] = np.nan

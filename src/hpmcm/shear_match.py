@@ -21,16 +21,16 @@ class ShearMatch(Match):
 
     Attributes
     ----------
-    _maxSubDivision: int
+    maxSubDivision: int
         Maximum number of cell sub-diviions
 
-    _pixelMatchScale: int
+    pixelMatchScale: int
         Number of cells to merge in original counts map
 
-    _catType: str
+    catType: str
         Shear catalog type
 
-    _deshear: float
+    deshear: float
         Deshearing parameter
 
     Notes
@@ -77,16 +77,11 @@ class ShearMatch(Match):
         self,
         **kwargs: Any,
     ):
-        self._maxSubDivision: int = kwargs.get("maxSubDivision", 3)
-        self._pixelMatchScale: int = kwargs.get("pixelMatchScale", 1)
-        self._catType: str = kwargs.get("catalogType", "wmom")
-        self._deshear: float | None = kwargs.get("deshear", None)
+        self.maxSubDivision: int = kwargs.get("maxSubDivision", 3)
+        self.pixelMatchScale: int = kwargs.get("pixelMatchScale", 1)
+        self.catType: str = kwargs.get("catalogType", "wmom")
+        self.deshear: float | None = kwargs.get("deshear", None)
         Match.__init__(self, **kwargs)
-
-    @property
-    def deshear(self) -> float | None:
-        """Return the deshearing parameter"""
-        return self._deshear
 
     @classmethod
     def createShearMatch(
@@ -110,7 +105,7 @@ class ShearMatch(Match):
         """
         nPix = np.array([30000, 30000])
         kw = dict(
-            pixelSize=0.2,
+            pixelSize=0.2/3600.,
             nPixels=nPix,
             cellSize=150,
             cellBuffer=25,
@@ -170,7 +165,7 @@ class ShearMatch(Match):
         df: pandas.DataFrame,
     ) -> np.ndarray:
         """Get the Index to use for a given cell"""
-        return (self._nCell[1] * df["cellIdxX"] + df["cellIdxY"]).astype(int)
+        return (self.nCell[1] * df["cellIdxX"] + df["cellIdxY"]).astype(int)
 
     def _buildCellData(
         self,
@@ -179,19 +174,19 @@ class ShearMatch(Match):
         size: np.ndarray,
         idx: int,
     ) -> CellData:
-        return ShearCellData(self, idOffset, corner, size, idx, self._cellBuffer)
+        return ShearCellData(self, idOffset, corner, size, idx, self.cellBuffer)
 
     def extractShearStats(self) -> list[pandas.DataFrame]:
         """Extract shear stats"""
         clusterShearStatsTables = []
         objectShearStatsTables = []
 
-        for ix in range(int(self._nCell[0])):
-            for iy in range(int(self._nCell[1])):
+        for ix in range(int(self.nCell[0])):
+            for iy in range(int(self.nCell[1])):
                 iCell = self.getCellIdx(ix, iy)
-                if iCell not in self._cellDict:
+                if iCell not in self.cellDict:
                     continue
-                cellData = self._cellDict[iCell]
+                cellData = self.cellDict[iCell]
                 assert isinstance(cellData, ShearCellData)
                 clusterShearStatsTables.append(cellData.getClusterShearStats())
                 objectShearStatsTables.append(cellData.getObjectShearStats())
@@ -259,12 +254,13 @@ class ShearMatch(Match):
         shear: float,
         catType: str,
         tract: int,
+        snrCut: float=7.5,
     ) -> None:
         """Report on the shear calibration"""
         t = tables_io.read(f"{basefile}_object_shear.pq")
         t2 = tables_io.read(f"{basefile}_object_stats.pq")
 
-        shearData = ShearData(t, t2, shear, catType, tract, snrCut=7.5)
+        shearData = ShearData(t, t2, shear, catType, tract, snrCut=snrCut)
 
         if outputFileBase is not None:
             shearData.save(f"{outputFileBase}.pkl")

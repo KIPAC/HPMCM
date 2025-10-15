@@ -157,42 +157,21 @@ class Match:
         self,
         **kwargs: Any,
     ):
-        self._pixSize = kwargs["pixelSize"]
-        self._nPixSide = kwargs["nPixels"]
-        self._cellSize: int = kwargs.get("cellSize", 3000)
-        self._cellBuffer: int = kwargs.get("cellBuffer", 10)
-        self._cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
-        self._pixelR2Cut: float = kwargs.get("pixelR2Cut", 1.0)
-        self._nCell: np.ndarray = np.ceil(self._nPixSide / self._cellSize)
+        self.pixSize = kwargs["pixelSize"]
+        self.nPixSide = kwargs["nPixels"]
+        self.cellSize: int = kwargs.get("cellSize", 3000)
+        self.cellBuffer: int = kwargs.get("cellBuffer", 10)
+        self.cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
+        self.pixelR2Cut: float = kwargs.get("pixelR2Cut", 1.0)
+        self.nCell: np.ndarray = np.ceil(self.nPixSide / self.cellSize)
 
-        self._fullData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
-        self._cellDict: OrderedDict[int, CellData] = OrderedDict()
-
-    @property
-    def fullData(self) -> OrderedDict[int, pandas.DataFrame]:
-        """Return the dictionary of full data as passed to the Match object"""
-        return self._fullData
-
-    @property
-    def redData(self) -> OrderedDict[int, pandas.DataFrame]:
-        """Return the dictionary of reduced data, i.e., just the columns
-        need for matching"""
-        return self._redData
-
-    @property
-    def cellDict(self) -> OrderedDict[int, CellData]:
-        """Return the dictionary of CellData"""
-        return self._cellDict
-
-    @property
-    def nCell(self) -> np.ndarray:
-        """Return the number of cells in X,Y"""
-        return self._nCell
+        self.fullData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
+        self.redData: OrderedDict[int, pandas.DataFrame] = OrderedDict()
+        self.cellDict: OrderedDict[int, CellData] = OrderedDict()
 
     def pixToArcsec(self) -> float:
         """Convert pixel size (in degrees) to arcseconds"""
-        return 3600.0 * self._pixSize
+        return 3600.0 * self.pixSize
 
     def pixToWorld(
         self,
@@ -208,7 +187,7 @@ class Match:
         iy: int,
     ) -> int:
         """Get the Index to use for a given cell"""
-        return int(self._nCell[1] * ix + iy)
+        return int(self.nCell[1] * ix + iy)
 
     def getIdOffset(
         self,
@@ -217,7 +196,7 @@ class Match:
     ) -> int:
         """Get the ID offset to use for a given cell"""
         cellIdx = self.getCellIdx(ix, iy)
-        return int(self._cellMaxObject * cellIdx)
+        return int(self.cellMaxObject * cellIdx)
 
     def reduceData(
         self,
@@ -235,9 +214,9 @@ class Match:
         0 to nInputs.
         """
         for fName, vid in zip(inputFiles, visitIds):
-            self._fullData[vid] = self._readDataFrame(fName)
-            self._redData[vid] = self._reduceDataFrame(self._fullData[vid])
-            self._fullData[vid].set_index("id", inplace=True)
+            self.fullData[vid] = self._readDataFrame(fName)
+            self.redData[vid] = self._reduceDataFrame(self.fullData[vid])
+            self.fullData[vid].set_index("id", inplace=True)
 
     def _buildCellData(
         self,
@@ -246,7 +225,7 @@ class Match:
         size: np.ndarray,
         idx: int,
     ) -> CellData:
-        return CellData(self, idOffset, corner, size, idx, self._cellBuffer)
+        return CellData(self, idOffset, corner, size, idx, self.cellBuffer)
 
     def analyzeCell(
         self,
@@ -287,16 +266,16 @@ class Match:
         If fullData is False, only cellData will be returned
         """
         iCell = self.getCellIdx(ix, iy)
-        cellStep = np.array([self._cellSize, self._cellSize])
+        cellStep = np.array([self.cellSize, self.cellSize])
         corner = np.array([ix-1, iy-1]) * cellStep
         idOffset = self.getIdOffset(ix, iy)
         cellData = self._buildCellData(idOffset, corner, cellStep, iCell)
-        cellData.reduceData(list(self._redData.values()))
-        oDict = cellData.analyze(pixelR2Cut=self._pixelR2Cut)
-        if cellData.nObjects >= self._cellMaxObject:
-            print("Too many object in a cell", cellData.nObjects, self._cellMaxObject)
+        cellData.reduceData(list(self.redData.values()))
+        oDict = cellData.analyze(pixelR2Cut=self.pixelR2Cut)
+        if cellData.nObjects >= self.cellMaxObject:
+            print("Too many object in a cell", cellData.nObjects, self.cellMaxObject)
 
-        self._cellDict[iCell] = cellData
+        self.cellDict[iCell] = cellData
         if oDict is None:
             return None
         if fullData:
@@ -309,12 +288,12 @@ class Match:
         self, xRange: Iterable | None = None, yRange: Iterable | None = None
     ) -> None:
         """Does matching for all cells"""
-        self._cellDict.clear()
+        self.cellDict.clear()
 
         if xRange is None:
-            xRange = range(int(self._nCell[0]))
+            xRange = range(int(self.nCell[0]))
         if yRange is None:
-            yRange = range(int(self._nCell[1]))
+            yRange = range(int(self.nCell[1]))
 
         for ix in xRange:
             for iy in yRange:
@@ -340,12 +319,12 @@ class Match:
         clusterStatsTables = []
         objectStatsTables = []
 
-        for ix in range(int(self._nCell[0])):
-            for iy in range(int(self._nCell[1])):
+        for ix in range(int(self.nCell[0])):
+            for iy in range(int(self.nCell[1])):
                 iCell = self.getCellIdx(ix, iy)
-                if iCell not in self._cellDict:
+                if iCell not in self.cellDict:
                     continue
-                cellData = self._cellDict[iCell]
+                cellData = self.cellDict[iCell]
                 clusterAssocTables.append(cellData.getClusterAssociations())
                 objectAssocTables.append(cellData.getObjectAssociations())
                 clusterStatsTables.append(cellData.getClusterStats())
@@ -361,7 +340,7 @@ class Match:
     def printSummaryStats(self) -> np.ndarray:
         """Helper function to print info about clusters"""
         stats = np.zeros((4), int)
-        for key, cellData in self._cellDict.items():
+        for key, cellData in self.cellDict.items():
             cellStats = clusterStats(cellData.clusterDict)
             print(
                 f"{key:%5}: "
@@ -422,9 +401,9 @@ class Match:
         edge_cut = kwargs.get("edgeCut", 2)
         snr_cut = kwargs.get("SNRCut", 7.5)
 
-        n_cat = len(self._redData)
+        n_cat = len(self.redData)
 
-        for iC, cellData in self._cellDict.items():
+        for iC, cellData in self.cellDict.items():
             cd = cellData.clusterDict
 
             for key, c in cd.items():
@@ -522,9 +501,9 @@ class Match:
 
         snr_cut = kwargs.get("SNRCut", 7.5)
 
-        n_cat = len(self._redData)
+        n_cat = len(self.redData)
 
-        for iC, cellData in self._cellDict.items():
+        for iC, cellData in self.cellDict.items():
             od = cellData.objectDict
             for key, c in od.items():
                 k = (iC, key)
@@ -627,9 +606,9 @@ class Match:
         edge_cut = kwargs.get("edgeCut", 2)
         snr_cut = kwargs.get("SNRCut", 7.5)
 
-        n_cat = len(self._redData)
+        n_cat = len(self.redData)
 
-        for iC, cellData in self._cellDict.items():
+        for iC, cellData in self.cellDict.items():
             od = cellData.objectDict
 
             for key, c in od.items():
@@ -847,12 +826,12 @@ class Match:
 
     def getCluster(self, iK: tuple[int, int]) -> ClusterData:
         """Get a particular cluster"""
-        cellData = self._cellDict[iK[0]]
+        cellData = self.cellDict[iK[0]]
         cluster = cellData.clusterDict[iK[1]]
         return cluster
 
     def getObject(self, iK: tuple[int, int]) -> ObjectData:
         """Get a particular object"""
-        cellData = self._cellDict[iK[0]]
+        cellData = self.cellDict[iK[0]]
         theObj = cellData.objectDict[iK[1]]
         return theObj

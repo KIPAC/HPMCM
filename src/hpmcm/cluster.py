@@ -56,6 +56,12 @@ class ClusterData:
     rmsDist: float
         RMS distance of sources to the centroid
 
+    snrMean: float
+        mean signal-to-noise
+
+    snrRms: float
+        RMS of signal-to-noise
+
     dist2: np.ndarray
         Distances of sources to the centroid
     """
@@ -84,6 +90,8 @@ class ClusterData:
         self.xCent: float = np.nan
         self.yCent: float = np.nan
         self.rmsDist: float = np.nan
+        self.snrMean: float = np.nan        
+        self.snrRms: float = np.nan
         self.dist2: np.ndarray = np.array([])
         self.pixelMatchScale: int = 1
 
@@ -169,6 +177,8 @@ class ClusterData:
             self.yCent = self.data.yPix.values[0]
             self.dist2 = np.zeros((1))
             self.rmsDist = 0.0
+            self.snrMean = self.data.SNR.values[0]
+            self.snrRms = 0.0
             initialObject = self.addObject(cellData)
             initialObject.processObject(cellData, pixelR2Cut)
             return self.objects
@@ -180,6 +190,8 @@ class ClusterData:
             self.yCent - self.data.yPix
         ) ** 2
         self.rmsDist = np.sqrt(np.mean(self.dist2))
+        self.snrMean = np.mean(self.data.SNR.values)
+        self.snrRms = np.std(self.data.SNR.values)
 
         initialObject = self.addObject(cellData)
         initialObject.processObject(cellData, pixelR2Cut)

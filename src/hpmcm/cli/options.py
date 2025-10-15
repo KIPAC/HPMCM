@@ -13,6 +13,7 @@ __all__: list[str] = [
     "pixel_match_scale",
     "pixel_r2_cut",
     "shear",
+    "snr_cut",
     "tract",
 ]
 
@@ -96,6 +97,14 @@ pixel_match_scale = PartialOption(
     type=int,
     default=1,
 )
+
+snr_cut = PartialOption(
+    "--snr-cut",
+    help="signal-to-noise cut",
+    type=float,
+    default=7.5,
+)
+
 
 shear = PartialOption(
     "--shear",

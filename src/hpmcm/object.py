@@ -144,6 +144,8 @@ class ObjectData:
             self.yCent = self.data.yPix.values[0]
             self.dist2 = np.zeros((1), float)
             self.rmsDist = 0.0
+            self.snrMean = self.data.SNR.values[0]
+            self.snrRms = 0.0            
             return
 
         sumSnr = np.sum(self.data.SNR)
@@ -153,6 +155,8 @@ class ObjectData:
             (self.xCent - self.data.xPix) ** 2 + (self.yCent - self.data.yPix) ** 2
         )
         self.rmsDist = np.sqrt(np.mean(self.dist2))
+        self.snrMean = np.mean(self.data.SNR.values)
+        self.snrRms = np.std(self.data.SNR.values)
 
         subMask = self.dist2 < pixelR2Cut
         if subMask.all():
