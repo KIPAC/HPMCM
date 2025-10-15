@@ -15,6 +15,149 @@ if TYPE_CHECKING:
 RECURSE_MAX = 4
 
 
+def makeObjectAssocTable(cellData: CellData) -> pandas.DataFrame:
+    """Small function to create object association table
+
+    Parameters
+    ----------
+    cellData:
+        Cell we are making table for
+
+    Returns
+    -------
+    pandas.DataFrame:
+        Object Association table    
+
+    Notes
+    -----
+    The data frame will have the following data
+
+    object: int
+        Object Id
+
+    parent: int
+        Parent Cluster Id
+
+    id: int
+        Source Id
+
+    idx: int
+        Source Index in respective catalog
+
+    cat: int
+        Index of catalog
+
+    distance: float
+        Distance between source and object centroid (in arcsec)
+
+    cellIdx: int
+        Index of parent cell
+    """
+    clusterIds = []
+    objectIds = []
+    sourceIds = []
+    sourceIdxs = []
+    catIdxs = []
+    distancesList: list[np.ndarray] = []
+
+    for obj in cellData.objectDict.values():
+        clusterIds.append(
+            np.full((obj.nSrc), obj.parentCluster.iCluster, dtype=int)
+        )
+        objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
+        sourceIds.append(obj.sourceIds())
+        sourceIdxs.append(obj.sourceIdxs())
+        catIdxs.append(obj.catIndices)
+        assert obj.dist2.size
+        distancesList.append(obj.dist2)
+    if not distancesList:
+        return pandas.DataFrame(
+            dict(
+                object=np.array([], int),
+                parent=np.array([], int),
+                id=np.array([], int),
+                idx=np.array([], int),
+                cat=np.array([], int),
+                distance=[],
+            )
+        )
+    distances = np.hstack(distancesList)
+    distances = cellData.matcher.pixToArcsec() * np.sqrt(distances)
+    data = dict(
+        object=np.hstack(objectIds),
+        parent=np.hstack(clusterIds),
+        id=np.hstack(sourceIds),
+        idx=np.hstack(sourceIdxs),
+        cat=np.hstack(catIdxs),
+        distance=distances,
+        cellIdx=np.repeat(cellData.idx, len(distances)).astype(int),
+    )
+    return pandas.DataFrame(data)
+
+
+def makeObjectStatsTable(cellData: CellData) -> pandas.DataFrame:
+    """Small function to create object association table
+
+    Parameters
+    ----------
+    cellData:
+        Cell we are making table for
+
+    Returns
+    -------
+    pandas.DataFrame:
+        Object Association table    
+        
+
+    """
+    nObj = self.nObjects
+    clusterIds = np.zeros((nObj), dtype=int)
+    objectIds = np.zeros((nObj), dtype=int)
+    nSrcs = np.zeros((nObj), dtype=int)
+    nUniques = np.zeros((nObj), dtype=int)
+    distRms = np.zeros((nObj), dtype=float)
+    xCents = np.zeros((nObj), dtype=float)
+    yCents = np.zeros((nObj), dtype=float)
+    SNRs = np.zeros((nObj), dtype=float)
+    SNRRms = np.zeros((nObj), dtype=float)
+    
+    for idx, obj in enumerate(cellData.objectDict.values()):
+        clusterIds[idx] = obj.parentCluster.iCluster
+        objectIds[idx] = obj.objectId
+        nSrcs[idx] = obj.nSrc
+        nUniques[idx] = obj.nUnique
+        distRms[idx] = obj.rmsDist
+        xCents[idx] = obj.xCent
+        yCents[idx] = obj.yCent
+        assert obj.data is not None
+        sumSNR = obj.data.SNR.sum()
+        xCents[idx] = np.sum(obj.data.SNR * obj.data.xCell) / sumSNR
+        yCents[idx] = np.sum(obj.data.SNR * obj.data.yCell) / sumSNR
+        SNRs[idx] = obj.snrMean
+        SNRRms[idx] = obj.snrRms
+
+    ra, dec = cellData._getRaDec(xCents, yCents)
+    distRms *= cellData.matcher.pixToArcsec()
+
+    data = dict(
+        clusterIds=clusterIds,
+        objectIds=objectIds,
+        nUniques=nUniques,
+        nSrcs=nSrcs,
+        distRms=distRms,
+        ra=ra,
+        dec=dec,
+        xCents=xCents,
+        yCents=yCents,
+        SNRs=SNRs,
+        SNRRms=SNRRms,
+        cellIdx=np.repeat(cellData.idx, len(distRms)).astype(int),
+    )
+
+    return pandas.DataFrame(data)
+
+
+
 class ObjectData:
     """Small class to define 'Objects', i.e., sets of associated sources
 
@@ -82,7 +225,7 @@ class ObjectData:
         self.yCent: float = np.nan
         self.rmsDist: float = np.nan
         self.dist2: np.ndarray = np.array([])
-        self._extract()
+        self.extract()
 
     @property
     def xCluster(self) -> np.ndarray:
@@ -121,112 +264,11 @@ class ObjectData:
         self.nSrc = self.catIndices.size
         self.nUnique = np.unique(self.catIndices).size
 
-    def _extract(self) -> None:
+    def extract(self) -> None:
+        """Extract data from parent cluster"""
         assert self.parentCluster.data is not None
         self.data = self.parentCluster.data.iloc[self.mask]
         self._updateCatIndices()
-
-    def processObject(
-        self, cellData: CellData, pixelR2Cut: float, recurse: int = 0
-    ) -> None:
-        """Recursively process an object and make sub-objects"""
-        if recurse > RECURSE_MAX:
-            return
-        self.recurse = recurse
-
-        if self.nSrc == 0:
-            print("Empty object", self.nSrc, self.nUnique, recurse)
-            return
-
-        assert self.data is not None
-        if self.mask.sum() == 1:
-            self.xCent = self.data.xPix.values[0]
-            self.yCent = self.data.yPix.values[0]
-            self.dist2 = np.zeros((1), float)
-            self.rmsDist = 0.0
-            self.snrMean = self.data.SNR.values[0]
-            self.snrRms = 0.0            
-            return
-
-        sumSnr = np.sum(self.data.SNR)
-        self.xCent = np.sum(self.data.xPix * self.data.SNR) / sumSnr
-        self.yCent = np.sum(self.data.yPix * self.data.SNR) / sumSnr
-        self.dist2 = np.array(
-            (self.xCent - self.data.xPix) ** 2 + (self.yCent - self.data.yPix) ** 2
-        )
-        self.rmsDist = np.sqrt(np.mean(self.dist2))
-        self.snrMean = np.mean(self.data.SNR.values)
-        self.snrRms = np.std(self.data.SNR.values)
-
-        subMask = self.dist2 < pixelR2Cut
-        if subMask.all():
-            return
-
-        if recurse >= RECURSE_MAX:
-            return
-
-        self.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
-        return
-
-    def splitObject(
-        self, cellData: CellData, pixelR2Cut: float, recurse: int = 0
-    ) -> None:
-        """Split up a cluster keeping only one source per input
-        catalog
-        """
-        if recurse > RECURSE_MAX:
-            return
-        self.recurse = recurse
-        self._extract()
-
-        assert self.data is not None
-
-        bbox = self.parentCluster.footprint.getBBox()
-        zoomFactors = [1, 2, 4, 8, 16, 32]
-        zoomFactor = zoomFactors[recurse]
-
-        nPix = zoomFactor * np.array([bbox.getHeight(), bbox.getWidth()])
-        zoomX = zoomFactor * self.data.xCluster / self.parentCluster.pixelMatchScale
-        zoomY = zoomFactor * self.data.yCluster / self.parentCluster.pixelMatchScale
-
-        countsMap = utils.fillCountsMapFromArrays(zoomX, zoomY, nPix)
-
-        fpDict = utils.getFootprints(countsMap, buf=0)
-        footprints = fpDict["footprints"]
-        nFootprints = len(footprints.getFootprints())
-        if nFootprints == 1:
-            if recurse >= RECURSE_MAX:
-                return
-            self.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
-            return
-
-        footprintKey = fpDict["footprintKey"]
-        footprintIds = utils.findClusterIdsFromArrays(zoomX, zoomY, footprintKey)
-
-        biggest = np.argmax(np.bincount(footprintIds))
-        biggestMask = np.zeros(self.mask.shape, dtype=bool)
-
-        for iFp in range(nFootprints):
-            subMask = footprintIds == iFp
-            count = 0
-            newMask = np.zeros(self.mask.shape, dtype=bool)
-            for i, val in enumerate(self.mask):
-                if val:
-                    newMask[i] = subMask[count]
-                    count += 1
-            assert subMask.sum() == newMask.sum()
-
-            if iFp == biggest:
-                biggestMask = newMask
-                continue
-
-            newObject = self.parentCluster.addObject(cellData, newMask)
-            newObject.processObject(cellData, pixelR2Cut, recurse=recurse)
-
-        self.mask = biggestMask
-        self._extract()
-        self.processObject(cellData, pixelR2Cut, recurse=recurse)
-        return
 
 
 class ShearObjectData(ObjectData):

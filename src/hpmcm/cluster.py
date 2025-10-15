@@ -157,45 +157,6 @@ class ClusterData:
         assert self.data is not None
         return self.data.yPix
 
-    def processCluster(self, cellData: CellData, pixelR2Cut: float) -> list[ObjectData]:
-        """Function that is called recursively to
-        split clusters until they consist only of sources within
-        the match radius of the cluster centroid.
-        """
-        self.extract(cellData)
-        assert self.data is not None
-
-        self.nSrc = len(self.data.iCat)
-        self.nUnique = len(np.unique(self.data.iCat.values))
-        if self.nSrc == 0:
-            print("Empty cluster", self.nSrc, self.nUnique)
-            return self.objects
-
-        if self.nSrc == 1:
-            self.xCent = self.data.xPix.values[0]
-            self.yCent = self.data.yPix.values[0]
-            self.dist2 = np.zeros((1))
-            self.rmsDist = 0.0
-            self.snrMean = self.data.SNR.values[0]
-            self.snrRms = 0.0
-            initialObject = self.addObject(cellData)
-            initialObject.processObject(cellData, pixelR2Cut)
-            return self.objects
-
-        sumSnr = np.sum(self.data.SNR)
-        self.xCent = np.sum(self.data.xPix * self.data.SNR) / sumSnr
-        self.yCent = np.sum(self.data.yPix * self.data.SNR) / sumSnr
-        self.dist2 = (self.xCent - self.data.xPix) ** 2 + (
-            self.yCent - self.data.yPix
-        ) ** 2
-        self.rmsDist = np.sqrt(np.mean(self.dist2))
-        self.snrMean = np.mean(self.data.SNR.values)
-        self.snrRms = np.std(self.data.SNR.values)
-
-        initialObject = self.addObject(cellData)
-        initialObject.processObject(cellData, pixelR2Cut)
-        return self.objects
-
     def addObject(
         self, cellData: CellData, mask: np.ndarray | None = None
     ) -> ObjectData:
@@ -229,11 +190,3 @@ class ShearClusterData(ClusterData):
         """Return the shear statistics"""
         assert self.data is not None
         return shear_utils.shearStats(self.data)
-
-    def addObject(
-        self, cellData: CellData, mask: np.ndarray | None = None
-    ) -> ObjectData:
-        """Add a new object to this cluster"""
-        newObject = cellData.addObject(self, mask)
-        self.objects.append(newObject)
-        return newObject

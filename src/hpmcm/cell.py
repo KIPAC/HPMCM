@@ -183,7 +183,7 @@ class CellData:
             iCluster = footprintId + self.idOffset
             cluster = self._buildClusterData(iCluster, footprint, np.array(sources).T)
             self.clusterDict[iCluster] = cluster
-            cluster.processCluster(self, pixelR2Cut)
+            heirarchicalProcessCluster(cluster, pixelR2Cut)
 
     def analyze(
         self, weightName: str | None = None, pixelR2Cut: float = 2.0
@@ -243,46 +243,7 @@ class CellData:
 
     def getObjectAssociations(self) -> pandas.DataFrame:
         """Convert the objects to a set of associations"""
-        clusterIds = []
-        objectIds = []
-        sourceIds = []
-        sourceIdxs = []
-        catIdxs = []
-        distancesList: list[np.ndarray] = []
-
-        for obj in self.objectDict.values():
-            clusterIds.append(
-                np.full((obj.nSrc), obj.parentCluster.iCluster, dtype=int)
-            )
-            objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
-            sourceIds.append(obj.sourceIds())
-            sourceIdxs.append(obj.sourceIdxs())
-            catIdxs.append(obj.catIndices)
-            assert obj.dist2.size
-            distancesList.append(obj.dist2)
-        if not distancesList:
-            return pandas.DataFrame(
-                dict(
-                    object=np.array([], int),
-                    parent=np.array([], int),
-                    id=np.array([], int),
-                    idx=np.array([], int),
-                    cat=np.array([], int),
-                    distance=[],
-                )
-            )
-        distances = np.hstack(distancesList)
-        distances = self.matcher.pixToArcsec() * np.sqrt(distances)
-        data = dict(
-            object=np.hstack(objectIds),
-            parent=np.hstack(clusterIds),
-            id=np.hstack(sourceIds),
-            idx=np.hstack(sourceIdxs),
-            cat=np.hstack(catIdxs),
-            distance=distances,
-            cellIdx=np.repeat(self.idx, len(distances)).astype(int),
-        )
-        return pandas.DataFrame(data)
+        return makeObjectAssocTable(self)
 
     def getClusterStats(self) -> pandas.DataFrame:
         """Get the stats for all the clusters"""
@@ -334,51 +295,7 @@ class CellData:
 
     def getObjectStats(self) -> pandas.DataFrame:
         """Get the stats for all the objects"""
-        nObj = self.nObjects
-        clusterIds = np.zeros((nObj), dtype=int)
-        objectIds = np.zeros((nObj), dtype=int)
-        nSrcs = np.zeros((nObj), dtype=int)
-        nUniques = np.zeros((nObj), dtype=int)
-        distRms = np.zeros((nObj), dtype=float)
-        xCents = np.zeros((nObj), dtype=float)
-        yCents = np.zeros((nObj), dtype=float)
-        SNRs = np.zeros((nObj), dtype=float)
-        SNRRms = np.zeros((nObj), dtype=float)
-
-        for idx, obj in enumerate(self.objectDict.values()):
-            clusterIds[idx] = obj.parentCluster.iCluster
-            objectIds[idx] = obj.objectId
-            nSrcs[idx] = obj.nSrc
-            nUniques[idx] = obj.nUnique
-            distRms[idx] = obj.rmsDist
-            xCents[idx] = obj.xCent
-            yCents[idx] = obj.yCent
-            assert obj.data is not None
-            sumSNR = obj.data.SNR.sum()
-            xCents[idx] = np.sum(obj.data.SNR * obj.data.xCell) / sumSNR
-            yCents[idx] = np.sum(obj.data.SNR * obj.data.yCell) / sumSNR
-            SNRs[idx] = obj.snrMean
-            SNRRms[idx] = obj.snrRms
-
-        ra, dec = self._getRaDec(xCents, yCents)
-        distRms *= self.matcher.pixToArcsec()
-
-        data = dict(
-            clusterIds=clusterIds,
-            objectIds=objectIds,
-            nUniques=nUniques,
-            nSrcs=nSrcs,
-            distRms=distRms,
-            ra=ra,
-            dec=dec,
-            xCents=xCents,
-            yCents=yCents,
-            SNRs=SNRs,
-            SNRRms=SNRRms,
-            cellIdx=np.repeat(self.idx, len(distRms)).astype(int),
-        )
-
-        return pandas.DataFrame(data)
+        return makeObjectStatsTable(self)
 
     def addObject(
         self, cluster: ClusterData, mask: np.ndarray | None = None
