@@ -11,9 +11,8 @@ from .object import ObjectData
 if TYPE_CHECKING:
     try:
         import lsst.afw.detection as afwDetect
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         pass
-    import lsst.afw.detection as afwDetect
 
     from .cell import CellData
 

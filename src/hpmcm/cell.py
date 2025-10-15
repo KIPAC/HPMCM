@@ -13,10 +13,8 @@ from .object import ObjectData, ShearObjectData
 if TYPE_CHECKING:
     try:
         import lsst.afw.detection as afwDetect
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         pass
-
-    import lsst.afw.detection as afwDetect
 
     from .match import Match
     from .shear_match import ShearMatch

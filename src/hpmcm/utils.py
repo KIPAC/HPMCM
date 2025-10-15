@@ -4,7 +4,7 @@ from __future__ import annotations
 try:
     import lsst.afw.detection as afwDetect
     import lsst.afw.image as afwImage
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     pass
 import numpy as np
 import pandas

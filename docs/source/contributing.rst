@@ -36,7 +36,6 @@ created by GitHub.
 Issue
 -----
 
-=======
 When you identify something that should be done, `make an issue <https://github.com/KIPAC/HPMCM/issues/new>`_
 for it.
 

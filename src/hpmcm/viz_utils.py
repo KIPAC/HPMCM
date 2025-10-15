@@ -13,7 +13,7 @@ from .match import Match
 if TYPE_CHECKING:
     try:
         import lsst.afw.image as afwImage
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         pass
 
 
