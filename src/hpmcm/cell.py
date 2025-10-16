@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas
 
-from . import utils
-from .cluster import ClusterData, ShearClusterData
-from .object import ObjectData, ShearObjectData
+from . import match_utils, utils
+from .cluster import ClusterAssocTable, ClusterData, ClusterStatsTable, ShearClusterData
+from .object import ObjectAssocTable, ObjectData, ObjectStatsTable, ShearObjectData
+from .shear_data import ShearTable
 
 if TYPE_CHECKING:
     try:
@@ -183,7 +184,7 @@ class CellData:
             iCluster = footprintId + self.idOffset
             cluster = self._buildClusterData(iCluster, footprint, np.array(sources).T)
             self.clusterDict[iCluster] = cluster
-            heirarchicalProcessCluster(cluster, pixelR2Cut)
+            match_utils.heirarchicalProcessCluster(cluster, self, pixelR2Cut)
 
     def analyze(
         self, weightName: str | None = None, pixelR2Cut: float = 2.0
@@ -207,95 +208,19 @@ class CellData:
 
     def getClusterAssociations(self) -> pandas.DataFrame:
         """Convert the clusters to a set of associations"""
-        clusterIds = []
-        sourceIds = []
-        sourceIdxs = []
-        catIdxs = []
-        distancesList: list[np.ndarray] = []
-        for cluster in self.clusterDict.values():
-            clusterIds.append(np.full((cluster.nSrc), cluster.iCluster, dtype=int))
-            sourceIds.append(cluster.srcIds)
-            sourceIdxs.append(cluster.srcIdxs)
-            catIdxs.append(cluster.catIndices)
-            assert cluster.dist2.size
-            distancesList.append(cluster.dist2)
-        if not distancesList:
-            return pandas.DataFrame(
-                dict(
-                    distance=[],
-                    id=np.array([], int),
-                    idx=np.array([], int),
-                    cat=np.array([], int),
-                    cluster=np.array([], int),
-                )
-            )
-        distances = np.hstack(distancesList)
-        distances = self.matcher.pixToArcsec() * np.sqrt(distances)
-        data = dict(
-            cluster=np.hstack(clusterIds),
-            id=np.hstack(sourceIds),
-            idx=np.hstack(sourceIdxs),
-            cat=np.hstack(catIdxs),
-            distance=distances,
-            cellIdx=np.repeat(self.idx, len(distances)).astype(int),
-        )
-        return pandas.DataFrame(data)
+        return ClusterAssocTable.buildFromCellData(self).data
 
     def getObjectAssociations(self) -> pandas.DataFrame:
         """Convert the objects to a set of associations"""
-        return makeObjectAssocTable(self)
+        return ObjectAssocTable.buildFromCellData(self).data
 
     def getClusterStats(self) -> pandas.DataFrame:
         """Get the stats for all the clusters"""
-        nClust = self.nClusters
-        clusterIds = np.zeros((nClust), dtype=int)
-        nSrcs = np.zeros((nClust), dtype=int)
-        nUniques = np.zeros((nClust), dtype=int)
-        nObjects = np.zeros((nClust), dtype=int)
-        nUniques = np.zeros((nClust), dtype=int)
-        distRms = np.zeros((nClust), dtype=float)
-        xCents = np.zeros((nClust), dtype=float)
-        yCents = np.zeros((nClust), dtype=float)
-        SNRs = np.zeros((nClust), dtype=float)
-        SNRRms = np.zeros((nClust), dtype=float)
-        
-        for idx, cluster in enumerate(self.clusterDict.values()):
-            clusterIds[idx] = cluster.iCluster
-            nSrcs[idx] = cluster.nSrc
-            nUniques[idx] = cluster.nUnique
-            nObjects[idx] = len(cluster.objects)
-            nUniques[idx] = cluster.nUnique
-            distRms[idx] = cluster.rmsDist
-            assert cluster.data is not None
-            sumSNR = cluster.data.SNR.sum()
-            xCents[idx] = np.sum(cluster.data.SNR * cluster.data.xCell) / sumSNR
-            yCents[idx] = np.sum(cluster.data.SNR * cluster.data.yCell) / sumSNR
-            SNRs[idx] = cluster.snrMean
-            SNRRms[idx] = cluster.snrRms
-
-        ra, dec = self._getRaDec(xCents, yCents)
-        distRms *= self.matcher.pixToArcsec()
-
-        data = dict(
-            clusterIds=clusterIds,
-            nSrcs=nSrcs,
-            nObject=nObjects,
-            nUniques=nUniques,
-            distRms=distRms,
-            ra=ra,
-            dec=dec,
-            xCents=xCents,
-            yCents=yCents,
-            SNRs=SNRs,
-            SNRRms=SNRRms,            
-            cellIdx=np.repeat(self.idx, len(distRms)).astype(int),
-        )
-
-        return pandas.DataFrame(data)
+        return ClusterStatsTable.buildFromCellData(self).data
 
     def getObjectStats(self) -> pandas.DataFrame:
         """Get the stats for all the objects"""
-        return makeObjectStatsTable(self)
+        return ObjectStatsTable.buildFromCellData(self).data
 
     def addObject(
         self, cluster: ClusterData, mask: np.ndarray | None = None
@@ -343,9 +268,10 @@ class CellData:
             clusterKey,
         )
 
-    def _getRaDec(
+    def getRaDec(
         self, xCents: np.ndarray, yCents: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Return the RA, DEC of based from pixel coords"""
         return self.matcher.pixToWorld(xCents, yCents)
 
 
@@ -438,46 +364,24 @@ class ShearCellData(CellData):
     def getObjectShearStats(self) -> pandas.DataFrame:
         """Get the shear stats for all the objects"""
         nObj = self.nObjects
-        outDict: dict[str, np.ndarray] = {}
-        names = ["ns", "2p", "2m", "1p", "1m"]
-
-        for name_ in names:
-            outDict[f"n_{name_}"] = np.zeros((nObj), dtype=int)
-            outDict[f"g_1_{name_}"] = np.zeros((nObj), dtype=float)
-            outDict[f"g_2_{name_}"] = np.zeros((nObj), dtype=float)
-        outDict["good"] = np.zeros((nObj), dtype=bool)
-        outDict["delta_g_1_1"] = np.zeros((nObj), dtype=float)
-        outDict["delta_g_2_2"] = np.zeros((nObj), dtype=float)
-        outDict["delta_g_1_2"] = np.zeros((nObj), dtype=float)
-        outDict["delta_g_2_1"] = np.zeros((nObj), dtype=float)
+        outDict = ShearTable.emtpyNumpyDict(nObj)
         for idx, obj in enumerate(self.objectDict.values()):
             assert isinstance(obj, ShearObjectData)
             objStats = obj.shearStats()
             for key, val in objStats.items():
                 outDict[key][idx] = val
-        return pandas.DataFrame(outDict)
+        return ShearTable(**outDict).data
 
     def getClusterShearStats(self) -> pandas.DataFrame:
         """Get the shear stats for all the clusters"""
         nClusters = self.nClusters
-        outDict: dict[str, np.ndarray] = {}
-        names = ["ns", "2p", "2m", "1p", "1m"]
-
-        for name_ in names:
-            outDict[f"n_{name_}"] = np.zeros((nClusters), dtype=int)
-            outDict[f"g_1_{name_}"] = np.zeros((nClusters), dtype=float)
-            outDict[f"g_2_{name_}"] = np.zeros((nClusters), dtype=float)
-        outDict["delta_g_1_1"] = np.zeros((nClusters), dtype=float)
-        outDict["delta_g_2_2"] = np.zeros((nClusters), dtype=float)
-        outDict["delta_g_1_2"] = np.zeros((nClusters), dtype=float)
-        outDict["delta_g_2_1"] = np.zeros((nClusters), dtype=float)
-        outDict["good"] = np.zeros((nClusters), dtype=bool)
+        outDict = ShearTable.emtpyNumpyDict(nClusters)
         for idx, cluster in enumerate(self.clusterDict.values()):
             assert isinstance(cluster, ShearClusterData)
             clusterStats = cluster.shearStats()
             for key, val in clusterStats.items():
                 outDict[key][idx] = val
-        return pandas.DataFrame(outDict)
+        return ShearTable(**outDict).data
 
     @classmethod
     def _newObject(
@@ -523,7 +427,7 @@ class ShearCellData(CellData):
             pixelMatchScale=self.pixelMatchScale,
         )
 
-    def _getRaDec(
+    def getRaDec(
         self, xCents: np.ndarray, yCents: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         return np.repeat(np.nan, len(xCents)), np.repeat(np.nan, len(yCents))

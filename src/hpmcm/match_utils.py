@@ -1,3 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+from . import utils
+from .cluster import ClusterData
+from .object import ObjectData
+
+if TYPE_CHECKING:
+    from .cell import CellData
 
 
 RECURSE_MAX = 4
@@ -22,15 +34,16 @@ def heirarchicalProcessObject(
         objData.dist2 = np.zeros((1), float)
         objData.rmsDist = 0.0
         objData.snrMean = objData.data.SNR.values[0]
-        objData.snrRms = 0.0            
+        objData.snrRms = 0.0
         return
 
     sumSnr = np.sum(objData.data.SNR)
     objData.xCent = np.sum(objData.data.xPix * objData.data.SNR) / sumSnr
     objData.yCent = np.sum(objData.data.yPix * objData.data.SNR) / sumSnr
     objData.dist2 = np.array(
-        (objData.xCent - objData.data.xPix) ** 2 + (objData.yCent - objData.data.yPix) ** 2
-        )
+        (objData.xCent - objData.data.xPix) ** 2
+        + (objData.yCent - objData.data.yPix) ** 2
+    )
     objData.rmsDist = np.sqrt(np.mean(objData.dist2))
     objData.snrMean = np.mean(objData.data.SNR.values)
     objData.snrRms = np.std(objData.data.SNR.values)
@@ -42,9 +55,8 @@ def heirarchicalProcessObject(
     if recurse >= RECURSE_MAX:
         return
 
-    objData.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
+    heirarchicalSplitObject(objData, cellData, pixelR2Cut, recurse=recurse + 1)
     return
-
 
 
 def heirarchicalSplitObject(
@@ -56,7 +68,7 @@ def heirarchicalSplitObject(
     if recurse > RECURSE_MAX:
         return
     objData.recurse = recurse
-    objData._extract()
+    objData.extract()
 
     assert objData.data is not None
 
@@ -76,7 +88,7 @@ def heirarchicalSplitObject(
     if nFootprints == 1:
         if recurse >= RECURSE_MAX:
             return
-        objData.splitObject(cellData, pixelR2Cut, recurse=recurse + 1)
+        heirarchicalSplitObject(objData, cellData, pixelR2Cut, recurse=recurse + 1)
         return
 
     footprintKey = fpDict["footprintKey"]
@@ -100,7 +112,7 @@ def heirarchicalSplitObject(
             continue
 
         newObject = objData.parentCluster.addObject(cellData, newMask)
-        newObject.processObject(cellData, pixelR2Cut, recurse=recurse)
+        heirarchicalProcessObject(newObject, cellData, pixelR2Cut, recurse=recurse)
 
     objData.mask = biggestMask
     objData.extract()
@@ -109,9 +121,7 @@ def heirarchicalSplitObject(
 
 
 def heirarchicalProcessCluster(
-    cluster: ClusterData,
-    cellData: CellData,
-    pixelR2Cut: float
+    cluster: ClusterData, cellData: CellData, pixelR2Cut: float
 ) -> list[ObjectData]:
     """Function that is called recursively to
     split clusters until they consist only of sources within

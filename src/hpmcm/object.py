@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas
 
-from . import shear_utils, utils
+from . import shear_utils
+from .table import TableColumnInfo, TableInterface
 
 if TYPE_CHECKING:
     from .cell import CellData
@@ -15,147 +16,150 @@ if TYPE_CHECKING:
 RECURSE_MAX = 4
 
 
-def makeObjectAssocTable(cellData: CellData) -> pandas.DataFrame:
-    """Small function to create object association table
+class ObjectAssocTable(TableInterface):
+    """Interface of table with associations between objects and sources"""
 
-    Parameters
-    ----------
-    cellData:
-        Cell we are making table for
+    schema = TableInterface.schema.copy()
+    schema.update(
+        objectId=TableColumnInfo(int, "Unique Object ID"),
+        clusterId=TableColumnInfo(int, "Parent Cluster Unique ID"),
+        sourceId=TableColumnInfo(int, "Source id in input catalog"),
+        sourceIdx=TableColumnInfo(int, "Source index in input catalog"),
+        catalogId=TableColumnInfo(int, "Associated catalog ID"),
+        distance=TableColumnInfo(float, "Distance from sources to object centroid"),
+        cellIdx=TableColumnInfo(int, "Index of associated cell"),
+    )
 
-    Returns
-    -------
-    pandas.DataFrame:
-        Object Association table    
+    @staticmethod
+    def buildFromCellData(cellData: CellData) -> ObjectAssocTable:
+        """Create object association table
 
-    Notes
-    -----
-    The data frame will have the following data
+        Parameters
+        ----------
+        cellData:
+            Cell we are making table for
 
-    object: int
-        Object Id
+        Returns
+        -------
+        Object Association table
+        """
+        clusterIds = []
+        objectIds = []
+        sourceIds = []
+        sourceIdxs = []
+        catIdxs = []
+        distancesList: list[np.ndarray] = []
 
-    parent: int
-        Parent Cluster Id
-
-    id: int
-        Source Id
-
-    idx: int
-        Source Index in respective catalog
-
-    cat: int
-        Index of catalog
-
-    distance: float
-        Distance between source and object centroid (in arcsec)
-
-    cellIdx: int
-        Index of parent cell
-    """
-    clusterIds = []
-    objectIds = []
-    sourceIds = []
-    sourceIdxs = []
-    catIdxs = []
-    distancesList: list[np.ndarray] = []
-
-    for obj in cellData.objectDict.values():
-        clusterIds.append(
-            np.full((obj.nSrc), obj.parentCluster.iCluster, dtype=int)
-        )
-        objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
-        sourceIds.append(obj.sourceIds())
-        sourceIdxs.append(obj.sourceIdxs())
-        catIdxs.append(obj.catIndices)
-        assert obj.dist2.size
-        distancesList.append(obj.dist2)
-    if not distancesList:
-        return pandas.DataFrame(
-            dict(
-                object=np.array([], int),
-                parent=np.array([], int),
-                id=np.array([], int),
-                idx=np.array([], int),
-                cat=np.array([], int),
-                distance=[],
+        for obj in cellData.objectDict.values():
+            clusterIds.append(
+                np.full((obj.nSrc), obj.parentCluster.iCluster, dtype=int)
             )
+            objectIds.append(np.full((obj.nSrc), obj.objectId, dtype=int))
+            sourceIds.append(obj.sourceIds())
+            sourceIdxs.append(obj.sourceIdxs())
+            catIdxs.append(obj.catIndices)
+            assert obj.dist2.size
+            distancesList.append(obj.dist2)
+        if not distancesList:
+            return ObjectAssocTable(
+                objectId=np.array([], int),
+                clusterId=np.array([], int),
+                sourceId=np.array([], int),
+                sourceIdx=np.array([], int),
+                catalogId=np.array([], int),
+                distance=np.array([], float),
+                cellIdx=np.array([], int),
+            )
+        distances = np.hstack(distancesList)
+        distances = cellData.matcher.pixToArcsec() * np.sqrt(distances)
+        return ObjectAssocTable(
+            objectId=np.hstack(objectIds),
+            clusterId=np.hstack(clusterIds),
+            sourceId=np.hstack(sourceIds),
+            sourceIdx=np.hstack(sourceIdxs),
+            catalogId=np.hstack(catIdxs),
+            distance=distances,
+            cellIdx=np.repeat(cellData.idx, len(distances)).astype(int),
         )
-    distances = np.hstack(distancesList)
-    distances = cellData.matcher.pixToArcsec() * np.sqrt(distances)
-    data = dict(
-        object=np.hstack(objectIds),
-        parent=np.hstack(clusterIds),
-        id=np.hstack(sourceIds),
-        idx=np.hstack(sourceIdxs),
-        cat=np.hstack(catIdxs),
-        distance=distances,
-        cellIdx=np.repeat(cellData.idx, len(distances)).astype(int),
-    )
-    return pandas.DataFrame(data)
 
 
-def makeObjectStatsTable(cellData: CellData) -> pandas.DataFrame:
-    """Small function to create object association table
+class ObjectStatsTable(TableInterface):
+    """Interface of table of object statistics"""
 
-    Parameters
-    ----------
-    cellData:
-        Cell we are making table for
-
-    Returns
-    -------
-    pandas.DataFrame:
-        Object Association table    
-        
-
-    """
-    nObj = self.nObjects
-    clusterIds = np.zeros((nObj), dtype=int)
-    objectIds = np.zeros((nObj), dtype=int)
-    nSrcs = np.zeros((nObj), dtype=int)
-    nUniques = np.zeros((nObj), dtype=int)
-    distRms = np.zeros((nObj), dtype=float)
-    xCents = np.zeros((nObj), dtype=float)
-    yCents = np.zeros((nObj), dtype=float)
-    SNRs = np.zeros((nObj), dtype=float)
-    SNRRms = np.zeros((nObj), dtype=float)
-    
-    for idx, obj in enumerate(cellData.objectDict.values()):
-        clusterIds[idx] = obj.parentCluster.iCluster
-        objectIds[idx] = obj.objectId
-        nSrcs[idx] = obj.nSrc
-        nUniques[idx] = obj.nUnique
-        distRms[idx] = obj.rmsDist
-        xCents[idx] = obj.xCent
-        yCents[idx] = obj.yCent
-        assert obj.data is not None
-        sumSNR = obj.data.SNR.sum()
-        xCents[idx] = np.sum(obj.data.SNR * obj.data.xCell) / sumSNR
-        yCents[idx] = np.sum(obj.data.SNR * obj.data.yCell) / sumSNR
-        SNRs[idx] = obj.snrMean
-        SNRRms[idx] = obj.snrRms
-
-    ra, dec = cellData._getRaDec(xCents, yCents)
-    distRms *= cellData.matcher.pixToArcsec()
-
-    data = dict(
-        clusterIds=clusterIds,
-        objectIds=objectIds,
-        nUniques=nUniques,
-        nSrcs=nSrcs,
-        distRms=distRms,
-        ra=ra,
-        dec=dec,
-        xCents=xCents,
-        yCents=yCents,
-        SNRs=SNRs,
-        SNRRms=SNRRms,
-        cellIdx=np.repeat(cellData.idx, len(distRms)).astype(int),
+    schema = TableInterface.schema.copy()
+    schema.update(
+        objectId=TableColumnInfo(int, "Unique Object ID"),
+        clusterId=TableColumnInfo(int, "Parent Cluster Unique ID"),
+        nUnique=TableColumnInfo(int, "Number of unique catalogs represented"),
+        nSrc=TableColumnInfo(int, "Number of sources"),
+        distRms=TableColumnInfo(
+            float, "RMS of distance from sources to object centroid"
+        ),
+        ra=TableColumnInfo(float, "RA of object centroid"),
+        dec=TableColumnInfo(float, "DEC of object centroid"),
+        xCent=TableColumnInfo(float, "X-value of cluster centroid in WCS pixels"),
+        yCent=TableColumnInfo(float, "Y-value of cluster centroid in WCS pixels"),
+        SNR=TableColumnInfo(float, "Mean signal-to-noise ratio"),
+        SNRRms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
+        cellIdx=TableColumnInfo(int, "Index of associated cell"),
     )
 
-    return pandas.DataFrame(data)
+    @staticmethod
+    def buildFromCellData(cellData: CellData) -> ObjectStatsTable:
+        """Create object stats table
 
+        Parameters
+        ----------
+        cellData:
+            Cell we are making table for
+
+        Returns
+        -------
+        Object stats table
+        """
+        nObj = cellData.nObjects
+        clusterIds = np.zeros((nObj), dtype=int)
+        objectIds = np.zeros((nObj), dtype=int)
+        nSrcs = np.zeros((nObj), dtype=int)
+        nUniques = np.zeros((nObj), dtype=int)
+        distRms = np.zeros((nObj), dtype=float)
+        xCents = np.zeros((nObj), dtype=float)
+        yCents = np.zeros((nObj), dtype=float)
+        SNRs = np.zeros((nObj), dtype=float)
+        SNRRms = np.zeros((nObj), dtype=float)
+
+        for idx, obj in enumerate(cellData.objectDict.values()):
+            clusterIds[idx] = obj.parentCluster.iCluster
+            objectIds[idx] = obj.objectId
+            nSrcs[idx] = obj.nSrc
+            nUniques[idx] = obj.nUnique
+            distRms[idx] = obj.rmsDist
+            xCents[idx] = obj.xCent
+            yCents[idx] = obj.yCent
+            assert obj.data is not None
+            sumSNR = obj.data.SNR.sum()
+            xCents[idx] = np.sum(obj.data.SNR * obj.data.xCell) / sumSNR
+            yCents[idx] = np.sum(obj.data.SNR * obj.data.yCell) / sumSNR
+            SNRs[idx] = obj.snrMean
+            SNRRms[idx] = obj.snrRms
+
+        ra, dec = cellData.getRaDec(xCents, yCents)
+        distRms *= cellData.matcher.pixToArcsec()
+
+        return ObjectStatsTable(
+            clusterId=clusterIds,
+            objectId=objectIds,
+            nUnique=nUniques,
+            nSrc=nSrcs,
+            distRms=distRms,
+            ra=ra,
+            dec=dec,
+            xCent=xCents,
+            yCent=yCents,
+            SNR=SNRs,
+            SNRRms=SNRRms,
+            cellIdx=np.repeat(cellData.idx, len(distRms)).astype(int),
+        )
 
 
 class ObjectData:
@@ -224,6 +228,8 @@ class ObjectData:
         self.xCent: float = np.nan
         self.yCent: float = np.nan
         self.rmsDist: float = np.nan
+        self.snrMean: float = np.nan
+        self.snrRms: float = np.nan
         self.dist2: np.ndarray = np.array([])
         self.extract()
 

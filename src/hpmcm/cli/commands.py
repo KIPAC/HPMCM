@@ -106,7 +106,7 @@ def shear_report_command(
     tract = int(tokens[-1])
     catType = tokens[-4]
     hpmcm.ShearMatch.shear_report(
-        basefile, output_file, shear, catType=catType, tract=tract
+        basefile, output_file, shear, catType=catType, tract=tract, snrCut=snr_cut
     )
 
 

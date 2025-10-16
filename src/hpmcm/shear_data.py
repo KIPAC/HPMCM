@@ -7,6 +7,30 @@ import numpy as np
 import pandas
 from matplotlib.figure import Figure
 
+from .table import TableColumnInfo, TableInterface
+
+SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
+
+
+class ShearTable(TableInterface):
+    """Interface of table with shear information"""
+
+    schema = TableInterface.schema.copy()
+    schema["good"] = TableColumnInfo(bool, "Has unique match")
+    for name_ in SHEAR_NAMES:
+        schema[f"n_{name_}"] = TableColumnInfo(
+            float, f"number of sourcrs from catalog {name_}"
+        )
+        for i in [1, 2]:
+            schema[f"g_{i}_{name_}"] = TableColumnInfo(
+                float, f"g {i} for catalog {name_}"
+            )
+    for i in [1, 2]:
+        for j in [1, 2]:
+            schema[f"delta_g_{i}_{j}"] = TableColumnInfo(
+                float, f"delta g {i} for {j}p - {j}m"
+            )
+
 
 class ShearHistogramStats:
     """Simple class to store stats about a histogram
@@ -398,11 +422,11 @@ class ShearData:
         self.tract = tract
 
         in_cell_mask = np.bitwise_and(
-            np.fabs(merged.xCents - 100) < 75,
-            np.fabs(merged.yCents - 100) < 75,
+            np.fabs(merged.xCent - 100) < 75,
+            np.fabs(merged.yCent - 100) < 75,
         )
         in_cell = merged[in_cell_mask]
-        bright_mask = in_cell.SNRs > snrCut
+        bright_mask = in_cell.SNR > snrCut
 
         used = in_cell[bright_mask]
         good_mask = used.good

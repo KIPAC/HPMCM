@@ -267,7 +267,7 @@ class Match:
         """
         iCell = self.getCellIdx(ix, iy)
         cellStep = np.array([self.cellSize, self.cellSize])
-        corner = np.array([ix-1, iy-1]) * cellStep
+        corner = np.array([ix - 1, iy - 1]) * cellStep
         idOffset = self.getIdOffset(ix, iy)
         cellData = self._buildCellData(idOffset, corner, cellStep, iCell)
         cellData.reduceData(list(self.redData.values()))

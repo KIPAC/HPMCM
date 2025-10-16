@@ -105,7 +105,7 @@ class ShearMatch(Match):
         """
         nPix = np.array([30000, 30000])
         kw = dict(
-            pixelSize=0.2/3600.,
+            pixelSize=0.2 / 3600.0,
             nPixels=nPix,
             cellSize=150,
             cellBuffer=25,
@@ -254,7 +254,7 @@ class ShearMatch(Match):
         shear: float,
         catType: str,
         tract: int,
-        snrCut: float=7.5,
+        snrCut: float = 7.5,
     ) -> None:
         """Report on the shear calibration"""
         t = tables_io.read(f"{basefile}_object_shear.pq")
