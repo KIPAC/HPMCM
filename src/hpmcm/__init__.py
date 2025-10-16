@@ -3,7 +3,7 @@ The :py:mod:`hpmcm` package collects a set of tools to do catalog
 cross matching.
 """
 
-from . import match_utils, shear_utils, utils, viz_utils
+from . import classify, match_utils, shear_utils, utils, viz_utils
 from ._version import __version__
 from .cell import CellData, ShearCellData
 from .cluster import ClusterAssocTable, ClusterData, ClusterStatsTable, ShearClusterData

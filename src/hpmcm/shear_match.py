@@ -231,21 +231,6 @@ class ShearMatch(Match):
             ]
         ]
 
-    @staticmethod
-    def stats(
-        weights: np.ndarray,
-        bin_centers: np.ndarray,
-    ) -> tuple[float, float, float, float]:
-        """Compute the stats from a histogram"""
-        w = np.sum(weights)
-        mean = np.sum(weights * bin_centers) / w
-        deltas = bin_centers - mean
-        var = np.sum(weights * deltas * deltas) / w
-        std = np.sqrt(var)
-        error = std / np.sqrt(w)
-        inv_var = 1.0 / (error * error)
-        return float(mean), float(std), float(error), float(inv_var)
-
     @classmethod
     def shear_report(
         cls,
