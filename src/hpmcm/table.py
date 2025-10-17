@@ -14,7 +14,7 @@ class TableColumnInfo:
         self.msg = msg
 
     def __repr__(self) -> str:
-        return f"{self.dtype}:  {self.msg}"
+        return f"{self.dtype}\n    {self.msg}"
 
     def validate(self, val: np.ndarray) -> None:
         """Validate that a column is of the correct type"""
@@ -25,11 +25,29 @@ class TableColumnInfo:
 class TableInterface:
     """Helper class to manage table schema"""
 
-    schema: dict[str, TableColumnInfo] = dict()
+    _schema: dict[str, TableColumnInfo] = dict()
 
     def __init__(self, **kwargs: Any):
         self._data = self.toPandas(**kwargs)
 
+    @classmethod
+    def _describe_schema(cls):
+        """Describe the columns in this table"""
+        s = []
+        for name, val in cls._schema.items():
+            assert isinstance(val, TableColumnInfo)
+            s.append(f"{name}: {val}")
+        return '\n\n'.join(s)
+
+    def __init_subclass__(cls, **kwargs):
+        config_text = cls._describe_schema()
+        if cls.__doc__ is None:                 
+            cls.__doc__ = f"Stage {cls.name}\n\nParameters\n----------\n{config_text}"
+        else:
+            # strip any existing configuration text from parent classes that is at the end of the doctring
+            cls.__doc__ = cls.__doc__.split("Parameters")[0]
+            cls.__doc__ += f"\n\nParameters\n----------\n{config_text}"    
+        
     @property
     def data(self) -> pandas.DataFrame:
         """Return the underlying data"""
@@ -39,12 +57,12 @@ class TableInterface:
     def validate(cls, **kwargs: Any) -> None:
         """Validate that data match the schema"""
         table_size: int = -1
-        if len(kwargs) != len(cls.schema):
+        if len(kwargs) != len(cls._schema):
             raise ValueError(f"{len(kwargs)} != {len(cls.schema)}")
         for key, val in kwargs.items():
-            if key not in cls.schema:
+            if key not in cls._schema:
                 raise KeyError(f"{key} not in {list(cls.schema.keys())}")
-            colInfo = cls.schema[key]
+            colInfo = cls._schema[key]
             colInfo.validate(val)
             if table_size < 0:
                 table_size = val.size
@@ -60,4 +78,4 @@ class TableInterface:
     @classmethod
     def emtpyNumpyDict(cls, n: int) -> dict[str, np.ndarray]:
         """Create a dict of empty number array"""
-        return {key: np.zeros((n), dtype=val.dtype) for key, val in cls.schema.items()}
+        return {key: np.zeros((n), dtype=val.dtype) for key, val in cls._schema.items()}

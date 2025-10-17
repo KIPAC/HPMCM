@@ -19,8 +19,8 @@ RECURSE_MAX = 4
 class ObjectAssocTable(TableInterface):
     """Interface of table with associations between objects and sources"""
 
-    schema = TableInterface.schema.copy()
-    schema.update(
+    _schema = TableInterface._schema.copy()
+    _schema.update(
         objectId=TableColumnInfo(int, "Unique Object ID"),
         clusterId=TableColumnInfo(int, "Parent Cluster Unique ID"),
         sourceId=TableColumnInfo(int, "Source id in input catalog"),
@@ -86,8 +86,8 @@ class ObjectAssocTable(TableInterface):
 class ObjectStatsTable(TableInterface):
     """Interface of table of object statistics"""
 
-    schema = TableInterface.schema.copy()
-    schema.update(
+    _schema = TableInterface._schema.copy()
+    _schema.update(
         objectId=TableColumnInfo(int, "Unique Object ID"),
         clusterId=TableColumnInfo(int, "Parent Cluster Unique ID"),
         nUnique=TableColumnInfo(int, "Number of unique catalogs represented"),

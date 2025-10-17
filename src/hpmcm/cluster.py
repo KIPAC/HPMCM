@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 class ClusterAssocTable(TableInterface):
     """Interface of table with associations between clusters and sources"""
 
-    schema = TableInterface.schema.copy()
-    schema.update(
+    _schema = TableInterface._schema.copy()
+    _schema.update(
         clusterId=TableColumnInfo(int, "Unique cluster ID"),
         sourceId=TableColumnInfo(int, "Source id in input catalog"),
         sourceIdx=TableColumnInfo(int, "Source index in input catalog"),
@@ -80,8 +80,8 @@ class ClusterAssocTable(TableInterface):
 class ClusterStatsTable(TableInterface):
     """Interface of table of cluster statistics"""
 
-    schema = TableInterface.schema.copy()
-    schema.update(
+    _schema = TableInterface._schema.copy()
+    _schema.update(
         clusterId=TableColumnInfo(int, "Parent Cluster Unique ID"),
         nObject=TableColumnInfo(int, "Number of objects in cluster"),
         nUnique=TableColumnInfo(int, "Number of unique catalogs represented"),
