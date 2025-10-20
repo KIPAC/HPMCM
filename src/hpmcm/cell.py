@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas
 
-from . import match_utils, utils
-from .cluster import ClusterAssocTable, ClusterData, ClusterStatsTable, ShearClusterData
-from .object import ObjectAssocTable, ObjectData, ObjectStatsTable, ShearObjectData
-from .shear_data import ShearTable
+from . import match_utils, shear_utils, utils
+from .cluster import ClusterData, ShearClusterData
+from .object import ObjectData, ShearObjectData
 
 if TYPE_CHECKING:
     try:
@@ -22,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class CellData:
-    """Class to analyze data for a cell
+    """Class to store analyze data for a cell
 
     Includes cell boundries, reduced data tables
     and clustering results
@@ -206,26 +205,23 @@ class CellData:
         self.buildClusterData(oDict["footprints"], pixelR2Cut)
         return oDict
 
-    def getClusterAssociations(self) -> pandas.DataFrame:
-        """Convert the clusters to a set of associations"""
-        return ClusterAssocTable.buildFromCellData(self).data
-
-    def getObjectAssociations(self) -> pandas.DataFrame:
-        """Convert the objects to a set of associations"""
-        return ObjectAssocTable.buildFromCellData(self).data
-
-    def getClusterStats(self) -> pandas.DataFrame:
-        """Get the stats for all the clusters"""
-        return ClusterStatsTable.buildFromCellData(self).data
-
-    def getObjectStats(self) -> pandas.DataFrame:
-        """Get the stats for all the objects"""
-        return ObjectStatsTable.buildFromCellData(self).data
-
     def addObject(
         self, cluster: ClusterData, mask: np.ndarray | None = None
     ) -> ObjectData:
-        """Add an object to this cell"""
+        """Add an object to this cell
+
+        Parameters
+        ----------
+        cluster:
+            Parent cluster for the object
+
+        mask:
+            Mask of which sources in the cluster to include in the object
+
+        Returns
+        -------
+        Newly created ObjectData
+        """
         objectId = self.nObjects + self.idOffset
         newObject = self._newObject(cluster, objectId, mask)
         self.objectDict[objectId] = newObject
@@ -300,88 +296,7 @@ class ShearCellData(CellData):
         self, iCat: int, dataframe: pandas.DataFrame
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
-
-        if TYPE_CHECKING:
-            assert isinstance(self.matcher, ShearMatch)
-
-        filteredIdx = self.matcher.getCellIndices(dataframe) == self.idx
-        reduced = dataframe[filteredIdx].copy(deep=True)
-
-        # These are the coeffs for the various shear catalogs
-        deshear_coeffs = np.array(
-            [
-                [0, 0, 0, 0],
-                [0, 1, 1, 0],
-                [0, -1, -1, 0],
-                [1, 0, 0, -1],
-                [-1, 0, 0, 1],
-            ]
-        )
-
-        xCellOrig = reduced["xCellCoadd"]
-        yCellOrig = reduced["yCellCoadd"]
-        xPixOrig = reduced["xPix"]
-        yPixOrig = reduced["yPix"]
-        if TYPE_CHECKING:
-            assert isinstance(self.matcher, ShearMatch)
-        if self.matcher.deshear is not None:
-            # De-shear in the cell frame to do matching
-            dxShear = self.matcher.deshear * (
-                xCellOrig * deshear_coeffs[iCat][0]
-                + yCellOrig * deshear_coeffs[iCat][2]
-            )
-            dyShear = self.matcher.deshear * (
-                xCellOrig * deshear_coeffs[iCat][1]
-                + yCellOrig * deshear_coeffs[iCat][3]
-            )
-            xCell = xCellOrig + dxShear
-            yCell = yCellOrig + dyShear
-            xPix = xPixOrig + dxShear
-            yPix = yPixOrig + dyShear
-        else:
-            dxShear = np.zeros(len(dataframe))
-            dyShear = np.zeros(len(dataframe))
-            xCell = xCellOrig
-            yCell = yCellOrig
-            xPix = xPixOrig
-            yPix = yPixOrig
-
-        xCell = (xCell + 100) / self.pixelMatchScale
-        yCell = (yCell + 100) / self.pixelMatchScale
-        filteredX = np.bitwise_and(xCell >= 0, xCell < self.nPix[0])
-        filteredY = np.bitwise_and(yCell >= 0, yCell < self.nPix[1])
-        filteredBounds = np.bitwise_and(filteredX, filteredY)
-        red = reduced[filteredBounds].copy(deep=True)
-        red["xCell"] = xCell[filteredBounds]
-        red["yCell"] = yCell[filteredBounds]
-        red["xPix"] = xPix[filteredBounds]
-        red["yPix"] = yPix[filteredBounds]
-        if self.matcher.deshear is not None:
-            red["dxShear"] = dxShear[filteredBounds]
-            red["dyShear"] = dyShear[filteredBounds]
-        return red
-
-    def getObjectShearStats(self) -> pandas.DataFrame:
-        """Get the shear stats for all the objects"""
-        nObj = self.nObjects
-        outDict = ShearTable.emtpyNumpyDict(nObj)
-        for idx, obj in enumerate(self.objectDict.values()):
-            assert isinstance(obj, ShearObjectData)
-            objStats = obj.shearStats()
-            for key, val in objStats.items():
-                outDict[key][idx] = val
-        return ShearTable(**outDict).data
-
-    def getClusterShearStats(self) -> pandas.DataFrame:
-        """Get the shear stats for all the clusters"""
-        nClusters = self.nClusters
-        outDict = ShearTable.emtpyNumpyDict(nClusters)
-        for idx, cluster in enumerate(self.clusterDict.values()):
-            assert isinstance(cluster, ShearClusterData)
-            clusterStats = cluster.shearStats()
-            for key, val in clusterStats.items():
-                outDict[key][idx] = val
-        return ShearTable(**outDict).data
+        return shear_utils.reduceShearDataForCell(self, iCat, dataframe)
 
     @classmethod
     def _newObject(

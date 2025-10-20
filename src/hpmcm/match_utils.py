@@ -18,7 +18,33 @@ RECURSE_MAX = 4
 def heirarchicalProcessObject(
     objData: ObjectData, cellData: CellData, pixelR2Cut: float, recurse: int = 0
 ) -> None:
-    """Recursively process an object and make sub-objects"""
+    """Recursively process an object and make sub-objects
+
+    Parameters
+    ----------
+    objData:
+        Object being processed
+
+    cellData:
+        Associated cell
+
+    pixelR2Cut:
+        Distance cut for associated, in pixels**2
+
+    recurse:
+        Current recursion level
+
+
+    Notes
+    -----
+    This function will test if the input objData is good,
+    i.e., that all the sources lie within the pixelR2Cut,
+    and will split objData into multiple objects if
+    some of the sources lie outside the cut
+
+    The new objects will be added to the parent cluster of
+    the original object
+    """
     if recurse > RECURSE_MAX:
         return
     objData.recurse = recurse
@@ -64,6 +90,24 @@ def heirarchicalSplitObject(
 ) -> None:
     """Split up a cluster keeping only one source per input
     catalog
+
+    Parameters
+    ----------
+    objData:
+        Object being processed
+
+    cellData:
+        Associated cell
+
+    pixelR2Cut:
+        Distance cut for associated, in pixels**2
+
+    recurse:
+        Current recursion level
+
+    Notes
+    -----
+    This function actually does the splitting of objects
     """
     if recurse > RECURSE_MAX:
         return
@@ -126,6 +170,23 @@ def heirarchicalProcessCluster(
     """Function that is called recursively to
     split clusters until they consist only of sources within
     the match radius of the cluster centroid.
+
+    Recursively process a cluster and make associated objects
+
+    Parameters
+    ----------
+    cluster:
+        Cluster being processed
+
+    cellData:
+        Associated cell
+
+    pixelR2Cut:
+        Distance cut for associated, in pixels**2
+
+    Returns
+    -------
+    Objects produced in cluster processing
     """
     cluster.extract(cellData)
     assert cluster.data is not None

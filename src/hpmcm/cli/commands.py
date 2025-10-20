@@ -9,6 +9,8 @@ from . import options
 
 __all__ = [
     "cli",
+    "wcs_group",
+    "wcs_match_command",
     "shear_group",
     "shear_match_command",
     "shear_split_command",
@@ -20,6 +22,55 @@ __all__ = [
 @click.version_option(__version__)
 def cli() -> None:
     """HPMCM Command line interface"""
+
+
+@cli.group(name="wcs")
+def wcs_group() -> None:
+    """Operations on catalogs using single WCS"""
+
+
+@wcs_group.command(name="match")
+@options.inputs()
+@options.output_file()
+@options.ra_ref(required=True)
+@options.dec_ref(required=True)
+@options.ra_size(required=True)
+@options.dec_size(required=True)
+@options.pixel_size(required=True)
+@options.pixel_r2_cut()
+def wcs_match_command(
+    inputs: list[str],
+    output_file: click.Path,
+    ra_ref: float,
+    dec_ref: float,
+    ra_size: float,
+    dec_size: float,
+    pixel_size: float,
+    pixel_r2_cut: float | None,
+) -> None:
+    """Match catalogs using a global WCS map"""
+    matcher = hpmcm.WcsMatch.create(
+        refDir=(ra_ref, dec_ref),
+        regionSize=(ra_size, dec_size),
+        pixelSize=pixel_size,
+        pixelR2Cut=pixel_r2_cut,
+    )
+    input_files = list(inputs)
+    visit_ids = list(np.arange(len(input_files)))
+    matcher.reduceData(input_files, visit_ids)
+    print("Matching catalogs:")
+    matcher.analysisLoop()
+    print("Extracting stats.")
+    stats = matcher.extractStats()
+    print("Writing output.")
+    out_dict = dict(
+        _cluster_assoc=stats[0],
+        _object_assoc=stats[1],
+        _cluster_stats=stats[2],
+        _object_stats=stats[3],
+    )
+    tables_io.write(out_dict, output_file)
+    print("Success!")
 
 
 @cli.group(name="shear")
@@ -87,7 +138,7 @@ def shear_split_command(
     catalog_type: str,
 ) -> None:
     """Split input shear catalogs"""
-    hpmcm.ShearMatch.splitByTypeAndClean(basefile, tract, shear, catalog_type)
+    hpmcm.shear_utils.splitByTypeAndClean(basefile, tract, shear, catalog_type)
 
 
 @shear_group.command(name="report")
@@ -105,7 +156,7 @@ def shear_report_command(
     tokens = basefile.split("_")
     tract = int(tokens[-1])
     catType = tokens[-4]
-    hpmcm.ShearMatch.shear_report(
+    hpmcm.shear_utils.shearReport(
         basefile, output_file, shear, catType=catType, tract=tract, snrCut=snr_cut
     )
 
@@ -118,4 +169,4 @@ def shear_merge_reports_command(
     output_file: str,
 ) -> None:
     """Build shear calibration reports"""
-    hpmcm.ShearMatch.merge_shear_reports(inputs, output_file)
+    hpmcm.shear_utils.mergeShearReports(inputs, output_file)

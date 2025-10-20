@@ -7,29 +7,7 @@ import numpy as np
 import pandas
 from matplotlib.figure import Figure
 
-from .table import TableColumnInfo, TableInterface
-
 SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
-
-
-class ShearTable(TableInterface):
-    """Interface of table with shear information"""
-
-    _schema = TableInterface._schema.copy()
-    _schema["good"] = TableColumnInfo(bool, "Has unique match")
-    for _name in SHEAR_NAMES:
-        _schema[f"n_{_name}"] = TableColumnInfo(
-            float, f"number of sourcrs from catalog {_name}"
-        )
-        for _i in [1, 2]:
-            _schema[f"g_{_i}_{_name}"] = TableColumnInfo(
-                float, f"g {_i} for catalog {_name}"
-            )
-    for _i in [1, 2]:
-        for _j in [1, 2]:
-            _schema[f"delta_g_{_i}_{_j}"] = TableColumnInfo(
-                float, f"delta g {_i} for {_j}p - {_j}m"
-            )
 
 
 class ShearHistogramStats:

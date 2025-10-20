@@ -4,11 +4,10 @@ from typing import Any
 
 import numpy as np
 import pandas
-import tables_io
 
+from . import input_tables, output_tables
 from .cell import CellData, ShearCellData
 from .match import Match
-from .shear_data import ShearData
 
 
 class ShearMatch(Match):
@@ -38,14 +37,9 @@ class ShearMatch(Match):
     This expectes a list of parquet files with pandas DataFrames
     that contain the following columns.
 
-    "id" : source ID
-    "xCellCoadd": X-postion in cell-based coadd used for metadetect
-    "yCellCoadd": Y-postion in cell-based coadd used for metadetect
-    "g_1": shape measurement
-    "g_2": shape measurement
-    "SNR": Signal-to-Noise of source, used for filtering and centroiding
+     :py:class:`hpmcm.ShearCoaddSourceTable`
 
-    These parquet files can be generate from files with the following
+    These parquet files can be generated from files with the following
     columns using the ShearMatch.splitByTypeAndClean() function.
 
     "id": source ID
@@ -57,21 +51,16 @@ class ShearMatch(Match):
     "{catType}_band_flux_err_{band}": flux measuremnt error in the reference band
     "{catType}_g_{i}": shear measurements
 
+    Two additional tables are produced beyond the tables produeced by
+    the base :py:class:`hpmcm.Match` class
 
-    Two additional tables are produced
+    _object_shear: :py:class:`hpmcm.ShearTable`
 
-    object_shear:
-    good              : True if assoicated object is well matched
-    n_{name}          : Number of sources from catalog {name}
-    g_{i}_{name}      : Shear measurement {i} from catalog {name}
-    delta_g_{i}_{j}   : g_{i}_{j}p - g_{i}_{j}m for good objects only
-
-    cluster_shear:
-    good              : True if assoicated cluster is well matched
-    n_{name}          : Number of sources from catalog {name}
-    g_{i}_{name}      : Shear measurement {i} from catalog {name}
-    delta_g_{i}_{j}   : g_{i}_{j}p - g_{i}_{j}m for good objects only
+    _cluster_shear: :py:class:`hpmcm.ShearTable`
     """
+
+    inputTableClass: type = input_tables.ShearCoaddSourceTable
+    extraCols: list[str] = ["ra", "dec", "xPix", "yPix", "g_1", "g_2"]
 
     def __init__(
         self,
@@ -113,53 +102,6 @@ class ShearMatch(Match):
         )
         return cls(**kw, **kwargs)
 
-    @classmethod
-    def splitByTypeAndClean(
-        cls,
-        basefile: str,
-        tract: int,
-        shear: float,
-        catType: str,
-    ) -> None:
-        """Split a parquet file by shear catalog type"""
-        TYPES = ["ns", "1m", "2m", "1p", "2p"]
-        p = tables_io.read(basefile)
-        for type_ in TYPES:
-            mask = p["shear_type"] == type_
-            sub = p[mask].copy(deep=True)
-            cellIdxX = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
-            cellIdxY = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
-            cent_x = 150 * cellIdxX - 75
-            cent_y = 150 * cellIdxY - 75
-            xCellCoadd = sub["col"] - cent_x
-            yCellCoadd = sub["row"] - cent_y
-            sub["xCellCoadd"] = xCellCoadd
-            sub["yCellCoadd"] = yCellCoadd
-            sub["SNR"] = (
-                sub[f"{catType}_band_flux_r"] / sub[f"{catType}_band_flux_err_r"]
-            )
-            sub["g_1"] = sub[f"{catType}_g_1"]
-            sub["g_2"] = sub[f"{catType}_g_2"]
-            sub["cellIdxX"] = cellIdxX
-            sub["cellIdxY"] = cellIdxY
-            sub["orig_id"] = sub.id
-            sub["id"] = np.arange(len(sub))
-            central_to_cell = np.bitwise_and(
-                np.fabs(xCellCoadd) < 80, np.fabs(yCellCoadd) < 80
-            )
-            central_to_patch = np.bitwise_and(
-                np.fabs(sub["cell_x"].values - 10.5) < 10,
-                np.fabs(sub["cell_y"].values - 10.5) < 10,
-            )
-            right_tract = sub["tract"] == tract
-            central = np.bitwise_and(central_to_cell, central_to_patch)
-            selected = np.bitwise_and(right_tract, central)
-            cleaned = sub[selected].copy(deep=True)
-            cleaned["shear"] = np.repeat(shear, len(cleaned))
-            cleaned.to_parquet(
-                basefile.replace(".parq", f"_uncleaned_{tract}_{type_}.pq")
-            )
-
     def getCellIndices(
         self,
         df: pandas.DataFrame,
@@ -188,8 +130,12 @@ class ShearMatch(Match):
                     continue
                 cellData = self.cellDict[iCell]
                 assert isinstance(cellData, ShearCellData)
-                clusterShearStatsTables.append(cellData.getClusterShearStats())
-                objectShearStatsTables.append(cellData.getObjectShearStats())
+                clusterShearStatsTables.append(
+                    output_tables.ShearTable.buildClusterShearStats(cellData).data
+                )
+                objectShearStatsTables.append(
+                    output_tables.ShearTable.buildObjectShearStats(cellData).data
+                )
 
         return [
             pandas.concat(clusterShearStatsTables),
@@ -198,8 +144,8 @@ class ShearMatch(Match):
 
     def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         xPix, yPix = (
-            df["col"].values + 25,
-            df["row"].values + 25,
+            df["xPix"].values,
+            df["yPix"].values,
         )
         return xPix, yPix
 
@@ -209,10 +155,7 @@ class ShearMatch(Match):
     ) -> pandas.DataFrame:
         """Reduce a single input DataFrame"""
         df_clean = df[(df.SNR > 1)]
-        xPix, yPix = self._getPixValues(df_clean)
         df_red = df_clean.copy(deep=True)
-        df_red["xPix"] = xPix
-        df_red["yPix"] = yPix
 
         return df_red[
             [
@@ -230,44 +173,3 @@ class ShearMatch(Match):
                 "cellIdxY",
             ]
         ]
-
-    @classmethod
-    def shear_report(
-        cls,
-        basefile: str,
-        outputFileBase: str | None,
-        shear: float,
-        catType: str,
-        tract: int,
-        snrCut: float = 7.5,
-    ) -> None:
-        """Report on the shear calibration"""
-        t = tables_io.read(f"{basefile}_object_shear.pq")
-        t2 = tables_io.read(f"{basefile}_object_stats.pq")
-
-        shearData = ShearData(t, t2, shear, catType, tract, snrCut=snrCut)
-
-        if outputFileBase is not None:
-            shearData.save(f"{outputFileBase}.pkl")
-            shearData.savefigs(outputFileBase)
-
-    @classmethod
-    def merge_shear_reports(
-        cls,
-        inputs: list[str],
-        outputFile: str,
-    ) -> None:
-        """Merge report on the shear calibration"""
-
-        outDict: dict[str, Any] = {}
-        for input_ in inputs:
-            shearData = ShearData.load(input_)
-            inputDict = shearData.toDict()
-            for key, val in inputDict.items():
-                if key in outDict:
-                    outDict[key].append(val)
-                else:
-                    outDict[key] = [val]
-
-        outDF = pandas.DataFrame(outDict)
-        outDF.to_parquet(outputFile)

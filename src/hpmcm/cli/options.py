@@ -10,6 +10,11 @@ __all__: list[str] = [
     "deshear",
     "inputs",
     "output_file",
+    "ra_ref",
+    "dec_ref",
+    "ra_size",
+    "dec_size",
+    "pixel_size",
     "pixel_match_scale",
     "pixel_r2_cut",
     "shear",
@@ -83,6 +88,42 @@ output_file = PartialOption(
     help="Path for output file",
     required=True,
 )
+
+
+ra_ref = PartialOption(
+    "--ra-ref",
+    help="Reference RA coordinate for WCS",
+    type=float,
+)
+
+
+dec_ref = PartialOption(
+    "--dec-ref",
+    help="Reference DEC coordinate for WCS",
+    type=float,
+)
+
+
+ra_size = PartialOption(
+    "--ra-size",
+    help="Size of match region along RA direction",
+    type=float,
+)
+
+
+dec_size = PartialOption(
+    "--dec-size",
+    help="Size of match region along DEC direction",
+    type=float,
+)
+
+
+pixel_size = PartialOption(
+    "--pixel-size",
+    help="Size of pixels for WCS matching maps",
+    type=float,
+)
+
 
 pixel_r2_cut = PartialOption(
     "--pixel-r2-cut",

@@ -17,7 +17,23 @@ def findClusterIdsFromArrays(
 ) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
-    has the cluster index as its value"""
+    has the cluster index as its value
+
+    Parameters
+    ----------
+    xLocals:
+        Local pixel x-positions
+
+    yLocals:
+        Local pixel y-positions
+
+    clusterKey:
+        2D-map of cluster Ids by pixel position
+
+    Returns
+    -------
+    Ids of associated clusters
+    """
     return np.array(
         [clusterKey[yLocal, xLocal] for xLocal, yLocal in zip(xLocals, yLocals)]
     ).astype(np.int32)
@@ -30,7 +46,23 @@ def findClusterIds(
 ) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
-    has the cluster index as its value"""
+    has the cluster index as its value
+
+    Parameters
+    ----------
+    df:
+        DataFrame with local pixel positions (xCell, yCell)
+
+    clusterKey:
+        2D-map of cluster Ids by pixel position
+
+    pixelMatchScale:
+        Scale-factor to use in making cluster map
+
+    Returns
+    -------
+    Ids of associated clusters
+    """
     return findClusterIdsFromArrays(
         np.floor(df["xCell"] / pixelMatchScale).astype(int),
         np.floor(df["yCell"] / pixelMatchScale).astype(int),
@@ -44,7 +76,26 @@ def fillCountsMapFromArrays(
     nPix: np.ndarray,
     weights: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Fill a source counts map"""
+    """Fill a source counts map
+
+    Parameters
+    ----------
+    xLocals:
+        Local pixel x-positions
+
+    yLocals:
+        Local pixel y-positions
+
+    nPix:
+        Number of pixels in x,y for counts map
+
+    weights:
+        If provided, weights to apply for each entry in counts map
+
+    Returns
+    -------
+    Counts map of source in cell, projected into nPix,nPix grid
+    """
     hist = np.histogram2d(
         xLocals,
         yLocals,
@@ -62,7 +113,26 @@ def fillCountsMapFromDf(
     pixelMatchScale: int = 1,
 ) -> np.ndarray:
     """Fill a source counts map from a reduced dataframe for one input
-    catalog"""
+    catalog
+
+    Parameters
+    ----------
+    df:
+        DataFrame with local pixel positions (xCell, yCell)
+
+    nPix:
+        Number of pixels in x,y for counts map
+
+    weightName:
+        If provided column to use for weights
+
+    pixelMatchScale:
+        Scale-factor to use in making cluster map
+
+    Returns
+    -------
+    Counts map of source in cell, projected into nPix,nPix grid
+    """
     if weightName is None:
         weights = None
     else:
@@ -80,7 +150,24 @@ def filterFootprints(
     buf: int,
     pixelMatchScale: int = 1,
 ) -> afwDetect.FootprintSet:
-    """Remove footprints within `buf` pixels of the celll edge"""
+    """Remove footprints within `buf` pixels of the celll edge
+
+    Parameters
+    ----------
+    fpSet:
+        Initial FootprintSet
+
+    buf:
+        Number of pixels in cell-edge buffer
+
+    pixelMatchScale:
+        Scale-factor used in making cluster map
+
+    Returns
+    -------
+    Filtered FootprintSet, with objects in the buffer regions
+    removed.
+    """
     region = fpSet.getRegion()
     width, height = region.getWidth(), region.getHeight()
     outList = []
@@ -103,7 +190,30 @@ def getFootprints(
     buf: int,
     pixelMatchScale: int = 1,
 ) -> dict:
-    """Take a source counts map and do clustering using Footprint detection"""
+    """Take a source counts map and do clustering using Footprint detection
+
+    Parameters
+    ----------
+    countsMap:
+        Map of source counts
+
+    buf:
+        Number of pixels in cell-edge buffer
+
+    pixelMatchScale:
+        Scale-factor used in making cluster map
+
+    Returns
+    -------
+    image: afwImage.ImageF
+        countsMap converted to afwImage
+
+    footprints: afwDetect.FootprintSet
+        Clustering FootprintSet
+
+    footprintKey: afwImage.ImageF
+        Array with same shape as countsMap, with cluster associations
+    """
     image = afwImage.ImageF(countsMap.astype(np.float32))
     footprintsOrig = afwDetect.FootprintSet(image, afwDetect.Threshold(0.5))
     if buf == 0:
@@ -121,5 +231,23 @@ def associateSourcesToFootprints(
     clusterKey: np.ndarray,
     pixelMatchScale: int = 1,
 ) -> list[np.ndarray]:
-    """Loop through data and associate sources to clusters"""
+    """Loop through data and associate sources to clusters
+
+    Parameters
+    ----------
+    data:
+        Input DataFrames
+
+    clusterKey:
+        2D-map of cluster Ids by pixel position
+
+    pixelMatchScale:
+        Scale-factor used in making cluster map
+
+    Returns
+    -------
+    Lists of clusters associated to each source
+    output[i][j] will give the id of the cluster associated
+    to source j in input catalog i.
+    """
     return [findClusterIds(df, clusterKey, pixelMatchScale) for df in data]

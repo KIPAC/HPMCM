@@ -7,8 +7,8 @@ from typing import Any
 
 import numpy as np
 import pandas
-import pyarrow.parquet as pq
 
+from . import input_tables, output_tables
 from .cell import CellData
 from .cluster import ClusterData
 from .object import ObjectData
@@ -38,34 +38,34 @@ class Match:
     Attributes
     ----------
 
-    _pixSize : float
+    pixSize : float
         Pixel size in arcseconds
 
-    _nPixSide: int
+    nPixSide: int
         Number of pixels in the match region
 
-    _cellSize: int
+    cellSize: int
         Number of pixels in a Cell
 
-    _cellBuffer: int
+    cellBuffer: int
         Number of overlapping pixel in a Cell
 
-    _cellMaxObject: int
+    cellMaxObject: int
         Max number of objects in a cell, used to make unique IDs
 
-    _pixelR2Cut: float
+    pixelR2Cut: float
         Distance cut for Object membership, in pixels**2
 
-    _nCell: np.ndarray
+    nCell: np.ndarray
         Number of cells in match region
 
-    _fullData: list[DataFrame]
+    fullData: list[DataFrame]
         Full input DataFrames
 
-    _redData : list[DataFrame]
+    redData : list[DataFrame]
         Reduced DataFrames with only the columns needed for matching
 
-    _cellDict : OrderedDict[int, CellData]
+    cellDict : OrderedDict[int, CellData]
         Dictionary providing access to cell data
 
     Notes
@@ -80,48 +80,17 @@ class Match:
 
     Four output tables are produced
 
-    cluster_assoc:
-    id         : source id
-    idx        : source index
-    cluster    : cluster id
-    cat        : catalog id
-    distance   : source-cluster separation in pixels
+    _cluster_assoc: :py:class:`hpmcm.ClusterAssocTable`
 
-    object_assoc:
-    id         : source id
-    idx        : source index
-    parent     : parent cluster id
-    cluster    : cluster id
-    cat        : catalog id
-    distance   : source-object separation in pixels
+    _cluster_stats: :py:class:`hpmcm.ClusterStatsTable`
 
-    cluster_stats:
-    clusterIds : cluster id
-    nSrcs      : number of source in cluster
-    nObject    : number of objects associated to cluster
-    nUniques   : number of unique catalogs represented in cluster
-    distRms    : RMS seperation distance in pixels
-    ra         : RA of cluster centriod
-    dec        : DEC of cluster centroid
-    xCents     : Cluster x-center in pixel coords
-    yCents     : Cluster y-center in pixel coords
-    SNRs       : Mean signal-to-noise of object in cluster
-    cellIdx    : Index of cell associated to cluster
+    _object_assoc: :py:class:`hpmcm.ObjectAssocTable`
 
-    cluster_stats:
-    clusterIds : cluster id
-    objectIds  : object id
-    nSrcs      : number of source in cluster
-    nUniques   : number of unique catalogs represented in cluster
-    distRms    : RMS seperation distance in pixels
-    ra         : RA of cluster centriod
-    dec        : DEC of cluster centroid
-    xCents     : Cluster x-center in pixel coords
-    yCents     : Cluster y-center in pixel coords
-    SNRs       : Mean signal-to-noise of object in cluster
-    cellIdx    : Index of cell associated to cluster
-
+    _object_stats: :py:class:`hpmcm.ObjectStatsTable`
     """
+
+    inputTableClass: type = input_tables.SourceTable
+    extraCols: list[str] = []
 
     def __init__(
         self,
@@ -295,11 +264,18 @@ class Match:
                 if iCell not in self.cellDict:
                     continue
                 cellData = self.cellDict[iCell]
-                clusterAssocTables.append(cellData.getClusterAssociations())
-                objectAssocTables.append(cellData.getObjectAssociations())
-                clusterStatsTables.append(cellData.getClusterStats())
-                objectStatsTables.append(cellData.getObjectStats())
-
+                clusterAssocTables.append(
+                    output_tables.ClusterAssocTable.buildFromCellData(cellData).data,
+                )
+                objectAssocTables.append(
+                    output_tables.ObjectAssocTable.buildFromCellData(cellData).data,
+                )
+                clusterStatsTables.append(
+                    output_tables.ClusterStatsTable.buildFromCellData(cellData).data,
+                )
+                objectStatsTables.append(
+                    output_tables.ObjectStatsTable.buildFromCellData(cellData).data,
+                )
         return [
             pandas.concat(clusterAssocTables),
             pandas.concat(objectAssocTables),
@@ -312,6 +288,10 @@ class Match:
         fName: str,
     ) -> pandas.DataFrame:
         """Read a single input file"""
+        # FIXME, we want to use this function
+        # return self.inputTableClass.read(fName, self.extraCols)
+        import pyarrow.parquet as pq
+
         parq = pq.read_pandas(fName)
         df = parq.to_pandas()
         return df

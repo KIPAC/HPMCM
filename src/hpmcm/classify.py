@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from collections import OrderedDict
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 if TYPE_CHECKING:
-    from .object import ObjectData
     from .cluster import ClusterData
-    from .cell import CellData
     from .match import Match
 
 
@@ -61,13 +59,13 @@ def printSummaryStats(matcher: Match) -> np.ndarray:
 def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
     """Sort clusters by their properties
 
-    This will return a dict of lists of clusters
+    This will return a dict of lists of clusters of various types
     """
     nsrcs = []
 
     cut1 = []
     cut2 = []
-    
+
     used = []
     ideal_faint = []
     ideal = []
@@ -100,10 +98,15 @@ def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
 
             nsrcs.append(c.nSrc)
 
-            if (np.fabs(c.data.xCellCoadd) > cell_edge).all() or (np.fabs(c.data.yCellCoadd) > cell_edge).all():
+            if (np.fabs(c.data.xCellCoadd) > cell_edge).all() or (
+                np.fabs(c.data.yCellCoadd) > cell_edge
+            ).all():
                 cut1.append(k)
                 continue
-            if (np.fabs(c.data.xCellCoadd.mean()) > cell_edge or np.fabs(c.data.yCellCoadd.mean()) > cell_edge):
+            if (
+                np.fabs(c.data.xCellCoadd.mean()) > cell_edge
+                or np.fabs(c.data.yCellCoadd.mean()) > cell_edge
+            ):
                 cut2.append(k)
                 continue
 
@@ -111,7 +114,9 @@ def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
 
             edge_case = False
             is_faint = False
-            if (np.fabs(c.data.xCellCoadd) > cell_edge - edge_cut).any() or (np.fabs(c.data.yCellCoadd) > cell_edge - edge_cut).any():
+            if (np.fabs(c.data.xCellCoadd) > cell_edge - edge_cut).any() or (
+                np.fabs(c.data.yCellCoadd) > cell_edge - edge_cut
+            ).any():
                 edge_case = True
             if (c.data.SNR < snr_cut).any():
                 is_faint = True
@@ -256,7 +261,7 @@ def printObjectMatchTypes(oDict: dict) -> None:
     print("Extra          ", len(oDict["extra"]))
     print("Caught         ", len(oDict["caught"]))
 
-    
+
 def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
     """Sort objects by their properties
 
@@ -386,15 +391,9 @@ def printClusterTypes(clusterTypes: dict[str, list]) -> None:
         "All Clusters:                                  ",
         len(clusterTypes["nsrcs"]),
     )
-    print(
-        "cut 1                                          ", len(clusterTypes["cut1"])
-    )
-    print(
-        "cut 2                                          ", len(clusterTypes["cut2"])
-    )
-    print(
-        "Used:                                          ", len(clusterTypes["used"])
-    )
+    print("cut 1                                          ", len(clusterTypes["cut1"]))
+    print("cut 2                                          ", len(clusterTypes["cut2"]))
+    print("Used:                                          ", len(clusterTypes["used"]))
     print(
         "good (n source from n catalogs):               ",
         len(clusterTypes["ideal"]),
@@ -444,34 +443,20 @@ def printClusterTypes(clusterTypes: dict[str, list]) -> None:
         len(clusterTypes["extra"]),
     )
 
-    
+
 def printObjectTypes(objectTypes: dict[str, list]) -> None:
     """Print numbers of different types of objects"""
-    print(
-        "All Objects:                                   ", len(objectTypes["nsrcs"])
-    )
-    print(
-        "cut 1                                          ", len(objectTypes["cut1"])
-    )
-    print(
-        "cut 2                                          ", len(objectTypes["cut2"])
-    )
-    print(
-        "Used:                                          ", len(objectTypes["used"])
-    )
-    print(
-        "good (n source from n catalogs):               ", len(objectTypes["ideal"])
-    )
+    print("All Objects:                                   ", len(objectTypes["nsrcs"]))
+    print("cut 1                                          ", len(objectTypes["cut1"]))
+    print("cut 2                                          ", len(objectTypes["cut2"]))
+    print("Used:                                          ", len(objectTypes["used"]))
+    print("good (n source from n catalogs):               ", len(objectTypes["ideal"]))
     print(
         "good faint                                     ",
         len(objectTypes["ideal_faint"]),
     )
-    print(
-        "faint (< n sources, SNR < cut):                ", len(objectTypes["faint"])
-    )
-    print(
-        "mixed (n source from < n catalogs):            ", len(objectTypes["mixed"])
-    )
+    print("faint (< n sources, SNR < cut):                ", len(objectTypes["faint"]))
+    print("mixed (n source from < n catalogs):            ", len(objectTypes["mixed"]))
     print(
         "edge_mixed (mixed near edge of cell):          ",
         len(objectTypes["edge_mixed"]),
@@ -484,9 +469,7 @@ def printObjectTypes(objectTypes: dict[str, list]) -> None:
         "edge_extra (> n sources, near edge of cell):   ",
         len(objectTypes["edge_extra"]),
     )
-    print(
-        "faint (< n sources, SNR < cut):                ", len(objectTypes["faint"])
-    )
+    print("faint (< n sources, SNR < cut):                ", len(objectTypes["faint"]))
     print(
         "orphan (split off from larger cluster          ",
         len(objectTypes["orphan"]),
@@ -503,6 +486,4 @@ def printObjectTypes(objectTypes: dict[str, list]) -> None:
         "many missing (< n-2 sources, not near edge):   ",
         len(objectTypes["many_missing"]),
     )
-    print(
-        "extra (> n sources, not near edge):            ", len(objectTypes["extra"])
-    )
+    print("extra (> n sources, not near edge):            ", len(objectTypes["extra"]))

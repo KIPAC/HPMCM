@@ -30,8 +30,7 @@ def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
 
     Returns
     -------
-    Display showing the cluster in question
-
+    Figure showing the cluster in question
     """
     cellData = matcher.cellDict[iK[0]]
     cluster = cellData.clusterDict[iK[1]]
@@ -75,7 +74,7 @@ def showShearObj(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
 
     Returns
     -------
-    Display showing the object in question
+    Figure showing the object in question
     """
 
     cellData = matcher.cellDict[iK[0]]
@@ -135,7 +134,7 @@ def showCluster(
 
     Returns
     -------
-    Display showing the cluster in question
+    Figure showing the cluster in question
     """
     extent = (
         0,
@@ -194,7 +193,7 @@ def showObjects(
 
     Returns
     -------
-    Display showing the cluster in question
+    Figure showing the cluster in question
     """
     extent = (
         0,
@@ -247,7 +246,7 @@ def showObjectsV2(
 
     Returns
     -------
-    Display showing the cluster in question
+    Figure showing the cluster in question
     """
     extent = (
         0,
