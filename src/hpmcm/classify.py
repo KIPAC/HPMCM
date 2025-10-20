@@ -20,12 +20,17 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 
     Returns
     -------
-    nClusters, nOrphans, nMixed, nConfused
+    nClusters: int
+        Total number of clusters
 
-    'Orphan'   means single source clusters (i.e., single detections)
-    'Mixed'    means there is more that one source from at least one
-               input catalog
-    'Confused' means there are more than four cases of duplication
+    nOrphan: int
+        Number of single source clusters (i.e., single detections)
+    
+    nMixed: int
+        Number of clusters with more than one source from each input catalog
+
+    nConfused: int
+        Number of souces with more than four cases of duplication
     """
     nOrphan = 0
     nMixed = 0

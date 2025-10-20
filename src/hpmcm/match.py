@@ -37,7 +37,6 @@ class Match:
 
     Attributes
     ----------
-
     pixSize : float
         Pixel size in arcseconds
 

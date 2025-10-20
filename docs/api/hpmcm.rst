@@ -1,5 +1,5 @@
-hpmcm
-=====
+hpmcm package
+=============
 
 .. toctree::
    :maxdepth: 4
@@ -7,9 +7,11 @@ hpmcm
    hpmcm.cell
    hpmcm.classify
    hpmcm.cluster
+   hpmcm.input_tables
    hpmcm.match
    hpmcm.match_utils
    hpmcm.object
+   hpmcm.output_tables
    hpmcm.shear_data
    hpmcm.shear_match
    hpmcm.shear_utils

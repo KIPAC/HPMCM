@@ -26,7 +26,7 @@ def shearStats(df: pandas.DataFrame) -> dict:
     Parameters
     ----------
     df:
-        Input DataFrame, must have :py.class:`hpmcm.ShearTable` schema
+        Input DataFrame, must have :py:class:`hpmcm.ShearTable` schema
 
     Returns
     -------
@@ -180,7 +180,7 @@ def splitByTypeAndClean(
     Notes
     -----
     This will create 5 files with the pattern:
-    {basefile}_uncleaned_{tract}_{type_}.pq"
+    "{basefile}_uncleaned_{tract}_{type}.pq"
     """
     p = tables_io.read(basefile)
     if clean:
