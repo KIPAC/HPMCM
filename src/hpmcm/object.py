@@ -106,6 +106,10 @@ class ObjectData:
         assert self.data is not None
         return self.data.yPix
 
+    def hasRefCatalog(self, refCatId: int = 0) -> bool:
+        """Is there a source from the reference catalog"""
+        return refCatId in self.catIndices
+
     def sourceIds(self) -> np.ndarray:
         """Return the source ids for the sources in the object"""
         return self.parentCluster.srcIds[self.mask]

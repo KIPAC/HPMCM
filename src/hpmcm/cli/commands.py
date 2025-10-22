@@ -37,6 +37,7 @@ def wcs_group() -> None:
 @options.ra_size(required=True)
 @options.dec_size(required=True)
 @options.pixel_size(required=True)
+@options.cell_size()
 @options.pixel_r2_cut()
 def wcs_match_command(
     inputs: list[str],
@@ -46,6 +47,7 @@ def wcs_match_command(
     ra_size: float,
     dec_size: float,
     pixel_size: float,
+    cell_size: int,
     pixel_r2_cut: float | None,
 ) -> None:
     """Match catalogs using a global WCS map"""
@@ -53,6 +55,7 @@ def wcs_match_command(
         refDir=(ra_ref, dec_ref),
         regionSize=(ra_size, dec_size),
         pixelSize=pixel_size,
+        cellSize=cell_size,
         pixelR2Cut=pixel_r2_cut,
     )
     input_files = list(inputs)

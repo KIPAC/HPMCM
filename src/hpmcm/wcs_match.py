@@ -120,10 +120,16 @@ class WcsMatch(Match):
         xPix, yPix = self.wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
         )
-        df_red = df_clean.copy(deep=True)
+        df_clean["xPix"] = xPix
+        df_clean["yPix"] = yPix
+        filtered = (
+            (df_clean.xPix >= 0)
+            & (df_clean.xPix < self.nPixSide[0])
+            & (df_clean.yPix >= 0)
+            & (df_clean.yPix < self.nPixSide[1])
+        )
 
-        df_red["xPix"] = xPix
-        df_red["yPix"] = yPix
+        df_red = df_clean[filtered].copy(deep=True)
 
         return df_red[
             [

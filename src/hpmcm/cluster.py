@@ -133,6 +133,10 @@ class ClusterData:
         assert self.data is not None
         return self.data.srcIdx
 
+    def hasRefCatalog(self, refCatId: int = 0) -> bool:
+        """Is there a source from the reference catalog"""
+        return refCatId in self.sources[0]
+
     @property
     def xCluster(self) -> np.ndarray:
         """Return the x-positions of the soures w.r.t. the footprint"""

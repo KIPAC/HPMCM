@@ -10,6 +10,7 @@ __all__: list[str] = [
     "deshear",
     "inputs",
     "output_file",
+    "cell_size",
     "ra_ref",
     "dec_ref",
     "ra_size",
@@ -115,6 +116,14 @@ dec_size = PartialOption(
     "--dec-size",
     help="Size of match region along DEC direction",
     type=float,
+)
+
+
+cell_size = PartialOption(
+    "--cell-size",
+    help="Size of cell in pixels",
+    type=int,
+    default=1000,
 )
 
 

@@ -97,7 +97,7 @@ class Match:
     ):
         self.pixSize = kwargs["pixelSize"]
         self.nPixSide = kwargs["nPixels"]
-        self.cellSize: int = kwargs.get("cellSize", 3000)
+        self.cellSize: int = kwargs.get("cellSize", 1000)
         self.cellBuffer: int = kwargs.get("cellBuffer", 10)
         self.cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
         self.pixelR2Cut: float = kwargs.get("pixelR2Cut", 1.0)

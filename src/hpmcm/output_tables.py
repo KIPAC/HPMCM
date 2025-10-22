@@ -103,6 +103,7 @@ class ObjectStatsTable(TableInterface):
         SNR=TableColumnInfo(float, "Mean signal-to-noise ratio"),
         SNRRms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
         cellIdx=TableColumnInfo(int, "Index of associated cell"),
+        hasRefCat=TableColumnInfo(bool, "Has source from the reference catalog"),
     )
 
     @staticmethod
@@ -128,6 +129,7 @@ class ObjectStatsTable(TableInterface):
         yCents = np.zeros((nObj), dtype=float)
         SNRs = np.zeros((nObj), dtype=float)
         SNRRms = np.zeros((nObj), dtype=float)
+        hasRefCat = np.zeros((nObj), dtype=bool)
 
         for idx, obj in enumerate(cellData.objectDict.values()):
             clusterIds[idx] = obj.parentCluster.iCluster
@@ -143,6 +145,7 @@ class ObjectStatsTable(TableInterface):
             yCents[idx] = np.sum(obj.data.SNR * obj.data.yCell) / sumSNR
             SNRs[idx] = obj.snrMean
             SNRRms[idx] = obj.snrRms
+            hasRefCat[idx] = obj.hasRefCatalog()
 
         ra, dec = cellData.getRaDec(xCents, yCents)
         distRms *= cellData.matcher.pixToArcsec()
@@ -160,6 +163,7 @@ class ObjectStatsTable(TableInterface):
             SNR=SNRs,
             SNRRms=SNRRms,
             cellIdx=np.repeat(cellData.idx, len(distRms)).astype(int),
+            hasRefCat=hasRefCat,
         )
 
 
@@ -241,6 +245,7 @@ class ClusterStatsTable(TableInterface):
         SNR=TableColumnInfo(float, "Mean signal-to-noise ratio"),
         SNRRms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
         cellIdx=TableColumnInfo(int, "Index of associated cell"),
+        hasRefCat=TableColumnInfo(bool, "Has source from reference catalog"),
     )
 
     @staticmethod
@@ -267,6 +272,7 @@ class ClusterStatsTable(TableInterface):
         yCents = np.zeros((nClust), dtype=float)
         SNRs = np.zeros((nClust), dtype=float)
         SNRRms = np.zeros((nClust), dtype=float)
+        hasRefCat = np.zeros((nClust), dtype=bool)
 
         for idx, cluster in enumerate(cellData.clusterDict.values()):
             clusterIds[idx] = cluster.iCluster
@@ -281,6 +287,7 @@ class ClusterStatsTable(TableInterface):
             yCents[idx] = np.sum(cluster.data.SNR * cluster.data.yCell) / sumSNR
             SNRs[idx] = cluster.snrMean
             SNRRms[idx] = cluster.snrRms
+            hasRefCat[idx] = cluster.hasRefCatalog()
 
         ra, dec = cellData.getRaDec(xCents, yCents)
         distRms *= cellData.matcher.pixToArcsec()
@@ -298,6 +305,7 @@ class ClusterStatsTable(TableInterface):
             SNR=SNRs,
             SNRRms=SNRRms,
             cellIdx=np.repeat(cellData.idx, len(distRms)).astype(int),
+            hasRefCat=hasRefCat,
         )
 
 

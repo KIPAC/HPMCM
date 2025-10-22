@@ -25,7 +25,7 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 
     nOrphan: int
         Number of single source clusters (i.e., single detections)
-    
+
     nMixed: int
         Number of clusters with more than one source from each input catalog
 
