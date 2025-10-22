@@ -1,21 +1,48 @@
 hpmcm package
 =============
 
+
+Matchers
+--------
+
+.. toctree::
+   :maxdepth: 4
+
+   hpmcm.match	      
+   hpmcm.shear_match
+   hpmcm.wcs_match
+
+
+Input/Output Table Formats
+--------------------------
+
+.. toctree::
+   :maxdepth: 4
+
+   hpmcm.input_tables	      
+   hpmcm.output_tables
+   hpmcm.table
+
+   
+Internal Data Structures
+------------------------
+
 .. toctree::
    :maxdepth: 4
 
    hpmcm.cell
-   hpmcm.classify
    hpmcm.cluster
-   hpmcm.input_tables
-   hpmcm.match
-   hpmcm.match_utils
    hpmcm.object
-   hpmcm.output_tables
    hpmcm.shear_data
-   hpmcm.shear_match
+	      
+
+Utility Functions
+-----------------
+
+.. toctree::
+   :maxdepth: 4
+
+   hpmcm.classify
    hpmcm.shear_utils
-   hpmcm.table
    hpmcm.utils
    hpmcm.viz_utils
-   hpmcm.wcs_match

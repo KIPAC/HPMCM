@@ -18,7 +18,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../src'))
-    
+sys.path.insert(0, os.path.abspath('../nb'))
+
 
 # Use unittest mock module to shield some modules away from docs building.
 # This way one does not need to install them when dealing with the doc.
