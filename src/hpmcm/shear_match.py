@@ -13,16 +13,13 @@ from .match import Match
 class ShearMatch(Match):
     """Class to do N-way matching for shear calibration.
 
-    Uses cell-based coadds toassign pixel locations to all sources in
-    the input catalogs
+    Uses pre-assigned pixel locations from cell-based coadd WCS.
 
-    Expects 5 input catalogs.
+    Expects 5 input catalogs: a reference catalog and 4 counterfactual
+    shear catalogs.
 
     Attributes
     ----------
-    maxSubDivision: int
-        Maximum number of cell sub-diviions
-
     pixelMatchScale: int
         Number of cells to merge in original counts map
 
@@ -37,7 +34,7 @@ class ShearMatch(Match):
     This expectes a list of parquet files with pandas DataFrames
     that contain the following columns.
 
-     :py:class:`hpmcm.ShearCoaddSourceTable`
+    :py:class:`hpmcm.input_tables.ShearCoaddSourceTable`
 
     These parquet files can be generated from files with the following
     columns using the ShearMatch.splitByTypeAndClean() function.
@@ -54,9 +51,9 @@ class ShearMatch(Match):
     Two additional tables are produced beyond the tables produeced by
     the base :py:class:`hpmcm.Match` class
 
-    _object_shear: :py:class:`hpmcm.ShearTable`
+    _object_shear: :py:class:`hpmcm.output_tables.ShearTable`
 
-    _cluster_shear: :py:class:`hpmcm.ShearTable`
+    _cluster_shear: :py:class:`hpmcm.output_tables.ShearTable`
     """
 
     inputTableClass: type = input_tables.ShearCoaddSourceTable
@@ -66,7 +63,6 @@ class ShearMatch(Match):
         self,
         **kwargs: Any,
     ):
-        self.maxSubDivision: int = kwargs.get("maxSubDivision", 3)
         self.pixelMatchScale: int = kwargs.get("pixelMatchScale", 1)
         self.catType: str = kwargs.get("catalogType", "wmom")
         self.deshear: float | None = kwargs.get("deshear", None)

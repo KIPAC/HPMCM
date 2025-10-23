@@ -15,6 +15,17 @@ if TYPE_CHECKING:
 
 SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
 
+# These are the coeffs for the various shear catalogs
+DESHEAR_COEFFS = np.array(
+    [
+        [0, 0, 0, 0],
+        [0, 1, 1, 0],
+        [0, -1, -1, 0],
+        [1, 0, 0, -1],
+        [-1, 0, 0, 1],
+    ]
+)
+
 
 def shearStats(df: pandas.DataFrame) -> dict:
     """Return the shear statistics
@@ -237,17 +248,6 @@ def reduceShearDataForCell(
     filteredIdx = matcher.getCellIndices(dataframe) == cell.idx
     reduced = dataframe[filteredIdx].copy(deep=True)
 
-    # These are the coeffs for the various shear catalogs
-    deshear_coeffs = np.array(
-        [
-            [0, 0, 0, 0],
-            [0, 1, 1, 0],
-            [0, -1, -1, 0],
-            [1, 0, 0, -1],
-            [-1, 0, 0, 1],
-        ]
-    )
-
     xCellOrig = reduced["xCellCoadd"]
     yCellOrig = reduced["yCellCoadd"]
     xPixOrig = reduced["xPix"]
@@ -256,10 +256,10 @@ def reduceShearDataForCell(
     if matcher.deshear is not None:
         # De-shear in the cell frame to do matching
         dxShear = matcher.deshear * (
-            xCellOrig * deshear_coeffs[iCat][0] + yCellOrig * deshear_coeffs[iCat][2]
+            xCellOrig * DESHEAR_COEFFS[iCat][0] + yCellOrig * DESHEAR_COEFFS[iCat][2]
         )
         dyShear = matcher.deshear * (
-            xCellOrig * deshear_coeffs[iCat][1] + yCellOrig * deshear_coeffs[iCat][3]
+            xCellOrig * DESHEAR_COEFFS[iCat][1] + yCellOrig * DESHEAR_COEFFS[iCat][3]
         )
         xCell = xCellOrig + dxShear
         yCell = yCellOrig + dyShear

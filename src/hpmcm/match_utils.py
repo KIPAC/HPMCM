@@ -12,9 +12,6 @@ if TYPE_CHECKING:
     from .cell import CellData
 
 
-RECURSE_MAX = 4
-
-
 def heirarchicalProcessObject(
     objData: ObjectData, cellData: CellData, pixelR2Cut: float, recurse: int = 0
 ) -> None:
@@ -45,7 +42,7 @@ def heirarchicalProcessObject(
     The new objects will be added to the parent cluster of
     the original object
     """
-    if recurse > RECURSE_MAX:
+    if recurse > cellData.matcher.maxSubDivision:
         return
     objData.recurse = recurse
 
@@ -78,7 +75,7 @@ def heirarchicalProcessObject(
     if subMask.all():
         return
 
-    if recurse >= RECURSE_MAX:
+    if recurse >= cellData.matcher.maxSubDivision:
         return
 
     heirarchicalSplitObject(objData, cellData, pixelR2Cut, recurse=recurse + 1)
@@ -109,7 +106,8 @@ def heirarchicalSplitObject(
     -----
     This function actually does the splitting of objects
     """
-    if recurse > RECURSE_MAX:
+
+    if recurse > cellData.matcher.maxSubDivision:
         return
     objData.recurse = recurse
     objData.extract()
@@ -130,7 +128,7 @@ def heirarchicalSplitObject(
     footprints = fpDict["footprints"]
     nFootprints = len(footprints.getFootprints())
     if nFootprints == 1:
-        if recurse >= RECURSE_MAX:
+        if recurse >= cellData.matcher.maxSubDivision:
             return
         heirarchicalSplitObject(objData, cellData, pixelR2Cut, recurse=recurse + 1)
         return

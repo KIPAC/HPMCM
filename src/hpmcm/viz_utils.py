@@ -154,11 +154,14 @@ def showCluster(
     yC = cluster.yCent - yOffset
 
     img = plt.imshow(
-        image[cluster.footprint.getBBox()].array, origin="lower", extent=extent
+        image[cluster.footprint.getBBox()].array,
+        origin="lower",
+        extent=extent,
+        cmap="grey",
     )
-    _cb = plt.colorbar()
+    _cb = plt.colorbar(label="Object per pixel")
     try:
-        assert cluster.data
+        assert cluster.data is not None
         xOff_u = xOff - cluster.data.dxShear
         yOff_u = yOff - cluster.data.dyShear
         img.axes.scatter(yOff_u, xOff_u, marker="x")
@@ -166,6 +169,8 @@ def showCluster(
         pass
     img.axes.scatter(yOff, xOff)
     img.axes.scatter(yC, xC, marker="+", c="green")
+    img.axes.set_xlabel("x [pixels]")
+    img.axes.set_ylabel("y [pixels]")
     assert img.axes.figure is not None
     return img.axes.figure
 

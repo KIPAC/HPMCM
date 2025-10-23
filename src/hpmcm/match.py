@@ -52,6 +52,9 @@ class Match:
     cellMaxObject: int
         Max number of objects in a cell, used to make unique IDs
 
+    maxSubDivision: int
+        Maximum number of cell sub-divisions
+
     pixelR2Cut: float
         Distance cut for Object membership, in pixels**2
 
@@ -100,6 +103,7 @@ class Match:
         self.cellSize: int = kwargs.get("cellSize", 1000)
         self.cellBuffer: int = kwargs.get("cellBuffer", 10)
         self.cellMaxObject: int = kwargs.get("cellMaxObject", 100000)
+        self.maxSubDivision: int = kwargs.get("maxSubDivision", 3)
         self.pixelR2Cut: float = kwargs.get("pixelR2Cut", 1.0)
         self.nCell: np.ndarray = np.ceil(self.nPixSide / self.cellSize)
 

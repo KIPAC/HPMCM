@@ -43,12 +43,10 @@ def createGlobalWcs(
 
 
 class WcsMatch(Match):
-    """Class to do N-way matching
+    """Class to do N-way matching using a provided WCS.
 
-    Uses a provided WCS to define a Skymap that covers the full region
+    This uses the provided WCS to define a Skymap that covers the full region
     begin matched.
-
-    Uses that WCS to assign pixel locations to all sources in the input catalogs
 
     Notes
     -----

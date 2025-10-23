@@ -163,6 +163,9 @@ class ShearHistograms:
         self,
         stats_g_1: ShearHistogramStats | None = None,
         stats_g_2: ShearHistogramStats | None = None,
+        shear: float = 0.01,
+        *,
+        useCentral: bool = True,
     ) -> Figure:
         """Plot delta_g_1_1 and delta_g_2_2 for fully matched objects"""
 
@@ -174,18 +177,52 @@ class ShearHistograms:
         assert stats_g_2 is not None
 
         fig, axes = plt.subplots()
+        if useCentral:
+            valSlice = self.central
+            edgeSlice = self.centralEdges
+        else:
+            valSlice = slice(0, len(self.good_delta_g_1_1))
+            edgeSlice = slice(0, len(self.binEdges))
+
         axes.stairs(
-            self.good_delta_g_1_1[self.central],
-            self.binEdges[self.centralEdges],
-            label=f"g_1,1: {stats_g_1.mean:.6f} +- {stats_g_1.error:.6f}",
+            self.good_delta_g_1_1[valSlice],
+            self.binEdges[edgeSlice],
+            label=f"R_11: {stats_g_1.mean/shear:.4f} +- {stats_g_1.error/shear:.4f}",
         )
         axes.stairs(
-            self.good_delta_g_2_2[self.central],
-            self.binEdges[self.centralEdges],
-            label=f"g_2,2: {stats_g_2.mean:.6f} +- {stats_g_2.error:.6f}",
+            self.good_delta_g_2_2[valSlice],
+            self.binEdges[edgeSlice],
+            label=f"R_22: {stats_g_2.mean/shear:.4f} +- {stats_g_2.error/shear:.4f}",
         )
-        axes.axvline(x=0, color="red", linestyle="--", linewidth=2)
-        axes.legend()
+        axes.axvline(x=stats_g_1.mean, color="blue", linestyle="-", linewidth=2)
+        axes.axvline(x=stats_g_2.mean, color="orange", linestyle="-", linewidth=2)
+        axes.axvline(
+            x=stats_g_1.mean + stats_g_1.error,
+            color="blue",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.axvline(
+            x=stats_g_2.mean + stats_g_2.error,
+            color="orange",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.axvline(
+            x=stats_g_1.mean - stats_g_1.error,
+            color="blue",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.axvline(
+            x=stats_g_2.mean - stats_g_2.error,
+            color="orange",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.legend(loc="upper right")
+        axes.set_xlabel(r"$\delta g$")
+        axes.set_ylabel("Counts")
         fig.tight_layout()
         return fig
 
@@ -197,6 +234,10 @@ class ShearHistograms:
         hist2m: np.ndarray,
         stats_g_1: ShearHistogramStats | None = None,
         stats_g_2: ShearHistogramStats | None = None,
+        shear: float = 0.01,
+        title: str = "",
+        *,
+        useCentral: bool = True,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for all objects of a particular type"""
 
@@ -208,17 +249,54 @@ class ShearHistograms:
         assert stats_g_2 is not None
 
         fig, axes = plt.subplots()
+        if useCentral:
+            valSlice = self.central
+            edgeSlice = self.centralEdges
+        else:
+            valSlice = slice(0, len(hist1p))
+            edgeSlice = slice(0, len(hist1p) + 1)
+
         axes.stairs(
-            (hist1p + hist1m)[self.central],
-            self.binEdges[self.centralEdges],
-            label=f"g1: {200*stats_g_1.mean:.4f} +- {200*stats_g_1.error:.4f}",
+            (hist1p + hist1m)[valSlice],
+            self.binEdges[edgeSlice],
+            label=f"R_11: {2*stats_g_1.mean/shear:.4f} +- {2*stats_g_1.error/shear:.4f}",
         )
         axes.stairs(
-            (hist2p + hist2m)[self.central],
-            self.binEdges[self.centralEdges],
-            label=f"g2: {200*stats_g_2.mean:.4f} +- {200*stats_g_2.error:.4f}",
+            (hist2p + hist2m)[valSlice],
+            self.binEdges[edgeSlice],
+            label=f"R_22: {2*stats_g_2.mean/shear:.4f} +- {2*stats_g_2.error/shear:.4f}",
         )
-        axes.legend()
+        axes.set_xlabel("g")
+        axes.set_ylabel("Counts")
+        axes.axvline(x=stats_g_1.mean, color="blue", linestyle="-", linewidth=2)
+        axes.axvline(x=stats_g_2.mean, color="orange", linestyle="-", linewidth=2)
+        axes.axvline(
+            x=stats_g_1.mean + stats_g_1.error,
+            color="blue",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.axvline(
+            x=stats_g_2.mean + stats_g_2.error,
+            color="orange",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.axvline(
+            x=stats_g_1.mean - stats_g_1.error,
+            color="blue",
+            linestyle="--",
+            linewidth=2,
+        )
+        axes.axvline(
+            x=stats_g_2.mean - stats_g_2.error,
+            color="orange",
+            linestyle="--",
+            linewidth=2,
+        )
+
+        axes.legend(loc="upper right")
+        axes.set_title(title)
         fig.tight_layout()
         return fig
 
@@ -226,6 +304,9 @@ class ShearHistograms:
         self,
         stats_g_1: ShearHistogramStats | None = None,
         stats_g_2: ShearHistogramStats | None = None,
+        shear: float = 0.01,
+        *,
+        useCentral: bool = True,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for all fully matched objects"""
 
@@ -236,12 +317,18 @@ class ShearHistograms:
             self.good_g_2_2m,
             stats_g_1,
             stats_g_2,
+            shear=shear,
+            title="Good Matches",
+            useCentral=useCentral,
         )
 
     def plotMetaDetectAll(
         self,
         stats_g_1: ShearHistogramStats | None = None,
         stats_g_2: ShearHistogramStats | None = None,
+        shear: float = 0.01,
+        *,
+        useCentral: bool = True,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for all objects"""
 
@@ -252,12 +339,18 @@ class ShearHistograms:
             self.all_g_2_2m,
             stats_g_1,
             stats_g_2,
+            shear=shear,
+            title="All Clusters",
+            useCentral=useCentral,
         )
 
     def plotMetaDetectBad(
         self,
         stats_g_1: ShearHistogramStats | None = None,
         stats_g_2: ShearHistogramStats | None = None,
+        shear: float = 0.01,
+        *,
+        useCentral: bool = True,
     ) -> Figure:
         """Plot hist1p - hist1m and hist2p - hist2m for non-fully matched objects"""
         return self.plotMetaDetect(
@@ -267,6 +360,9 @@ class ShearHistograms:
             self.bad_g_2_2m,
             stats_g_1,
             stats_g_2,
+            shear=shear,
+            title="Bad Matches",
+            useCentral=useCentral,
         )
 
 
@@ -418,9 +514,7 @@ class ShearData:
         self.nBad = len(bad)
         self.nAll = self.nGood + self.nBad
         self.effic = self.nGood / self.nAll
-        self.efficErr = float(
-            np.sqrt(self.nGood * self.nBad * self.nAll) / (self.nAll * self.nAll)
-        )
+        self.efficErr = float(np.sqrt(self.effic * (1.0 - self.effic) / self.nAll))
 
         print("")
         print(f"Report: {catType} {shear:.4f} {tract}")
@@ -436,20 +530,32 @@ class ShearData:
         self.hists = ShearHistograms(good, bad, self.catType)
         self.stats = ShearStats(self.hists)
 
-    def makePlots(self) -> dict[str, Figure]:
+    def makePlots(self, *, useCentral: bool = True) -> dict[str, Figure]:
         """Make the standard plots"""
         plotDict = dict(
             metacalib=self.hists.plotMetacalib(
-                self.stats.delta_g_1_1, self.stats.delta_g_2_2
+                self.stats.delta_g_1_1,
+                self.stats.delta_g_2_2,
+                shear=self.shear,
+                useCentral=useCentral,
             ),
             metadetect_good=self.hists.plotMetaDetectGood(
-                self.stats.good_g_1_1, self.stats.good_g_2_2
+                self.stats.good_g_1_1,
+                self.stats.good_g_2_2,
+                shear=self.shear,
+                useCentral=useCentral,
             ),
             metadetect_bad=self.hists.plotMetaDetectBad(
-                self.stats.bad_g_1_1, self.stats.bad_g_2_2
+                self.stats.bad_g_1_1,
+                self.stats.bad_g_2_2,
+                shear=self.shear,
+                useCentral=useCentral,
             ),
             metadetect_all=self.hists.plotMetaDetectAll(
-                self.stats.all_g_1_1, self.stats.all_g_2_2
+                self.stats.all_g_1_1,
+                self.stats.all_g_2_2,
+                shear=self.shear,
+                useCentral=useCentral,
             ),
         )
         return plotDict
