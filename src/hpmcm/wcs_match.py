@@ -53,10 +53,17 @@ class WcsMatch(Match):
     This expectes a list of parquet files with pandas DataFrames
     that contain the following columns.
 
-    "id" : source ID
-    "ra" : RA in degrees
-    "dec": DEC in degress
-    "SNR": Signal-to-Noise of source, used for filtering and centroiding
+    +-------------+---------------------------------------------------------------+
+    | Column name | Description                                                   |
+    +=============+===============================================================+
+    | id          | source ID                                                     |
+    +-------------+---------------------------------------------------------------+
+    | ra          | RA in degrees                                                 |
+    +-------------+---------------------------------------------------------------+
+    | dec         | DEC in degress                                                |
+    +-------------+---------------------------------------------------------------+
+    | SNR         | Signal-to-Noise of source, used for filtering and centroiding |
+    +-------------+---------------------------------------------------------------+
     """
 
     def __init__(

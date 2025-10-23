@@ -20,7 +20,8 @@ class TableColumnInfo:
         self.msg = msg
 
     def __repr__(self) -> str:
-        return f"{self.dtype}\n    {self.msg}"
+        # return f"{self.dtype:10}\n    {self.msg}"
+        return f"{self.dtype.__name__:8} | {self.msg:50}"
 
     def validate(self, val: np.ndarray) -> None:
         """Validate data used to fill a column is of the correct type"""
@@ -45,19 +46,29 @@ class TableInterface:
         s = []
         for name, val in cls._schema.items():
             assert isinstance(val, TableColumnInfo)
-            s.append(f"{name}: {val}")
-        return "\n\n".join(s)
+            s.append(f"| {name:15} | {val} |")
+        return "\n+-----------------+----------+----------------------------------------------------+\n".join(
+            s
+        )
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         config_text = cls._describeSchema()
         if cls.__doc__ is None:
-            cls.__doc__ = (
-                f"Table {cls.__name__}\n\nParameters\n----------\n{config_text}"
-            )
+            cls.__doc__ = f"\nNotes\n-----\n{cls.__name__} schema\n\n"
+            cls.__doc__ += "+-----------------+----------+----------------------------------------------------+\n"
+            cls.__doc__ += "| Column          | Type     | Description                                        |\n"
+            cls.__doc__ += "+=================+==========+====================================================+\n"
+            cls.__doc__ += config_text
+            cls.__doc__ += "\n+-----------------+----------+----------------------------------------------------+\n"
         else:
             # strip any existing configuration text from parent classes that is at the end of the doctring
-            cls.__doc__ = cls.__doc__.split("Parameters")[0]
-            cls.__doc__ += f"\n\nParameters\n----------\n{config_text}"
+            cls.__doc__ = cls.__doc__.split("Notes")[0]
+            cls.__doc__ += f"\nNotes\n-----\n{cls.__name__} schema\n\n"
+            cls.__doc__ += "+-----------------+----------+----------------------------------------------------+\n"
+            cls.__doc__ += "| Column          | Type     | Description                                        |\n"
+            cls.__doc__ += "+=================+==========+====================================================+\n"
+            cls.__doc__ += config_text
+            cls.__doc__ += "\n+-----------------+----------+----------------------------------------------------+\n"
 
     @property
     def data(self) -> pandas.DataFrame:

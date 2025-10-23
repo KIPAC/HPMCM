@@ -34,26 +34,65 @@ class ShearMatch(Match):
     This expectes a list of parquet files with pandas DataFrames
     that contain the following columns.
 
-    :py:class:`hpmcm.input_tables.ShearCoaddSourceTable`
+    +-------------+---------------------------------------------------------------+
+    | Column name | Description                                                   |
+    +=============+===============================================================+
+    | id          | source ID                                                     |
+    +-------------+---------------------------------------------------------------+
+    | tract       | Tract being matched                                           |
+    +-------------+---------------------------------------------------------------+
+    | xCellCoadd  | X-postion in cell-based coadd used for metadetect             |
+    +-------------+---------------------------------------------------------------+
+    | yCellCoadd  | Y-postion in cell-based coadd used for metadetect             |
+    +-------------+---------------------------------------------------------------+
+    | SNR         | Signal-to-Noise of source, used for filtering and centroiding |
+    +-------------+---------------------------------------------------------------+
+    | cellIdxX    | Cell x-index within Tract                                     |
+    +-------------+---------------------------------------------------------------+
+    | cellIdxY    | Cell y-index within Tract                                     |
+    +-------------+---------------------------------------------------------------+
+    | g_1         | Shear g1 component                                            |
+    +-------------+---------------------------------------------------------------+
+    | g_2         | Shear g1 component                                            |
+    +-------------+---------------------------------------------------------------+
+
+    (see :py:class:`hpmcm.input_tables.ShearCoaddSourceTable`)
+
 
     These parquet files can be generated from files with the following
     columns using the ShearMatch.splitByTypeAndClean() function.
 
-    "id": source ID
-    "shear_type": one of "ns", "1p", "1m", "2p" "2m"
-    "patch_{x,y}": id of the patch within the tract
-    "cell_{x,y}": id of the cell withing the patch
-    "row, col": global row/col in the tract WCS
-    "{catType}_band_flux_{band}": flux measuremnt in the reference band
-    "{catType}_band_flux_err_{band}": flux measuremnt error in the reference band
-    "{catType}_g_{i}": shear measurements
+    +--------------------------------+---------------------------------------+
+    | Column name                    | Description                           |
+    +================================+=======================================+
+    | id                             | source ID                             |
+    +--------------------------------+---------------------------------------+
+    | shear_type                     | one of "ns", "1p", "1m", "2p" "2m"    |
+    +--------------------------------+---------------------------------------+
+    | patch_{x,y}                    | id of the patch within the tract      |
+    +--------------------------------+---------------------------------------+
+    | cell_{x,y}                     | id of the cell withing the patch      |
+    +--------------------------------+---------------------------------------+
+    | SNR                            | Signal-to-Noise of source             |
+    +--------------------------------+---------------------------------------+
+    | {catType}_band_flux_{band}     | Flux measuremnt in the reference band |
+    +--------------------------------+---------------------------------------+
+    | {catType}_band_flux_err_{band} | Flux error in the reference band      |
+    +--------------------------------+---------------------------------------+
+    | {catType}_g_{i}                | Shear measurements                    |
+    +--------------------------------+---------------------------------------+
 
-    Two additional tables are produced beyond the tables produeced by
+
+    Two additional tables are produced beyond the tables produced by
     the base :py:class:`hpmcm.Match` class
 
-    _object_shear: :py:class:`hpmcm.output_tables.ShearTable`
-
-    _cluster_shear: :py:class:`hpmcm.output_tables.ShearTable`
+    +----------------+---------------------------------------------------+
+    | Key            | Class                                             |
+    +================+===================================================+
+    | _object_shear  | :py:class:`hpmcm.output_tables.ShearTable`        |
+    +----------------+---------------------------------------------------+
+    | _cluster_shear | :py:class:`hpmcm.output_tables.ShearTable`        |
+    +----------------+---------------------------------------------------+
     """
 
     inputTableClass: type = input_tables.ShearCoaddSourceTable

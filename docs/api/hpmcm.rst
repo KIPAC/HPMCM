@@ -43,6 +43,7 @@ Utility Functions
    :maxdepth: 4
 
    hpmcm.classify
+   hpmcm.match_utils
    hpmcm.shear_utils
    hpmcm.utils
    hpmcm.viz_utils

@@ -6,7 +6,8 @@ HPMCM: Heirarchical Pixel Multi-Catalog Matcher
 Description
 ***********
 
-`HPMCM` does catalog cross matching.
+`HPMCM` does multi-catalog cross matching by clustering sources from
+individual catalogs using a heirarchical pixelization scheme.
 
 
 .. toctree::

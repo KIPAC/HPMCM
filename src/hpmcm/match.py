@@ -72,23 +72,23 @@ class Match:
 
     Notes
     -----
-    This expectes a list of parquet files with pandas DataFrames
-    that contain the following columns.
+    This expectes a list of parquet files with pandas DataFrames.
+    The expected columns depend on which sub-class of `Match` is being used.
 
-    "id" : source ID
-    "ra" : RA in degrees
-    "dec": DEC in degress
-    "SNR": Signal-to-Noise of source, used for filtering and centroiding
+    Four output tables are produced:
 
-    Four output tables are produced
+    +----------------+---------------------------------------------------+
+    | Key            | Class                                             |
+    +================+===================================================+
+    | _cluster_assoc | :py:class:`hpmcm.output_tables.ClusterAssocTable` |
+    +----------------+---------------------------------------------------+
+    | _cluster_stats | :py:class:`hpmcm.output_tables.ClusterStatsTable` |
+    +----------------+---------------------------------------------------+
+    | _object_assoc  | :py:class:`hpmcm.output_tables.ObjectAssocTable`  |
+    +----------------+---------------------------------------------------+
+    | _object_stats  | :py:class:`hpmcm.output_tables.ObjectStatsTable`  |
+    +----------------+---------------------------------------------------+
 
-    _cluster_assoc: :py:class:`hpmcm.ClusterAssocTable`
-
-    _cluster_stats: :py:class:`hpmcm.ClusterStatsTable`
-
-    _object_assoc: :py:class:`hpmcm.ObjectAssocTable`
-
-    _object_stats: :py:class:`hpmcm.ObjectStatsTable`
     """
 
     inputTableClass: type = input_tables.SourceTable
