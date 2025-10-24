@@ -1,11 +1,6 @@
 *********
 hpmcm CLI
 *********
-
-.. click:: hpmcm.cli.commands:cli
-   :prog: hpmcm
-   :nested: none
-
 	    
 =========================
 Matching using global WCS
@@ -42,7 +37,6 @@ Making shear calibration reports
 .. click:: hpmcm.cli.commands:shear_report_command
    :prog: hpmcm shear report
    :nested: full
-
 
 	    
 =================================

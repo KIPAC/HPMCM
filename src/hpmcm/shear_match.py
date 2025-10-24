@@ -26,8 +26,8 @@ class ShearMatch(Match):
     catType: str
         Shear catalog type
 
-    deshear: float
-        Deshearing parameter
+    deshear: float | None
+        Deshearing parameter, -1*applied shear.  None -> dshearing is not done.
 
     Notes
     -----
@@ -112,20 +112,19 @@ class ShearMatch(Match):
         cls,
         **kwargs: Any,
     ) -> ShearMatch:
-        """Helper function to create a Match object
+        """Helper function to create a `ShearMatch` object
+
+        This will use the use pixel-coordinates read from
+        the input shear tables.  
 
         Parameters
         ----------
-        refDir:
-            Reference Direction (RA, DEC) in degrees
-
-        pixSize:
-            Pixel size in degrees
+        kwargs:
+            Passed directly to `ShearMatch` constructor.
 
         Returns
         -------
-        Match:
-            Object to create matches for the requested region
+        Object to create matches for the requested region
         """
         nPix = np.array([30000, 30000])
         kw = dict(
@@ -141,7 +140,7 @@ class ShearMatch(Match):
         self,
         df: pandas.DataFrame,
     ) -> np.ndarray:
-        """Get the Index to use for a given cell"""
+        """Get the cell index assocatiated to each source"""
         return (self.nCell[1] * df["cellIdxX"] + df["cellIdxY"]).astype(int)
 
     def _buildCellData(
@@ -154,7 +153,11 @@ class ShearMatch(Match):
         return ShearCellData(self, idOffset, corner, size, idx, self.cellBuffer)
 
     def extractShearStats(self) -> list[pandas.DataFrame]:
-        """Extract shear stats"""
+        """Extract shear stats
+
+        Theis will produce two :py:class:`hpmcm.output_tables.ShearTable`, 
+        one for the objects, and the other for the clusters.
+        """
         clusterShearStatsTables = []
         objectShearStatsTables = []
 
@@ -188,7 +191,10 @@ class ShearMatch(Match):
         self,
         df: pandas.DataFrame,
     ) -> pandas.DataFrame:
-        """Reduce a single input DataFrame"""
+        """Reduce a single input DataFrame
+
+        This applies a trivial cut on signal-to-noise (SNR>1).
+        """
         df_clean = df[(df.SNR > 1)]
         df_red = df_clean.copy(deep=True)
 

@@ -120,7 +120,7 @@ class Match:
         xPix: np.ndarray,
         yPix: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Convert locals in pixels to world coordinates (RA, DEC)"""
+        """Convert local coords in pixels to world coordinates (RA, DEC)"""
         return np.repeat(np.nan, len(xPix)), np.repeat(np.nan, len(yPix))
 
     def getCellIdx(
@@ -143,22 +143,22 @@ class Match:
     def reduceData(
         self,
         inputFiles: list[str],
-        visitIds: list[int],
+        catalogId: list[int],
     ) -> None:
         """Read input files and filter out only the columns we need
 
-        Each input file should have an associated visitId.
+        Each input file should have an associated catalogId.
         This is used to test if we have more than one-source
-        per input catalog.
+        per input catalog.  
 
         If the inputs files have a pre-defined ID associated with them
         that can be used.   Otherwise it is fine just to give a range from
         0 to nInputs.
         """
-        for fName, vid in zip(inputFiles, visitIds):
-            self.fullData[vid] = self._readDataFrame(fName)
-            self.redData[vid] = self._reduceDataFrame(self.fullData[vid])
-            self.fullData[vid].set_index("id", inplace=True)
+        for fName, cid in zip(inputFiles, catalogId):
+            self.fullData[cid] = self._readDataFrame(fName)
+            self.redData[cid] = self._reduceDataFrame(self.fullData[vid])
+            self.fullData[cid].set_index("id", inplace=True)
 
     def _buildCellData(
         self,
@@ -229,7 +229,18 @@ class Match:
     def analysisLoop(
         self, xRange: Iterable | None = None, yRange: Iterable | None = None
     ) -> None:
-        """Does matching for all cells"""
+        """Does matching for all cells.
+        
+        This stores the results, but does not write or return them.
+
+        Parameters
+        ----------
+        xRange:
+            Range of cells to analysze in X.  None -> Entire range.
+
+        yRange:
+            Range of cells to analysis in Y.  None -> Entire range.
+        """
         self.cellDict.clear()
 
         if xRange is None:
@@ -255,7 +266,17 @@ class Match:
         sys.stdout.flush()
 
     def extractStats(self) -> list[pandas.DataFrame]:
-        """Extracts cluster statisistics"""
+        """Extracts cluster statisistics
+
+        Returns
+        -------
+        DataFrames with matching info,
+        :py:class:`hpmcm.output_tables.ClusterAssocTable`,
+        :py:class:`hpmcm.output_tables.ObjectAssocTable`.
+        :py:class:`hpmcm.output_tables.ClusterStatsTable`.
+        :py:class:`hpmcm.output_tables.ObjectStatsTable`.
+
+        """
         clusterAssocTables = []
         objectAssocTables = []
         clusterStatsTables = []
@@ -310,13 +331,33 @@ class Match:
         raise NotImplementedError()
 
     def getCluster(self, iK: tuple[int, int]) -> ClusterData:
-        """Get a particular cluster"""
+        """Get a particular cluster
+
+        Parameters
+        ----------
+        iK:
+            CellId, ClusterId
+
+        Returns
+        -------
+        Requested cluster
+        """
         cellData = self.cellDict[iK[0]]
         cluster = cellData.clusterDict[iK[1]]
         return cluster
 
     def getObject(self, iK: tuple[int, int]) -> ObjectData:
-        """Get a particular object"""
+        """Get a particular object
+
+        Parameters
+        ----------
+        iK:
+            CellId, ObjectId
+
+        Returns
+        -------
+        Requested object
+        """
         cellData = self.cellDict[iK[0]]
         theObj = cellData.objectDict[iK[1]]
         return theObj

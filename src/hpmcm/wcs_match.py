@@ -29,7 +29,6 @@ def createGlobalWcs(
     nPix:
         Number of pixels in x, y
 
-
     Returns
     -------
     wcs.WCS
@@ -83,20 +82,26 @@ class WcsMatch(Match):
         regionSize: tuple[float, float],
         pixelSize: float,
         **kwargs: Any,
-    ) -> Match:
-        """Helper function to create a Match object
+    ) -> WcsMatch:
+        """Helper function to create a Match object.
+
+        This will use the provided arguments to create a WCS, and then
+        create and return a `WcsMatch` matcher.
 
         Parameters
         ----------
         refDir:
             Reference Direction (RA, DEC) in degrees
 
+        regionSize:
+            Size of match region, in degrees
+
         pixSize:
             Pixel size in degrees
 
         Returns
         -------
-        Match:
+        WcsMatch:
             Object to create matches for the requested region
         """
         nPix = (np.array(regionSize) / pixelSize).astype(int)
@@ -112,7 +117,7 @@ class WcsMatch(Match):
         xPix: np.ndarray,
         yPix: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Convert locals in pixels to world coordinates (RA, DEC)"""
+        """Convert local coords in pixels to world coordinates (RA, DEC)"""
         assert self.wcs is not None
         return self.wcs.wcs_pix2world(xPix, yPix, 0)
 
@@ -120,7 +125,11 @@ class WcsMatch(Match):
         self,
         df: pandas.DataFrame,
     ) -> pandas.DataFrame:
-        """Reduce a single input DataFrame"""
+        """Reduce a single input DataFrame
+
+        This applies a trivial cut on signal-to-noise (SNR>1).
+        and adds the pixel coordinates to the DataFrame.
+        """
         df_clean = df[(df.SNR > 1)]
         xPix, yPix = self.wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
