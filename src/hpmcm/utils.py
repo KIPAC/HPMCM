@@ -205,14 +205,16 @@ def getFootprints(
 
     Returns
     -------
-    image: afwImage.ImageF
-        countsMap converted to afwImage
+    Footprint data
 
-    footprints: afwDetect.FootprintSet
-        Clustering FootprintSet
+    
+    Notes
+    -----
+    image: afwImage.ImageF : countsMap converted to afwImage
 
-    footprintKey: afwImage.ImageF
-        Array with same shape as countsMap, with cluster associations
+    footprints: afwDetect.FootprintSet : Clustering FootprintSet
+
+    footprintKey: afwImage.ImageF : Array with same shape as countsMap, with cluster associations
     """
     image = afwImage.ImageF(countsMap.astype(np.float32))
     footprintsOrig = afwDetect.FootprintSet(image, afwDetect.Threshold(0.5))

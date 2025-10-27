@@ -12,8 +12,7 @@ nb/*.parq
 nb/shear_tract
 nb/match_data
 nb/plots
-nb/do_report
-nb/do_match
+nb/do_*
 
 # Distribution / packaging
 .Python

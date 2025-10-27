@@ -157,7 +157,7 @@ class Match:
         """
         for fName, cid in zip(inputFiles, catalogId):
             self.fullData[cid] = self._readDataFrame(fName)
-            self.redData[cid] = self._reduceDataFrame(self.fullData[vid])
+            self.redData[cid] = self.reduceDataFrame(self.fullData[cid])
             self.fullData[cid].set_index("id", inplace=True)
 
     def _buildCellData(
@@ -187,21 +187,20 @@ class Match:
 
         Returns
         -------
-        cellData : CellData
-            The analysis data for the Cell
+        Output of cell analysis
 
-        image : afwImage.ImageI
-            Image of cell source counts map
+    
+        Notes
+        -----
+        cellData : CellData : The analysis data for the Cell
 
-        countsMap : np.array
-            Numpy array with same
+        image : afwImage.ImageI : Image of cell source counts map
 
-        clusters : afwDetect.FootprintSet
-            Clusters as dectected by finding FootprintSet on source counts map
+        countsMap : np.array : Numpy array with cell source counts
 
-        clusterKey : afwImage.ImageI
-            Map of cell with pixels filled with index of
-            associated Footprints
+        clusters : afwDetect.FootprintSet : Clusters as dectected by finding FootprintSet on source counts map
+
+        clusterKey : afwImage.ImageI : Map of cell with pixels filled with index of associated Footprints
 
         Notes
         -----
@@ -323,11 +322,21 @@ class Match:
     def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
 
-    def _reduceDataFrame(
+    def reduceDataFrame(
         self,
         df: pandas.DataFrame,
     ) -> pandas.DataFrame:
-        """Reduce a single input DataFrame"""
+        """Reduce a single input DataFrame
+
+        Parameters
+        ----------
+        df: 
+            Input data frame
+        
+        Returns
+        -------
+        Reduced DataFrame
+        """
         raise NotImplementedError()
 
     def getCluster(self, iK: tuple[int, int]) -> ClusterData:

@@ -20,17 +20,19 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 
     Returns
     -------
-    nClusters: int
-        Total number of clusters
+    Cluster Statistics (nClusters, nOrphan, nMixed, nConfused)
 
-    nOrphan: int
-        Number of single source clusters (i.e., single detections)
+    Notes
+    -----
+    Return array contains
 
-    nMixed: int
-        Number of clusters with more than one source from each input catalog
+    nClusters: Total number of clusters
 
-    nConfused: int
-        Number of souces with more than four cases of duplication
+    nOrphan: Number of single source clusters (i.e., single detections)
+
+    nMixed: Number of clusters with more than one source from each input catalog
+
+    nConfused: Number of souces with more than four cases of duplication
     """
     nOrphan = 0
     nMixed = 0

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from .shear_match import ShearMatch
 
 
+# These are the names of the various shear catalogs
 SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
 
 # These are the coeffs for the various shear catalogs
@@ -41,20 +42,24 @@ def shearStats(df: pandas.DataFrame) -> dict:
 
     Returns
     -------
-    n_{st} : int
-        Number of sources from that catalog
-
-    g_{i}_{st} : float
-        g_{i} shear parameter for that catalog
-
-    delta_g_{i}_{j} : float
-        g_{i,j} shear measurment: g_{i}_{j}p - g_{i}_{j}m
-
-    good: bool
-        True if every catalog has one source in this object
+    Shear stats in a dict.
 
     Notes
     -----
+    Shear stats include:
+
+    +-----------------+-----------------------------------------------------+
+    | Key             | Description                                         |
+    +=================+=====================================================+
+    | n_{st}          | Number of sources from that catalog                 |
+    +-----------------+-----------------------------------------------------+
+    | g_{i}_{st}      | g_{i} shear parameter for that catalog              |
+    +-----------------+-----------------------------------------------------+
+    | delta_g_{i}_{j} | g_{i,j} shear measurment: g_{i}_{j}p - g_{i}_{j}m   |
+    +-----------------+-----------------------------------------------------+
+    | good            | True if every catalog has one source in this object |
+    +-----------------+-----------------------------------------------------+
+
     If the matching is not good, then delta_g_1 = delta_g_2 = np.nan
     """
     outDict: dict[str, float | int] = {}
@@ -192,6 +197,33 @@ def splitByTypeAndClean(
     -----
     This will create 5 files with the pattern:
     "{basefile}_uncleaned_{tract}_{type}.pq"
+
+    +--------------+-------------------------------------+
+    | Column       | Description                         |
+    +==============+=====================================+
+    | id           | Index of object inside catalog      |
+    +--------------+-------------------------------------+
+    | orig_id      | Original object id                  |
+    +--------------+-------------------------------------+
+    | cellIdxX     | X-index of Cell                     |
+    +--------------+-------------------------------------+
+    | cellIdxY     | Y-index of Cell                     |
+    +--------------+-------------------------------------+
+    | xCellCoadd   | X-coordinate in cell frame          |
+    +--------------+-------------------------------------+
+    | yCellCoadd   | Y-coordinate in cell frame          |
+    +--------------+-------------------------------------+
+    | xPix         | X-coordinate in global WCS frame    |
+    +--------------+-------------------------------------+
+    | yPix         | Y-coordinate in global WCS frame    |
+    +--------------+-------------------------------------+
+    | g_1          | Shear g_1 component estimate        |
+    +--------------+-------------------------------------+
+    | g_2          | Shear g_2 component estimate        |
+    +--------------+-------------------------------------+
+    | SNR          | Signal-to-noise ratio               |
+    +--------------+-------------------------------------+
+
     """
     p = tables_io.read(basefile)
     if clean:
@@ -238,7 +270,49 @@ def splitByTypeAndClean(
 def reduceShearDataForCell(
     cell: CellData, iCat: int, dataframe: pandas.DataFrame
 ) -> pandas.DataFrame:
-    """Filters dataframe to keep only source in the cell"""
+    """Filters dataframe to keep only sources in the cell
+
+    Parameters
+    ----------
+    cell:
+        The cell being analyzed
+
+    iCat:
+        Catalog index
+
+    dataframe:
+        Input dataframe
+
+
+    Returns
+    -------
+    Filtered datasets
+
+
+    Notes
+    -----
+    This will optionally deshear the source positions if `matcher.deshear`
+    is not None.
+
+    This will add these columns to the output dataframes
+
+    +-----------+-------------------------------------+
+    | Column    | Description                         |
+    +===========+=====================================+
+    | xCell     | X-coordinate in cell frame          |
+    +-----------+-------------------------------------+
+    | yCell     | Y-coordinate in cell frame          |
+    +-----------+-------------------------------------+
+    | xPix      | X-coordinate in global WCS frame    |
+    +-----------+-------------------------------------+
+    | yPix      | Y-coordinate in global WCS frame    |
+    +-----------+-------------------------------------+
+    | dxShear   | Change in X position when desheared |
+    +-----------+-------------------------------------+
+    | dyShear   | Change in X position when desheared |
+    +-----------+-------------------------------------+
+
+    """
 
     matcher = cell.matcher
 

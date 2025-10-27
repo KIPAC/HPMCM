@@ -187,13 +187,47 @@ class ShearMatch(Match):
         )
         return xPix, yPix
 
-    def _reduceDataFrame(
+    def reduceDataFrame(
         self,
         df: pandas.DataFrame,
     ) -> pandas.DataFrame:
         """Reduce a single input DataFrame
 
+        Notes
+        -----
+
         This applies a trivial cut on signal-to-noise (SNR>1).
+
+        This will add these columns to the output dataframes
+
+        +--------------+-------------------------------------+
+        | Column       | Description                         |
+        +==============+=====================================+
+        | id           | Index of object inside catalog      |        
+        +--------------+-------------------------------------+
+        | ra           | Source RA                           |
+        +--------------+-------------------------------------+
+        | dec          | Source DEC                          |
+        +--------------+-------------------------------------+
+        | cellIdxX     | X-index of Cell                     |
+        +--------------+-------------------------------------+
+        | cellIdxY     | Y-index of Cell                     |
+        +--------------+-------------------------------------+
+        | xCellCoadd   | X-coordinate in cell frame          |
+        +--------------+-------------------------------------+
+        | yCellCoadd   | Y-coordinate in cell frame          |
+        +--------------+-------------------------------------+
+        | xPix         | X-coordinate in global WCS frame    |
+        +--------------+-------------------------------------+
+        | yPix         | Y-coordinate in global WCS frame    |
+        +--------------+-------------------------------------+
+        | g_1          | Shear g_1 component estimate        |
+        +--------------+-------------------------------------+
+        | g_2          | Shear g_2 component estimate        |
+        +--------------+-------------------------------------+
+        | SNR          | Signal-to-noise ratio               |
+        +--------------+-------------------------------------+
+
         """
         df_clean = df[(df.SNR > 1)]
         df_red = df_clean.copy(deep=True)

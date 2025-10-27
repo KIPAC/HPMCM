@@ -31,8 +31,7 @@ def createGlobalWcs(
 
     Returns
     -------
-    wcs.WCS
-        WCS to create the pixel grid
+    WCS to create the pixel grid
     """
     w = wcs.WCS(naxis=2)
     w.wcs.cdelt = [-pixSize, pixSize]
@@ -101,8 +100,7 @@ class WcsMatch(Match):
 
         Returns
         -------
-        WcsMatch:
-            Object to create matches for the requested region
+        Object to create matches for the requested region
         """
         nPix = (np.array(regionSize) / pixelSize).astype(int)
         matchWcs = createGlobalWcs(refDir, pixelSize, nPix)
@@ -121,14 +119,36 @@ class WcsMatch(Match):
         assert self.wcs is not None
         return self.wcs.wcs_pix2world(xPix, yPix, 0)
 
-    def _reduceDataFrame(
+    def reduceDataFrame(
         self,
         df: pandas.DataFrame,
     ) -> pandas.DataFrame:
         """Reduce a single input DataFrame
 
+        Notes
+        -----
         This applies a trivial cut on signal-to-noise (SNR>1).
         and adds the pixel coordinates to the DataFrame.
+
+        This will add these columns to the output dataframes
+
+
+        +--------------+-------------------------------------+
+        | Column       | Description                         |
+        +==============+=====================================+
+        | id           | Index of object inside catalog      |        
+        +--------------+-------------------------------------+
+        | ra           | Source RA                           |
+        +--------------+-------------------------------------+
+        | dec          | Source DEC                          |
+        +--------------+-------------------------------------+
+        | xPix         | X-coordinate in global WCS frame    |
+        +--------------+-------------------------------------+
+        | yPix         | Y-coordinate in global WCS frame    |
+        +--------------+-------------------------------------+
+        | SNR          | Signal-to-noise ratio               |
+        +--------------+-------------------------------------+
+
         """
         df_clean = df[(df.SNR > 1)]
         xPix, yPix = self.wcs.wcs_world2pix(
