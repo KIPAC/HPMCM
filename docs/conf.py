@@ -106,6 +106,8 @@ pygments_style = 'sphinx'
 # Allow NB to fail
 nbsphinx_allow_errors = True
 
+# Optional: Configure autosectionlabel to prevent warnings for duplicate labels
+autosectionlabel_prefix_document = True
 
 # use type hints in autodoc
 autodoc_typehints = "description"
