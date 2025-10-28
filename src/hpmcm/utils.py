@@ -207,7 +207,7 @@ def getFootprints(
     -------
     Footprint data
 
-    
+
     Notes
     -----
     image: afwImage.ImageF : countsMap converted to afwImage

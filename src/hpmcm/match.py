@@ -149,7 +149,7 @@ class Match:
 
         Each input file should have an associated catalogId.
         This is used to test if we have more than one-source
-        per input catalog.  
+        per input catalog.
 
         If the inputs files have a pre-defined ID associated with them
         that can be used.   Otherwise it is fine just to give a range from
@@ -189,7 +189,7 @@ class Match:
         -------
         Output of cell analysis
 
-    
+
         Notes
         -----
         cellData : CellData : The analysis data for the Cell
@@ -229,7 +229,7 @@ class Match:
         self, xRange: Iterable | None = None, yRange: Iterable | None = None
     ) -> None:
         """Does matching for all cells.
-        
+
         This stores the results, but does not write or return them.
 
         Parameters
@@ -330,9 +330,9 @@ class Match:
 
         Parameters
         ----------
-        df: 
+        df:
             Input data frame
-        
+
         Returns
         -------
         Reduced DataFrame

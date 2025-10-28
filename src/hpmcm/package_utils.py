@@ -1,6 +1,6 @@
 import os
-import urllib
 import subprocess
+import urllib
 
 
 def setupTestDataArea() -> int:  # pragma: no cover
@@ -27,7 +27,7 @@ def setupTestDataArea() -> int:  # pragma: no cover
             )
             if not os.path.exists("examples/test_data.tgz"):
                 return 1
-        
+
         status = subprocess.run(
             ["tar", "zxvf", "examples/test_data.tgz", "-C", "examples"], check=False
         )
@@ -43,8 +43,8 @@ def setupTestDataArea() -> int:  # pragma: no cover
 def teardownTestDataArea() -> None:  # pragma: no cover
     if not os.environ.get("NO_TEARDOWN"):
         pass
-        #os.system("\\rm -rf examples/test_data")
-        #try:
+        # os.system("\\rm -rf examples/test_data")
+        # try:
         #    os.unlink("examples/test_data.tgz")
-        #except FileNotFoundError:
+        # except FileNotFoundError:
         #    pass

@@ -115,7 +115,7 @@ class ShearMatch(Match):
         """Helper function to create a `ShearMatch` object
 
         This will use the use pixel-coordinates read from
-        the input shear tables.  
+        the input shear tables.
 
         Parameters
         ----------
@@ -155,7 +155,7 @@ class ShearMatch(Match):
     def extractShearStats(self) -> list[pandas.DataFrame]:
         """Extract shear stats
 
-        Theis will produce two :py:class:`hpmcm.output_tables.ShearTable`, 
+        Theis will produce two :py:class:`hpmcm.output_tables.ShearTable`,
         one for the objects, and the other for the clusters.
         """
         clusterShearStatsTables = []
@@ -203,7 +203,7 @@ class ShearMatch(Match):
         +--------------+-------------------------------------+
         | Column       | Description                         |
         +==============+=====================================+
-        | id           | Index of object inside catalog      |        
+        | id           | Index of object inside catalog      |
         +--------------+-------------------------------------+
         | ra           | Source RA                           |
         +--------------+-------------------------------------+
