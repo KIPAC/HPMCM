@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,12 +8,6 @@ from matplotlib.figure import Figure, SubFigure
 from .cell import CellData
 from .cluster import ClusterData
 from .match import Match
-
-if TYPE_CHECKING:
-    try:
-        import lsst.afw.image as afwImage
-    except (ImportError, ModuleNotFoundError):
-        pass
 
 
 def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
@@ -34,15 +27,7 @@ def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     """
     cellData = matcher.cellDict[iK[0]]
     cluster = cellData.clusterDict[iK[1]]
-    bbox = cluster.footprint.getBBox()
-    dx = bbox.getWidth()
-    dy = bbox.getHeight()
-    extent = (
-        bbox.getBeginX(),
-        bbox.getBeginX() + bbox.getWidth(),
-        bbox.getBeginY(),
-        bbox.getBeginY() + bbox.getHeight(),
-    )
+    extent = cluster.footprint.extent()
     cluster.extract(cellData)
     xOffset = cellData.minPix[0] + 25
     yOffset = cellData.minPix[1] + 25
@@ -50,13 +35,14 @@ def showShearObjs(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     xOff = cluster.data.xPix - xOffset
     yOff = cluster.data.yPix - yOffset
     catIndices = cluster.catIndices
-    image = np.zeros((dx, dy))
+    image = cluster.footprint.cutout
     img = plt.imshow(image, origin="lower", extent=extent)
     colors = ["red", "blue", "green", "cyan", "orange"]
     markers = [".", "<", ">", "v", "^"]
     for iObj, obj in enumerate(cluster.objects):
-        for x_, y_, i_ in zip(yOff[obj.mask], xOff[obj.mask], catIndices[obj.mask]):
+        for x_, y_, i_ in zip(xOff[obj.mask], yOff[obj.mask], catIndices[obj.mask]):
             img.axes.scatter(x_, y_, c=colors[iObj % 5], marker=markers[i_ % 5])
+    _cb = plt.colorbar(label="Objects per pixel")
     assert img.axes.figure is not None
     return img.axes.figure
 
@@ -80,15 +66,7 @@ def showShearObj(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     cellData = matcher.cellDict[iK[0]]
     theObj = cellData.objectDict[iK[1]]
     cluster = theObj.parentCluster
-    bbox = cluster.footprint.getBBox()
-    dx = bbox.getWidth()
-    dy = bbox.getHeight()
-    extent = (
-        bbox.getBeginX(),
-        bbox.getBeginX() + bbox.getWidth(),
-        bbox.getBeginY(),
-        bbox.getBeginY() + bbox.getHeight(),
-    )
+    extent = cluster.footprint.extent()
     cluster.extract(cellData)
     xOffset = cellData.minPix[0] + 25
     yOffset = cellData.minPix[1] + 25
@@ -96,22 +74,22 @@ def showShearObj(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     xOff = cluster.data.xPix - xOffset
     yOff = cluster.data.yPix - yOffset
     catIndices = cluster.catIndices
-    image = np.zeros((dx, dy))
-    img = plt.imshow(image, origin="lower", extent=extent)
+    img = plt.imshow(cluster.footprint.cutout, origin="lower", extent=extent)
     markers = [".", "<", ">", "v", "^"]
     for _iObj, obj in enumerate(cluster.objects):
         if obj.objectId == theObj.objectId:
             color = "red"
         else:  # pragma: no cover
             color = "blue"
-        for x_, y_, i_ in zip(yOff[obj.mask], xOff[obj.mask], catIndices[obj.mask]):
+        for x_, y_, i_ in zip(xOff[obj.mask], yOff[obj.mask], catIndices[obj.mask]):
             img.axes.scatter(x_, y_, c=color, marker=markers[i_ % 5])
+    _cb = plt.colorbar(label="Objects per pixel")
     assert img.axes.figure is not None
     return img.axes.figure
 
 
 def showCluster(
-    image: afwImage.ImageF,
+    image: np.ndarray,
     cluster: ClusterData,
     cellData: CellData,
     mask: np.ndarray | None = None,
@@ -136,39 +114,34 @@ def showCluster(
     -------
     Figure showing the cluster in question
     """
-    extent = (
-        0,
-        cluster.footprint.getBBox().getWidth(),
-        0,
-        cluster.footprint.getBBox().getHeight(),
-    )
+    extent = cluster.footprint.extent()
     cluster.extract(cellData)
-    xOffset = cellData.minPix[0] + cluster.footprint.getBBox().getBeginY() + 25
-    yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX() + 25
+    xOffset = cellData.minPix[0] + 25
+    yOffset = cellData.minPix[1] + 25
     xOff = cluster.xCluster
     yOff = cluster.yCluster
-    if mask is not None:    # pragma: no cover
+    if mask is not None:  # pragma: no cover
         xOff = xOff[mask]
         yOff = yOff[mask]
     xC = cluster.xCent - xOffset
     yC = cluster.yCent - yOffset
 
     img = plt.imshow(
-        image[cluster.footprint.getBBox()].array,
+        image[cluster.footprint.sliceX][cluster.footprint.sliceY],
         origin="lower",
         extent=extent,
         cmap="grey",
     )
-    _cb = plt.colorbar(label="Object per pixel")
+    _cb = plt.colorbar(label="Objects per pixel")
     try:
         assert cluster.data is not None
         xOff_u = xOff - cluster.data.dxShear
         yOff_u = yOff - cluster.data.dyShear
-        img.axes.scatter(yOff_u, xOff_u, marker="x")
+        img.axes.scatter(xOff_u, yOff_u, marker="x")
     except Exception:  # pragma: no cover
         pass
-    img.axes.scatter(yOff, xOff)
-    img.axes.scatter(yC, xC, marker="+", c="green")
+    img.axes.scatter(xOff, yOff)
+    img.axes.scatter(xC, yC, marker="+", c="green")
     img.axes.set_xlabel("x [pixels]")
     img.axes.set_ylabel("y [pixels]")
     assert img.axes.figure is not None
@@ -176,7 +149,7 @@ def showCluster(
 
 
 def showObjects(
-    image: afwImage.ImageF,
+    image: np.ndarray,
     cluster: ClusterData,
     cellData: CellData,
 ) -> Figure | SubFigure:
@@ -200,39 +173,36 @@ def showObjects(
     -------
     Figure showing the cluster in question
     """
-    extent = (
-        0,
-        cluster.footprint.getBBox().getWidth(),
-        0,
-        cluster.footprint.getBBox().getHeight(),
-    )
+    extent = cluster.footprint.extent()
     cluster.extract(cellData)
-    xOffset = cellData.minPix[0] + cluster.footprint.getBBox().getBeginY()
-    yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX()
+    xOffset = cellData.minPix[0]
+    yOffset = cellData.minPix[1]
     xOff = cluster.xCluster
     yOff = cluster.yCluster
     img = plt.imshow(
-        image[cluster.footprint.getBBox()].array, origin="lower", extent=extent
+        image[cluster.footprint.sliceX][cluster.footprint.sliceY],
+        origin="lower",
+        extent=extent,
     )
-    _cb = plt.colorbar()
+    _cb = plt.colorbar(label="Objects per pixel")
     colors = ["red", "blue", "green", "cyan", "orange"]
     for iObj, obj in enumerate(cluster.objects):
         xC = obj.xCent - xOffset
         yC = obj.yCent - yOffset
         img.axes.scatter(
-            yOff[obj.mask],
             xOff[obj.mask],
+            yOff[obj.mask],
             c=colors[iObj % 5],
             s=1 + np.ceil(iObj / 5),
         )
         print(1 + np.ceil(iObj / 5))
-        img.axes.scatter(yC, xC, marker="+", c=colors[iObj % 6])
+        img.axes.scatter(xC, yC, marker="+", c=colors[iObj % 6])
     assert img.axes.figure is not None
     return img.axes.figure
 
 
 def showObjectsV2(
-    image: afwImage.ImageF,
+    image: np.ndarray,
     cluster: ClusterData,
     cellData: CellData,
 ) -> Figure | SubFigure:
@@ -253,19 +223,16 @@ def showObjectsV2(
     -------
     Figure showing the cluster in question
     """
-    extent = (
-        0,
-        cluster.footprint.getBBox().getWidth(),
-        0,
-        cluster.footprint.getBBox().getHeight(),
-    )
+    extent = cluster.footprint.extent()
     cluster.extract(cellData)
-    xOffset = cellData.minPix[0] + cluster.footprint.getBBox().getBeginY()
-    yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX()
+    xOffset = cellData.minPix[0]
+    yOffset = cellData.minPix[1]
     xOff = cluster.xPix - xOffset
     yOff = cluster.yPix - yOffset
     img = plt.imshow(
-        image[cluster.footprint.getBBox()].array, origin="lower", extent=extent
+        image[cluster.footprint.sliceX][cluster.footprint.sliceY],
+        origin="lower",
+        extent=extent,
     )
     _cb = plt.colorbar()
     colors = ["red", "blue", "green", "cyan", "orange"]
@@ -273,7 +240,7 @@ def showObjectsV2(
         if iCat_ % 5 == 0 and iCat_ != 20:
             continue
         img.axes.scatter(
-            yOff_, xOff_, c=colors[iCat_ % 5], s=20 - 3 * np.ceil(iCat_ / 5)
+            xOff_, yOff_, c=colors[iCat_ % 5], s=20 - 3 * np.ceil(iCat_ / 5)
         )
     assert img.axes.figure is not None
     return img.axes.figure

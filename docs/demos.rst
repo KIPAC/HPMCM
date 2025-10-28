@@ -51,7 +51,7 @@ Matching shear catalogs
    :maxdepth: 2
    :caption: Matching shear catalogs using cell-based coadd coordinates
 
-   examples/CompateCatTypes.ipynb
+   examples/CompareCatTypes.ipynb
 
   
 .. toctree::

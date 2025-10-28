@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-# This is to simplify sphinx builds
-try:
-    import lsst.afw.detection as afwDetect
-    import lsst.afw.image as afwImage
-except (ImportError, ModuleNotFoundError):  # pragma: no cover
-    pass
+
 import numpy as np
 import pandas
+
+from .footprint import FootprintSet
 
 
 def findClusterIdsFromArrays(
@@ -35,7 +32,7 @@ def findClusterIdsFromArrays(
     Ids of associated clusters
     """
     return np.array(
-        [clusterKey[yLocal, xLocal] for xLocal, yLocal in zip(xLocals, yLocals)]
+        [clusterKey[xLocal, yLocal] for xLocal, yLocal in zip(xLocals, yLocals)]
     ).astype(np.int32)
 
 
@@ -145,46 +142,6 @@ def fillCountsMapFromDf(
     )
 
 
-def filterFootprints(
-    fpSet: afwDetect.FootprintSet,
-    buf: int,
-    pixelMatchScale: int = 1,
-) -> afwDetect.FootprintSet:
-    """Remove footprints within `buf` pixels of the celll edge
-
-    Parameters
-    ----------
-    fpSet:
-        Initial FootprintSet
-
-    buf:
-        Number of pixels in cell-edge buffer
-
-    pixelMatchScale:
-        Scale-factor used in making cluster map
-
-    Returns
-    -------
-    Filtered FootprintSet, with objects in the buffer regions
-    removed.
-    """
-    region = fpSet.getRegion()
-    width, height = region.getWidth(), region.getHeight()
-    outList = []
-    maxX = width - buf
-    maxY = height - buf
-    for fp in fpSet.getFootprints():
-        cent = fp.getCentroid()
-        xC = cent.getX() * pixelMatchScale
-        yC = cent.getY() * pixelMatchScale
-        if xC < buf or xC > maxX or yC < buf or yC > maxY:
-            continue
-        outList.append(fp)
-    fpSetOut = afwDetect.FootprintSet(fpSet.getRegion())
-    fpSetOut.setFootprints(outList)
-    return fpSetOut
-
-
 def getFootprints(
     countsMap: np.ndarray,
     buf: int,
@@ -210,22 +167,16 @@ def getFootprints(
 
     Notes
     -----
-    image: afwImage.ImageF : countsMap converted to afwImage
+    image: np.ndarray : countsMap
 
-    footprints: afwDetect.FootprintSet : Clustering FootprintSet
+    footprints: FootprintSet : Clustering FootprintSet
 
-    footprintKey: afwImage.ImageF : Array with same shape as countsMap, with cluster associations
+    footprintKey: np.ndarray : Array with same shape as countsMap, with cluster associations
     """
-    image = afwImage.ImageF(countsMap.astype(np.float32))
-    footprintsOrig = afwDetect.FootprintSet(image, afwDetect.Threshold(0.5))
-    if buf == 0:
-        footprints = footprintsOrig
-    else:
-        footprints = filterFootprints(footprintsOrig, buf, pixelMatchScale)
-    footprintKey = afwImage.ImageI(np.full(countsMap.shape, -1, dtype=np.int32))
-    for i, footprint in enumerate(footprints.getFootprints()):
-        footprint.spans.setImage(footprintKey, i, doClip=True)
-    return dict(image=image, footprints=footprints, footprintKey=footprintKey)
+    footprintsOrig = FootprintSet.detect(countsMap)
+    footprints = footprintsOrig.filter(buf, pixelMatchScale)
+    footprintKey = footprints.fpKey
+    return dict(image=countsMap, footprints=footprints, footprintKey=footprintKey)
 
 
 def associateSourcesToFootprints(

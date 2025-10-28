@@ -1,8 +1,4 @@
-import os
-
-import pytest
 from click.testing import CliRunner, Result
-
 from hpmcm.cli.commands import cli
 
 
@@ -36,4 +32,3 @@ def test_cli_shear_match() -> None:
 
     result = runner.invoke(cli, "shear match --help")
     check_result(result)
-

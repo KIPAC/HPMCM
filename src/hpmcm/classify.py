@@ -134,7 +134,9 @@ def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 ideal.append(k)
             elif c.nSrc < n_cat and is_faint:
                 faint.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat and edge_case:  # pragma: no cover
+            elif (
+                c.nSrc == n_cat and c.nUnique != n_cat and edge_case
+            ):  # pragma: no cover
                 edge_mixed.append(k)
             elif c.nSrc == n_cat and c.nUnique != n_cat:  # pragma: no cover
                 mixed.append(k)
@@ -350,7 +352,9 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 ideal.append(k)
             elif c.nSrc < n_cat and is_faint:
                 faint.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat and edge_case:  # pragma: no cover
+            elif (
+                c.nSrc == n_cat and c.nUnique != n_cat and edge_case
+            ):  # pragma: no cover
                 edge_mixed.append(k)
             elif c.nSrc == n_cat and c.nUnique != n_cat:
                 mixed.append(k)

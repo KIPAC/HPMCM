@@ -114,11 +114,14 @@ def heirarchicalSplitObject(
 
     assert objData.data is not None
 
-    bbox = objData.parentCluster.footprint.getBBox()
+    sliceX = objData.parentCluster.footprint.sliceX
+    sliceY = objData.parentCluster.footprint.sliceY
     zoomFactors = [1, 2, 4, 8, 16, 32]
     zoomFactor = zoomFactors[recurse]
 
-    nPix = zoomFactor * np.array([bbox.getHeight(), bbox.getWidth()])
+    nPix = zoomFactor * np.array(
+        [sliceX.stop - sliceX.start, sliceY.stop - sliceY.start]
+    )
     zoomX = zoomFactor * objData.data.xCluster / objData.parentCluster.pixelMatchScale
     zoomY = zoomFactor * objData.data.yCluster / objData.parentCluster.pixelMatchScale
 
@@ -126,7 +129,7 @@ def heirarchicalSplitObject(
 
     fpDict = utils.getFootprints(countsMap, buf=0)
     footprints = fpDict["footprints"]
-    nFootprints = len(footprints.getFootprints())
+    nFootprints = len(footprints.footprints)
     if nFootprints == 1:
         if recurse >= cellData.matcher.maxSubDivision:
             return
@@ -134,7 +137,9 @@ def heirarchicalSplitObject(
         return
 
     footprintKey = fpDict["footprintKey"]
-    footprintIds = utils.findClusterIdsFromArrays(zoomX, zoomY, footprintKey)
+    footprintIds = utils.findClusterIdsFromArrays(
+        zoomX.values.astype(int), zoomY.values.astype(int), footprintKey
+    )
 
     biggest = np.argmax(np.bincount(footprintIds))
     biggestMask = np.zeros(objData.mask.shape, dtype=bool)

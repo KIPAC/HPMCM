@@ -19,7 +19,7 @@ Where to contribute:
 ====================
 
 In all cases, begin by following the developer installation instructions 
-:ref:`Developer Installation` and follow the contribution workflow instructions below.
+and follow the contribution workflow instructions below.
 
      
 =====================
@@ -43,7 +43,7 @@ for it.
 Branch
 ------
 
-See :ref:`Developer Installation` for installation instructions.
+Use the developer installation instructions.
 
 While developing in a branch, don't forget to pull from ``main`` regularly (at 
 least daily) to make sure your work is compatible with other recent changes.

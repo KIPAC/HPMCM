@@ -6,14 +6,10 @@ import numpy as np
 import pandas
 
 from . import shear_utils
+from .footprint import Footprint
 from .object import ObjectData
 
 if TYPE_CHECKING:
-    try:
-        import lsst.afw.detection as afwDetect
-    except (ImportError, ModuleNotFoundError):
-        pass
-
     from .cell import CellData
 
 
@@ -28,7 +24,7 @@ class ClusterData:
     iCluster : int
         Cluster ID
 
-    footprint: afwDetect.Footprint
+    footprint: Footprint
         Footprint of this cluster in the CellData counts map
 
     origCluster : int
@@ -68,14 +64,14 @@ class ClusterData:
     def __init__(
         self,
         iCluster: int,
-        footprint: afwDetect.Footprint,
+        footprint: Footprint,
         sources: np.ndarray,
         origCluster: int | None = None,
     ):
         """Build from a Footprint and data about the
         sources in that Footprint"""
         self.iCluster: int = iCluster
-        self.footprint: afwDetect.Footprint = footprint
+        self.footprint: Footprint = footprint
         self.origCluster: int = iCluster
         if origCluster is not None:
             self.origCluster = origCluster
@@ -98,10 +94,8 @@ class ClusterData:
         """Extract the xPix, yPix and snr data from
         the sources in this cluster
         """
-        bbox = self.footprint.getBBox()
-
-        xOffset = bbox.getBeginY() * self.pixelMatchScale
-        yOffset = bbox.getBeginX() * self.pixelMatchScale
+        xOffset = self.footprint.sliceX.start * self.pixelMatchScale
+        yOffset = self.footprint.sliceY.start * self.pixelMatchScale
 
         seriesList = []
 
@@ -182,7 +176,7 @@ class ShearClusterData(ClusterData):
     def __init__(
         self,
         iCluster: int,
-        footprint: afwDetect.Footprint,
+        footprint: Footprint,
         sources: np.ndarray,
         origCluster: int | None = None,
         pixelMatchScale: int = 1,
