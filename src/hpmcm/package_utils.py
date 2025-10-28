@@ -1,6 +1,6 @@
 import os
 import subprocess
-import urllib
+from urllib.request import urlretrieve
 
 
 def setupTestDataArea() -> int:  # pragma: no cover
@@ -21,7 +21,7 @@ def setupTestDataArea() -> int:  # pragma: no cover
     if not os.path.exists("examples/test_data"):
 
         if not os.path.exists("examples/test_data.tgz"):
-            urllib.request.urlretrieve(
+            urlretrieve(
                 "http://s3df.slac.stanford.edu/people/echarles/package_test_data/hpmcm/hpmcm_test_data.tgz",
                 "examples/test_data.tgz",
             )
@@ -41,10 +41,16 @@ def setupTestDataArea() -> int:  # pragma: no cover
 
 
 def teardownTestDataArea() -> None:  # pragma: no cover
-    if not os.environ.get("NO_TEARDOWN"):
+    """Remove the test data
+
+    Notes
+    -----
+    If the env var "NO_TEARDOWN" is set, this will not remove the data
+    """
+    if "NO_TEARDOWN" in os.environ:
         pass
-        # os.system("\\rm -rf examples/test_data")
-        # try:
-        #    os.unlink("examples/test_data.tgz")
-        # except FileNotFoundError:
-        #    pass
+    os.system("\\rm -rf examples/test_data")
+    try:
+        os.unlink("examples/test_data.tgz")
+    except FileNotFoundError:
+        pass

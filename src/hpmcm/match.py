@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 import pandas
+import pyarrow.parquet as pq
 
 from . import input_tables, output_tables
 from .cell import CellData
@@ -194,13 +195,13 @@ class Match:
         -----
         cellData : CellData : The analysis data for the Cell
 
-        image : afwImage.ImageI : Image of cell source counts map
+        image : np.ndarray : Image of cell source counts map
 
-        countsMap : np.array : Numpy array with cell source counts
+        countsMap : np.ndarray : Numpy array with cell source counts
 
-        clusters : afwDetect.FootprintSet : Clusters as dectected by finding FootprintSet on source counts map
+        clusters : FootprintSet : Clusters as dectected by finding FootprintSet on source counts map
 
-        clusterKey : afwImage.ImageI : Map of cell with pixels filled with index of associated Footprints
+        clusterKey : np.ndarray : Map of cell with pixels filled with index of associated Footprints
 
         Notes
         -----
@@ -313,8 +314,6 @@ class Match:
         """Read a single input file"""
         # FIXME, we want to use this function
         # return self.inputTableClass.read(fName, self.extraCols)
-        import pyarrow.parquet as pq
-
         parq = pq.read_pandas(fName)
         df = parq.to_pandas()
         return df

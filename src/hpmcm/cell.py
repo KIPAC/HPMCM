@@ -8,14 +8,10 @@ import pandas
 
 from . import match_utils, shear_utils, utils
 from .cluster import ClusterData, ShearClusterData
+from .footprint import Footprint, FootprintSet
 from .object import ObjectData, ShearObjectData
 
 if TYPE_CHECKING:
-    try:
-        import lsst.afw.detection as afwDetect
-    except (ImportError, ModuleNotFoundError):
-        pass
-
     from .match import Match
     from .shear_match import ShearMatch
 
@@ -36,7 +32,7 @@ class CellData:
     The sources are projected into an array that extends `buf` pixels
     beyond the cell
 
-    The used the afwDetect.FootprintSet to identify pixels which contain
+    This uses the FootprintSet to identify pixels which contain
     source, and builds those into clusters
 
     Attributes
@@ -157,12 +153,11 @@ class CellData:
 
     def buildClusterData(
         self,
-        fpSet: afwDetect.FootprintSet,
+        fpSet: FootprintSet,
         pixelR2Cut: float = 4.0,
     ) -> None:
         """Loop through cluster ids and collect sources into
         the ClusterData objects"""
-        footprints = fpSet.getFootprints()
         footprintDict: dict[int, list[tuple[int, int, int]]] = {}
         nMissing = 0
         nFound = 0
@@ -179,7 +174,7 @@ class CellData:
                     footprintDict[footprintId].append((iCat, srcId, srcIdx))
                 nFound += 1
         for footprintId, sources in footprintDict.items():
-            footprint = footprints[footprintId]
+            footprint = fpSet.footprints[footprintId]
             iCluster = footprintId + self.idOffset
             cluster = self._buildClusterData(iCluster, footprint, np.array(sources).T)
             self.clusterDict[iCluster] = cluster
@@ -247,7 +242,7 @@ class CellData:
         )
 
     def _buildClusterData(
-        self, iCluster: int, footprint: afwDetect.FootPrint, sources: np.ndarray
+        self, iCluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
         return ClusterData(iCluster, footprint, sources)
 
@@ -320,7 +315,7 @@ class ShearCellData(CellData):
         )
 
     def _buildClusterData(
-        self, iCluster: int, footprint: afwDetect.FootPrint, sources: np.ndarray
+        self, iCluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
         return ShearClusterData(
             iCluster, footprint, sources, pixelMatchScale=self.pixelMatchScale

@@ -8,10 +8,10 @@ Matchers
 .. toctree::
    :maxdepth: 4
 
-   hpmcm.match	      
+   hpmcm.match
    hpmcm.shear_match
    hpmcm.wcs_match
-
+   
 
 Input/Output Table Formats
 --------------------------
@@ -19,11 +19,11 @@ Input/Output Table Formats
 .. toctree::
    :maxdepth: 4
 
-   hpmcm.input_tables	      
+   hpmcm.input_tables
    hpmcm.output_tables
    hpmcm.table
 
-   
+ 
 Internal Data Structures
 ------------------------
 
@@ -34,7 +34,8 @@ Internal Data Structures
    hpmcm.cluster
    hpmcm.object
    hpmcm.shear_data
-	      
+   hpmcm.footprint
+
 
 Utility Functions
 -----------------
@@ -44,6 +45,8 @@ Utility Functions
 
    hpmcm.classify
    hpmcm.match_utils
+   hpmcm.package_utils
    hpmcm.shear_utils
    hpmcm.utils
    hpmcm.viz_utils
+

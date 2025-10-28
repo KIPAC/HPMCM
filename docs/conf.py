@@ -15,10 +15,12 @@
 import os
 import sys
 
+# Link the examples area for the notebooks
+if not os.path.exists('examples'):
+    os.system('ln -s ../examples')
 
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../src'))
-sys.path.insert(0, os.path.abspath('../nb'))
 
 
 # Use unittest mock module to shield some modules away from docs building.
