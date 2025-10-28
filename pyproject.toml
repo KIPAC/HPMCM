@@ -23,6 +23,7 @@ dependencies = [
     "click",
     "astropy",
     "scipy",
+    "matplotlib",
     "tables_io",
     "photutils",
     "pyarrow",
