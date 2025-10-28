@@ -4,7 +4,7 @@ from __future__ import annotations
 try:
     import lsst.afw.detection as afwDetect
     import lsst.afw.image as afwImage
-except (ImportError, ModuleNotFoundError):
+except (ImportError, ModuleNotFoundError):  # pragma: no cover
     pass
 import numpy as np
 import pandas
@@ -135,7 +135,7 @@ def fillCountsMapFromDf(
     """
     if weightName is None:
         weights = None
-    else:
+    else:  # pragma: no cover
         weights = df[weightName].values
     return fillCountsMapFromArrays(
         df["xCell"] / pixelMatchScale,

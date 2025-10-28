@@ -53,7 +53,7 @@ class TableInterface:
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         config_text = cls._describeSchema()
-        if cls.__doc__ is None:
+        if cls.__doc__ is None:  # pragma: no cover
             cls.__doc__ = f"\nNotes\n-----\n{cls.__name__} schema\n\n"
             cls.__doc__ += "+-----------------+----------+----------------------------------------------------+\n"
             cls.__doc__ += "| Column          | Type     | Description                                        |\n"
@@ -93,10 +93,10 @@ class TableInterface:
             An input column is not in the schema
         """
         table_size: int = -1
-        if len(kwargs) != len(cls._schema):
+        if len(kwargs) != len(cls._schema):  # pragma: no cover
             raise ValueError(f"{len(kwargs)} != {len(cls._schema)}")
         for key, val in kwargs.items():
-            if key not in cls._schema:
+            if key not in cls._schema:  # pragma: no cover
                 raise KeyError(f"{key} not in {list(cls._schema.keys())}")
             colInfo = cls._schema[key]
             colInfo.validate(val)

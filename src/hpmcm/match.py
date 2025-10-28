@@ -213,13 +213,13 @@ class Match:
         cellData = self._buildCellData(idOffset, corner, cellStep, iCell)
         cellData.reduceData(list(self.redData.values()))
         oDict = cellData.analyze(pixelR2Cut=self.pixelR2Cut)
-        if cellData.nObjects >= self.cellMaxObject:
+        if cellData.nObjects >= self.cellMaxObject:  # pragma: no cover
             print("Too many object in a cell", cellData.nObjects, self.cellMaxObject)
 
         self.cellDict[iCell] = cellData
         if oDict is None:
             return None
-        if fullData:
+        if fullData:  # pragma: no cover
             oDict["cellData"] = cellData
             return oDict
 

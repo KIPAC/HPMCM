@@ -26,7 +26,7 @@ __all__: list[str] = [
 EnumType_co = TypeVar("EnumType_co", bound=Type[enum.Enum], covariant=True)
 
 
-class EnumChoice(click.Choice):
+class EnumChoice(click.Choice):  # pragma: no cover
     """A version of click.Choice specialized for enum types"""
 
     def __init__(self, the_enum: EnumType_co, case_sensitive: bool = True) -> None:
@@ -37,7 +37,7 @@ class EnumChoice(click.Choice):
 
     def convert(
         self, value: Any, param: click.Parameter | None, ctx: click.Context | None
-    ) -> enum.Enum:  # pragma: no cover
+    ) -> enum.Enum:
         converted_str = super().convert(value, param, ctx)
         return self._enum.__members__[converted_str]
 

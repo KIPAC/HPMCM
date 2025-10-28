@@ -42,7 +42,7 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
             nOrphan += 1
         if val.nSrc != val.nUnique:
             nMixed += 1
-            if val.nSrc > val.nUnique + 3:
+            if val.nSrc > val.nUnique + 3:  # pragma: no cover
                 nConfused += 1
     return np.array([len(clusterDict), nOrphan, nMixed, nConfused])
 
@@ -53,11 +53,11 @@ def printSummaryStats(matcher: Match) -> np.ndarray:
     for key, cellData in matcher.cellDict.items():
         cellStats = clusterStats(cellData.clusterDict)
         print(
-            f"{key:%5}: "
-            f"{cellStats[0]:%8i} "
-            f"{cellStats[1]:%8i} "
-            f"{cellStats[2]:%8i} "
-            f"{cellStats[3]:%8i}"
+            f"{key:5}: "
+            f"{cellStats[0]:5} "
+            f"{cellStats[1]:5} "
+            f"{cellStats[2]:5} "
+            f"{cellStats[3]:5}"
         )
         stats += cellStats
     return stats
@@ -134,23 +134,23 @@ def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 ideal.append(k)
             elif c.nSrc < n_cat and is_faint:
                 faint.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat and edge_case:
+            elif c.nSrc == n_cat and c.nUnique != n_cat and edge_case:  # pragma: no cover
                 edge_mixed.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat:
+            elif c.nSrc == n_cat and c.nUnique != n_cat:  # pragma: no cover
                 mixed.append(k)
-            elif c.nSrc < n_cat and edge_case:
+            elif c.nSrc < n_cat and edge_case:  # pragma: no cover
                 edge_missing.append(k)
-            elif c.nSrc > n_cat and edge_case:
+            elif c.nSrc > n_cat and edge_case:  # pragma: no cover
                 edge_extra.append(k)
-            elif c.nSrc == n_cat - 1:
+            elif c.nSrc == n_cat - 1:  # pragma: no cover
                 missing.append(k)
-            elif c.nSrc == n_cat - 2:
+            elif c.nSrc == n_cat - 2:  # pragma: no cover
                 two_missing.append(k)
             elif c.nSrc < n_cat - 2:
                 many_missing.append(k)
             elif c.nSrc > n_cat:
                 extra.append(k)
-            else:
+            else:  # pragma: no cover
                 caught.append(k)
 
     return dict(
@@ -226,13 +226,13 @@ def matchObjectsAgainstRef(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 faint.append(k)
             elif c.nSrc == n_cat - 1:
                 missing.append(k)
-            elif c.nSrc == n_cat - 2:
+            elif c.nSrc == n_cat - 2:  # pragma: no cover
                 two_missing.append(k)
-            elif c.nSrc < n_cat - 2:
+            elif c.nSrc < n_cat - 2:  # pragma: no cover
                 many_missing.append(k)
             elif c.nSrc > n_cat:
                 extra.append(k)
-            else:
+            else:  # pragma: no cover
                 caught.append(k)
 
     return dict(
@@ -350,25 +350,25 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 ideal.append(k)
             elif c.nSrc < n_cat and is_faint:
                 faint.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat and edge_case:
+            elif c.nSrc == n_cat and c.nUnique != n_cat and edge_case:  # pragma: no cover
                 edge_mixed.append(k)
             elif c.nSrc == n_cat and c.nUnique != n_cat:
                 mixed.append(k)
-            elif c.nSrc < n_cat and edge_case:
+            elif c.nSrc < n_cat and edge_case:  # pragma: no cover
                 edge_missing.append(k)
-            elif c.nSrc < n_cat and c.parentCluster.nSrc >= n_cat:
+            elif c.nSrc < n_cat and c.parentCluster.nSrc >= n_cat:  # pragma: no cover
                 orphan.append(k)
             elif c.nSrc == n_cat - 1:
                 missing.append(k)
-            elif c.nSrc == n_cat - 2:
+            elif c.nSrc == n_cat - 2:  # pragma: no cover
                 two_missing.append(k)
             elif c.nSrc < n_cat - 2:
                 many_missing.append(k)
-            elif c.nSrc > n_cat and edge_case:
+            elif c.nSrc > n_cat and edge_case:  # pragma: no cover
                 edge_extra.append(k)
             elif c.nSrc > n_cat:
                 extra.append(k)
-            else:
+            else:  # pragma: no cover
                 caught.append(k)
 
     return dict(

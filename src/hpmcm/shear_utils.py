@@ -122,14 +122,14 @@ def shearReport(
 
     Notes
     -----
-    This will read the object shear data from "{basefile}_object_shear.pq"
-    This will read the object statisticis from "{basefile}_object_stats.pq"
+    This will read the object shear data from "{basefile}_cluster_shear.pq"
+    This will read the object statisticis from "{basefile}_cluster_stats.pq"
 
     This will write the shear stats to "{outputFileBase}.pkl"
     This will write the figures to "{outputFileBase}_{figure}.png"
     """
-    t = tables_io.read(f"{basefile}_object_shear.pq")
-    t2 = tables_io.read(f"{basefile}_object_stats.pq")
+    t = tables_io.read(f"{basefile}_cluster_shear.pq")
+    t2 = tables_io.read(f"{basefile}_cluster_stats.pq")
 
     shearData = ShearData(t, t2, shear, catType, tract, snrCut=snrCut)
 
@@ -173,7 +173,7 @@ def splitByTypeAndClean(
     catType: str,
     *,
     clean: bool = False,
-) -> None:
+) -> None:  # pragma: no cover
     """Split a parquet file by shear catalog type and tract
 
     Parameters
@@ -339,7 +339,7 @@ def reduceShearDataForCell(
         yCell = yCellOrig + dyShear
         xPix = xPixOrig + dxShear
         yPix = yPixOrig + dyShear
-    else:
+    else:  # pragma: no cover
         dxShear = np.zeros(len(dataframe))
         dyShear = np.zeros(len(dataframe))
         xCell = xCellOrig

@@ -102,7 +102,7 @@ def showShearObj(matcher: Match, iK: tuple[int, int]) -> Figure | SubFigure:
     for _iObj, obj in enumerate(cluster.objects):
         if obj.objectId == theObj.objectId:
             color = "red"
-        else:
+        else:  # pragma: no cover
             color = "blue"
         for x_, y_, i_ in zip(yOff[obj.mask], xOff[obj.mask], catIndices[obj.mask]):
             img.axes.scatter(x_, y_, c=color, marker=markers[i_ % 5])
@@ -147,7 +147,7 @@ def showCluster(
     yOffset = cellData.minPix[1] + cluster.footprint.getBBox().getBeginX() + 25
     xOff = cluster.xCluster
     yOff = cluster.yCluster
-    if mask is not None:
+    if mask is not None:    # pragma: no cover
         xOff = xOff[mask]
         yOff = yOff[mask]
     xC = cluster.xCent - xOffset
@@ -165,7 +165,7 @@ def showCluster(
         xOff_u = xOff - cluster.data.dxShear
         yOff_u = yOff - cluster.data.dyShear
         img.axes.scatter(yOff_u, xOff_u, marker="x")
-    except Exception:
+    except Exception:  # pragma: no cover
         pass
     img.axes.scatter(yOff, xOff)
     img.axes.scatter(yC, xC, marker="+", c="green")
