@@ -45,7 +45,47 @@ class ShearHistogramStats:
         self.error = self.std / np.sqrt(self.w)
         self.invVar = 1.0 / (self.error * self.error)
 
+        
+class ShearProfileHistogramStats:        
+    """Simple class to store stats about a 2d histogram
 
+    Attributes
+    ----------
+    w: np.array
+        Sum of weights
+
+    mean: np.array
+        Histogram mean
+
+    std: np.array
+        Histogram standard deviation
+
+    error: np.array
+        Error on histogram mean
+
+    invVar: np.array
+        Inverse Variance
+    """
+    def __init__(
+        self,
+        hist_2d: tuple[np.ndarray, np.ndarray, np.ndarray],
+    ):
+        """Compute the stats from a histogram"""
+        weights = hist_2d[0]
+        xBins = hist_2d[1]
+        yBins = hist_2d[2]
+        xBinCenters = 0.5*(xBins[0:-1]+xBins[1:])        
+        yBinCenters = 0.5*(yBins[0:-1]+yBins[1:])
+
+        self.w = np.sum(weights, axis=1)
+        self.mean = np.sum(weights * yBinCenters, axis=1) / self.w
+        deltas = yBinCenters - np.expand_dims(mean, -1)
+        var = np.sum(weights * deltas * deltas, axis=1) / self.w
+        self.std = np.sqrt(var)
+        self.error = self.std / np.sqrt(self.w)
+        self.invVar = 1.0 / (self.error * self.error)
+
+    
 class ShearHistograms:
     """Simple class to store histogram relating to shear calibration
 

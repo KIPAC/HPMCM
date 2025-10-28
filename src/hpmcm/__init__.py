@@ -40,7 +40,7 @@ The two sub-classes of `Match` are:
    shear catalogs.
 """
 
-from . import classify, match_utils, shear_utils, utils, viz_utils
+from . import classify, match_utils, package_utils, shear_utils, utils, viz_utils
 from ._version import __version__
 from .cell import CellData, ShearCellData
 from .cluster import ClusterData, ShearClusterData
@@ -73,6 +73,7 @@ __all__ = [
     "WcsMatch",
     "classify",
     "match_utils",
+    "package_utils",
     "shear_utils",
     "utils",
     "viz_utils",
