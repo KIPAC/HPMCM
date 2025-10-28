@@ -12,8 +12,6 @@ There are two ways you might choose to install `HPMCM`
    pip in "editable" mode.
 
 
-In call cases we recommend you first install the DM software stack.
-
 
 =======================	  
 Production Installation
@@ -56,7 +54,7 @@ Developer Installation
 =============================
 Adding your kernel to jupyter
 =============================
-If you want to use the kernel that you have just created to run RAIL example demos, then you may need to explicitly add an ipython kernel.  You may need to first install ipykernel with `conda install ipykernel`.  You can do then add your kernel with the following command, making sure that you have the conda environment that you wish to add activated.  From your environment, execute the command:
+If you want to use the kernel that you have just created to run example demos, then you may need to explicitly add an ipython kernel.  You may need to first install ipykernel with `conda install ipykernel`.  You can do then add your kernel with the following command, making sure that you have the conda environment that you wish to add activated.  From your environment, execute the command:
 `python -m ipykernel install --user --name [nametocallnewkernel]`
 (you may or may not need to prepend `sudo` depending on your permissions).  When you next start up Jupyter you should see a kernel with your new name as an option, including using the Jupyter interface at NERSC.
 >>>>>>> 6908ec0 (docs)
