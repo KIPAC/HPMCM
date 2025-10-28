@@ -12,13 +12,6 @@ CATALOG_TYPE = "wmom"  # which object characterization to use
 TRACT = 10463  # which tract to study
 
 BASEFILE = os.path.join(DATADIR, f"shear_{CATALOG_TYPE}_{SHEAR_ST}_match_{TRACT}")
-SOURCE_TABLEFILES = sorted(
-    glob.glob(
-        os.path.join(DATADIR, f"shear_{CATALOG_TYPE}_{SHEAR_ST}_uncleaned_{TRACT}_*.pq")
-    )
-)
-SOURCE_TABLEFILES.reverse()
-VISIT_IDS = np.arange(len(SOURCE_TABLEFILES))
 
 PIXEL_R2CUT = 4.0  # Cut at distance**2 = 4 pixels
 PIXEL_MATCH_SCALE = 1  # Use pixel scale to do matching
@@ -30,13 +23,23 @@ def testShearMatch(setup_data: int) -> None:
 
     assert setup_data == 0
 
+    # get the data
+    source_tablesfiles = sorted(
+        glob.glob(
+            os.path.join(DATADIR, f"shear_{CATALOG_TYPE}_{SHEAR_ST}_uncleaned_{TRACT}_*.pq")
+        )
+    )
+    source_tablesfiles.reverse()
+    catalog_ids = np.arange(len(source_tablesfiles))
+
+    
     # Create matcher
     matcher = hpmcm.ShearMatch.createShearMatch(
         pixelR2Cut=PIXEL_R2CUT, pixelMatchScale=PIXEL_MATCH_SCALE, deshear=-1 * SHEAR
     )
 
     # Reduce the input data
-    matcher.reduceData(SOURCE_TABLEFILES, VISIT_IDS)
+    matcher.reduceData(source_tablesfiles, catalog_ids)
 
     # Make sure it got the right number of cells
     assert matcher.nCell[0] == 200

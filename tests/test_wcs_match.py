@@ -13,19 +13,21 @@ REGION_SIZE = (0.375, 0.375)  # Size of match region in degrees
 PIXEL_SIZE = 0.5 / 3600.0  # Size of pixels used in matching
 PIXEL_R2CUT = 4.0  # Cut at distance**2 = 4 pixels
 
-SOURCE_TABLEFILES = sorted(
-    glob.glob(os.path.join(DATADIR, f"shear_*_{SHEAR_ST}_cleaned_{TRACT}_ns.pq"))
-)
-SOURCE_TABLEFILES.append(os.path.join(DATADIR, f"object_{TRACT}.pq"))
-SOURCE_TABLEFILES.reverse()
-SOURCE_TABLEFILES = [SOURCE_TABLEFILES[0], SOURCE_TABLEFILES[1]]
-VISIT_IDS = np.arange(len(SOURCE_TABLEFILES))
-
 
 def testWCSMatch(setup_data: int) -> None:
     """Run WcsMatch on a large part of a tract"""
 
     assert setup_data == 0
+
+    # get the data
+    
+    source_tablesfiles = sorted(
+        glob.glob(os.path.join(DATADIR, f"shear_*_{SHEAR_ST}_cleaned_{TRACT}_ns.pq"))
+    )
+    source_tablesfiles.append(os.path.join(DATADIR, f"object_{TRACT}.pq"))
+    source_tablesfiles.reverse()
+    source_tablesfiles = [source_tablesfiles[0], source_tablesfiles[1]]
+    catalog_ids = np.arange(len(source_tablesfiles))
 
     # Create matcher
     matcher = hpmcm.WcsMatch.create(
@@ -33,7 +35,7 @@ def testWCSMatch(setup_data: int) -> None:
     )
 
     # Reduce the input data
-    matcher.reduceData(SOURCE_TABLEFILES, VISIT_IDS)
+    matcher.reduceData(source_tablesfiles, catalog_ids)
 
     # Make sure it got the right number of cells
     assert matcher.nCell[0] == 3
