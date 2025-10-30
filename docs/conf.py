@@ -22,6 +22,10 @@ if not os.path.exists('examples'):
 sys.path.insert(0, os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('../src'))
 
+# grab the data for the notebooks
+from hpmcm.package_utils import setupTestDataArea
+setupTestDataArea()
+
 
 # Use unittest mock module to shield some modules away from docs building.
 # This way one does not need to install them when dealing with the doc.
