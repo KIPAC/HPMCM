@@ -128,6 +128,7 @@ class CellData:
         self, iCat: int, dataframe: pandas.DataFrame
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
+        assert iCat is not None
 
         # WCS is defined, use it
         xCell = dataframe["xPix"] - self.minPix[0]

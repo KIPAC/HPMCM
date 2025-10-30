@@ -13,10 +13,10 @@ class Footprint:
     image: np.ndaray
         Original image
 
-    sliceX: slice
+    slice_x: slice
         Slice of footprint in X
 
-    sliceY: slice
+    slice_y: slice
         Slice of footprint in Y
 
     cutout: np.ndaray
@@ -35,17 +35,17 @@ class Footprint:
             Slices in X and Y
         """
         self.image = image
-        self.sliceX = slices[0]
-        self.sliceY = slices[1]
-        self.cutout = self.image[self.sliceX, self.sliceY]
+        self.slice_x = slices[0]
+        self.slice_y = slices[1]
+        self.cutout = self.image[self.slice_x, self.slice_y]
 
     def extent(self) -> tuple[int, int, int, int]:
         """Return the extent of the Footprint, for use by `matplotlib`"""
         return (
-            self.sliceX.start,
-            self.sliceX.stop,
-            self.sliceY.start,
-            self.sliceY.stop,
+            self.slice_x.start,
+            self.slice_x.stop,
+            self.slice_y.start,
+            self.slice_y.stop,
         )
 
 
@@ -60,12 +60,12 @@ class FootprintSet:
     footprints: list[Footprint]
         Footprints found in the image
 
-    fpKey: np.ndarray
+    fp_key: np.ndarray
         Map of footprint associations: -1 -> no association
     """
 
     def __init__(
-        self, image: np.ndarray, fpKey: np.ndarray, footprints: list[Footprint]
+        self, image: np.ndarray, fp_key: np.ndarray, footprints: list[Footprint]
     ):
         """Create a FootprintSet
 
@@ -74,7 +74,7 @@ class FootprintSet:
         image:
             Original image (counts map of source positions)
 
-        fpKey:
+        fp_key:
             Map of footprint associations: -1 -> no association
 
         footprints:
@@ -82,7 +82,7 @@ class FootprintSet:
         """
         self.image = image
         self.footprints = footprints
-        self.fpKey = fpKey
+        self.fp_key = fp_key
 
     @classmethod
     def detect(cls, image: np.ndarray) -> FootprintSet:
@@ -97,25 +97,25 @@ class FootprintSet:
         -------
         Newly created FootprintSet
         """
-        fpKey = detect_sources(image, 0.5, 1).data
-        slices = ndimage.find_objects(fpKey)
-        fpKey = fpKey - 1
+        fp_key = detect_sources(image, 0.5, 1).data
+        slices = ndimage.find_objects(fp_key)
+        fp_key = fp_key - 1
         footprints: list[Footprint] = []
-        for slicePair in slices:
-            footprints.append(Footprint(image, slicePair))
-        return cls(image, fpKey, footprints)
+        for slice_pair_ in slices:
+            footprints.append(Footprint(image, slice_pair_))
+        return cls(image, fp_key, footprints)
 
-    def filter(self, buf: int, pixelMatchScale: int = 1) -> FootprintSet:
+    def filter(self, buf: int, pixel_match_scale: int = 1) -> FootprintSet:
         """Remove footprints outside the central region of cell"""
         if buf == 0:
             return self
 
         # The easiest way to do this is to mask out the outer
         # region in the footprint key
-        nExclude = np.floor(buf/pixelMatchScale).astype(int)
-        nX, nY = self.fpKey.shape
-        self.fpKey[0:nExclude] = -1
-        self.fpKey[nX-nExclude:nX] = -1
-        self.fpKey[:,0:nExclude] = -1
-        self.fpKey[:,nY-nExclude:nY] = -1
+        n_exclude = np.floor(buf/pixel_match_scale).astype(int)
+        n_x, n_y = self.fp_key.shape
+        self.fp_key[0:n_exclude] = -1
+        self.fp_key[n_x-n_exclude:n_x] = -1
+        self.fp_key[:,0:n_exclude] = -1
+        self.fp_key[:,n_y-n_exclude:n_y] = -1
         return self
