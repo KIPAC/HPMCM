@@ -30,27 +30,26 @@ def testShearMatch(setup_data: int) -> None:
         )
     )
     source_tablesfiles.reverse()
-    catalog_ids = np.arange(len(source_tablesfiles))
+    catalog_ids: list[int] = list(np.arange(len(source_tablesfiles)))
 
-    
     # Create matcher
     matcher = hpmcm.ShearMatch.createShearMatch(
-        pixelR2Cut=PIXEL_R2CUT, pixelMatchScale=PIXEL_MATCH_SCALE, deshear=-1 * SHEAR
+        pixel_R2_cut=PIXEL_R2CUT, pixel_match_scale=PIXEL_MATCH_SCALE, deshear=-1 * SHEAR
     )
 
     # Reduce the input data
     matcher.reduceData(source_tablesfiles, catalog_ids)
 
     # Make sure it got the right number of cells
-    assert matcher.nCell[0] == 200
-    assert matcher.nCell[1] == 200
+    assert matcher.n_cell[0] == 200
+    assert matcher.n_cell[1] == 200
 
     # Define the range of cells to run over
-    xRange = range(50, 70)
-    yRange = range(170, 190)
+    x_range = range(50, 70)
+    y_range = range(170, 190)
 
     # Run the analysis
-    matcher.analysisLoop(xRange, yRange)
+    matcher.analysisLoop(x_range, y_range)
 
     # Extract some data
     stats = matcher.extractStats()
@@ -64,14 +63,14 @@ def testShearMatch(setup_data: int) -> None:
     # Test the classification codes
     hpmcm.classify.printSummaryStats(matcher)
 
-    objLists = hpmcm.classify.classifyObjects(matcher, SNRCut=10.0)
-    hpmcm.classify.printObjectTypes(objLists)
+    obj_lists = hpmcm.classify.classifyObjects(matcher, SNRCut=10.0)
+    hpmcm.classify.printObjectTypes(obj_lists)
 
-    clusterLists = hpmcm.classify.classifyClusters(matcher, SNRCut=10.0)
-    hpmcm.classify.printClusterTypes(clusterLists)
+    cluster_lists = hpmcm.classify.classifyClusters(matcher, SNRCut=10.0)
+    hpmcm.classify.printClusterTypes(cluster_lists)
 
     # Make sure the match efficiency is high
-    n_good = len(objLists["ideal"])
+    n_good = len(obj_lists["ideal"])
     bad_list = [
         "edge_mixed",
         "edge_missing",
@@ -83,30 +82,32 @@ def testShearMatch(setup_data: int) -> None:
         "extra",
         "caught",
     ]
-    n_bad = np.sum([len(objLists[x]) for x in bad_list])
+    n_bad = np.sum([len(obj_lists[x]) for x in bad_list])
     effic = n_good / (n_good + n_bad)
     assert effic > 0.95
 
     # Get a particular cell and rerun the analysis to test visualization
     # and classification functions
-    cellIdx = matcher.getCellIdx(50, 170)
-    cell = matcher.cellDict[cellIdx]
+    cell_idx = matcher.getCellIdx(50, 170)
+    cell = matcher.cell_dict[cell_idx]
     od = cell.analyze(None, 4)
-    cluster = matcher.getCluster(clusterLists["ideal"][0])
-    obj = matcher.getObject(objLists["ideal"][0])
+    assert od is not None
 
-    assert len(cluster.xCluster)
-    assert len(cluster.yCluster)
-    assert len(cluster.xPix)
-    assert len(cluster.yPix)
+    cluster = matcher.getCluster(cluster_lists["ideal"][0])
+    obj = matcher.getObject(obj_lists["ideal"][0])
 
-    assert len(obj.xCluster)
-    assert len(obj.yCluster)
-    assert len(obj.xPix)
-    assert len(obj.yPix)
+    assert len(cluster.x_cluster)
+    assert len(cluster.y_cluster)
+    assert len(cluster.x_pix)
+    assert len(cluster.y_pix)
 
-    hpmcm.viz_utils.showShearObjs(matcher, clusterLists["ideal"][0])
-    hpmcm.viz_utils.showShearObj(matcher, objLists["ideal"][0])
+    assert len(obj.x_cluster)
+    assert len(obj.y_cluster)
+    assert len(obj.x_pix)
+    assert len(obj.y_pix)
+
+    hpmcm.viz_utils.showShearObjs(matcher, cluster_lists["ideal"][0])
+    hpmcm.viz_utils.showShearObj(matcher, obj_lists["ideal"][0])
     hpmcm.viz_utils.showCluster(od["image"], cluster, cell)
     hpmcm.viz_utils.showObjects(od["image"], cluster, cell)
     hpmcm.viz_utils.showObjectsV2(od["image"], cluster, cell)
@@ -121,7 +122,7 @@ def testShearReport(setup_data: int) -> None:
         BASEFILE,
         output_file,
         SHEAR,
-        catType=CATALOG_TYPE,
+        cat_type=CATALOG_TYPE,
         tract=TRACT,
-        snrCut=SNR_CUT,
+        snr_cut=SNR_CUT,
     )

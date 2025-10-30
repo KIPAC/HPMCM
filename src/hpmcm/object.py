@@ -112,11 +112,11 @@ class ObjectData:
 
     def sourceIds(self) -> np.ndarray:
         """Return the source ids for the sources in the object"""
-        return self.parent_cluster.srcIds[self.mask]
+        return self.parent_cluster.src_id[self.mask]
 
     def sourceIdxs(self) -> np.ndarray:
         """Return the source indices for the sources in the object"""
-        return self.parent_cluster.srcIdxs[self.mask]
+        return self.parent_cluster.src_idx[self.mask]
 
     def _updateCatIndices(self) -> None:
         self.catalog_id = self.parent_cluster.catalog_id[self.mask]

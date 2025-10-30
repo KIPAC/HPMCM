@@ -9,12 +9,12 @@ from . import options
 
 __all__ = [
     "cli",
-    "wcs_group",
-    "wcs_match_command",
-    "shear_group",
-    "shear_match_command",
-    "shear_split_command",
-    "shear_report_command",
+    "wcsGroup",
+    "wcsMatchCommand",
+    "shearGroup",
+    "shearMatchCommand",
+    "shearSplitCommand",
+    "shearReportCommand",
 ]
 
 
@@ -25,11 +25,11 @@ def cli() -> None:
 
 
 @cli.group(name="wcs")
-def wcs_group() -> None:
+def wcsGroup() -> None:
     """Operations on catalogs using single WCS"""
 
 
-@wcs_group.command(name="match")
+@wcsGroup.command(name="match")
 @options.inputs()
 @options.output_file()
 @options.ra_ref(required=True)
@@ -39,7 +39,7 @@ def wcs_group() -> None:
 @options.pixel_size(required=True)
 @options.cell_size()
 @options.pixel_r2_cut()
-def wcs_match_command(
+def wcsMatchCommand(
     inputs: list[str],
     output_file: click.Path,
     ra_ref: float,
@@ -52,14 +52,14 @@ def wcs_match_command(
 ) -> None:
     """Match catalogs using a global WCS map"""
     matcher = hpmcm.WcsMatch.create(
-        refDir=(ra_ref, dec_ref),
-        regionSize=(ra_size, dec_size),
-        pixelSize=pixel_size,
-        cellSize=cell_size,
-        pixelR2Cut=pixel_r2_cut,
+        ref_dir=(ra_ref, dec_ref),
+        region_size=(ra_size, dec_size),
+        pixel_size=pixel_size,
+        cell_size=cell_size,
+        pixel_R2_cut=pixel_r2_cut,
     )
     input_files = list(inputs)
-    visit_ids = list(np.arange(len(input_files)))
+    visit_ids: list[int] = list(np.arange(len(input_files)))
     matcher.reduceData(input_files, visit_ids)
     print("Matching catalogs:")
     matcher.analysisLoop()
@@ -77,18 +77,18 @@ def wcs_match_command(
 
 
 @cli.group(name="shear")
-def shear_group() -> None:
+def shearGroup() -> None:
     """Operations on shear catalogs"""
 
 
-@shear_group.command(name="match")
+@shearGroup.command(name="match")
 @options.inputs()
 @options.output_file()
 @options.shear()
 @options.pixel_r2_cut()
 @options.pixel_match_scale()
 @options.deshear()
-def shear_match_command(
+def shearMatchCommand(
     inputs: list[str],
     output_file: click.Path,
     shear: float | None,
@@ -108,7 +108,7 @@ def shear_match_command(
     )
     input_files = list(inputs)
     input_files.reverse()
-    visit_ids = list(np.arange(len(input_files)))
+    visit_ids: list[int] = list(np.arange(len(input_files)))
     matcher.reduceData(input_files, visit_ids)
     print("Matching catalogs:")
     matcher.analysisLoop()
@@ -129,12 +129,12 @@ def shear_match_command(
     print("Success!")
 
 
-@shear_group.command(name="split")
+@shearGroup.command(name="split")
 @options.basefile()
 @options.tract()
 @options.catalog_type()
 @options.shear(required=True)
-def shear_split_command(
+def shearSplitCommand(
     basefile: str,
     tract: int,
     shear: float,
@@ -144,12 +144,12 @@ def shear_split_command(
     hpmcm.shear_utils.splitByTypeAndClean(basefile, tract, shear, catalog_type)
 
 
-@shear_group.command(name="report")
+@shearGroup.command(name="report")
 @options.basefile()
 @options.output_file()
 @options.shear(required=True)
 @options.snr_cut()
-def shear_report_command(
+def shearReportCommand(
     basefile: str,
     output_file: str,
     shear: float,
@@ -158,16 +158,16 @@ def shear_report_command(
     """Build shear calibration reports"""
     tokens = basefile.split("_")
     tract = int(tokens[-1])
-    catType = tokens[-4]
+    cat_type = tokens[-4]
     hpmcm.shear_utils.shearReport(
-        basefile, output_file, shear, catType=catType, tract=tract, snrCut=snr_cut
+        basefile, output_file, shear, cat_type=cat_type, tract=tract, snr_cut=snr_cut
     )
 
 
-@shear_group.command(name="merge-reports")
+@shearGroup.command(name="merge-reports")
 @options.inputs()
 @options.output_file()
-def shear_merge_reports_command(
+def shearMergeReportsCommand(
     inputs: list[str],
     output_file: str,
 ) -> None:

@@ -98,19 +98,19 @@ class TableInterface:
         for key, val in kwargs.items():
             if key not in cls._schema:  # pragma: no cover
                 raise KeyError(f"{key} not in {list(cls._schema.keys())}")
-            colInfo = cls._schema[key]
-            colInfo.validate(val)
+            col_info = cls._schema[key]
+            col_info.validate(val)
             if table_size < 0:
                 table_size = val.size
             else:
                 assert val.size == table_size
 
     @classmethod
-    def read(cls, filePath: str, extraCols: list[str]) -> pandas.DataFrame:
+    def read(cls, file_path: str, extra_cols: list[str]) -> pandas.DataFrame:
         """Read a dataframe from a file"""
-        readList = list(cls._schema.keys())
-        readList += extraCols
-        parq = pq.read_pandas(filePath, columns=readList)
+        read_list = list(cls._schema.keys())
+        read_list += extra_cols
+        parq = pq.read_pandas(file_path, columns=read_list)
         df = parq.to_pandas()
         return df
 

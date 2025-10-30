@@ -13,19 +13,19 @@ if TYPE_CHECKING:
 
 
 def heirarchicalProcessObject(
-    objData: ObjectData, cellData: CellData, pixelR2Cut: float, recurse: int = 0
+    obj_data: ObjectData, cell_data: CellData, pixel_r2_cut: float, recurse: int = 0
 ) -> None:
     """Recursively process an object and make sub-objects
 
     Parameters
     ----------
-    objData:
+    obj_data:
         Object being processed
 
-    cellData:
+    cell_data:
         Associated cell
 
-    pixelR2Cut:
+    pixel_r2_cut:
         Distance cut for associated, in pixels**2
 
     recurse:
@@ -34,69 +34,69 @@ def heirarchicalProcessObject(
 
     Notes
     -----
-    This function will test if the input objData is good,
-    i.e., that all the sources lie within the pixelR2Cut,
-    and will split objData into multiple objects if
+    This function will test if the input obj_data is good,
+    i.e., that all the sources lie within the pixel_r2_cut,
+    and will split obj_data into multiple objects if
     some of the sources lie outside the cut
 
     The new objects will be added to the parent cluster of
     the original object
     """
-    if recurse > cellData.matcher.maxSubDivision:
+    if recurse > cell_data.matcher.max_sub_division:
         return
-    objData.recurse = recurse
+    obj_data.recurse = recurse
 
-    if objData.nSrc == 0:
-        print("Empty object", objData.nSrc, objData.nUnique, recurse)
-        return
-
-    assert objData.data is not None
-    if objData.mask.sum() == 1:
-        objData.xCent = objData.data.xPix.values[0]
-        objData.yCent = objData.data.yPix.values[0]
-        objData.dist2 = np.zeros((1), float)
-        objData.rmsDist = 0.0
-        objData.snrMean = objData.data.SNR.values[0]
-        objData.snrRms = 0.0
+    if obj_data.n_src == 0:
+        print("Empty object", obj_data.n_src, obj_data.n_unique, recurse)
         return
 
-    sumSnr = np.sum(objData.data.SNR)
-    objData.xCent = np.sum(objData.data.xPix * objData.data.SNR) / sumSnr
-    objData.yCent = np.sum(objData.data.yPix * objData.data.SNR) / sumSnr
-    objData.dist2 = np.array(
-        (objData.xCent - objData.data.xPix) ** 2
-        + (objData.yCent - objData.data.yPix) ** 2
+    assert obj_data.data is not None
+    if obj_data.mask.sum() == 1:
+        obj_data.x_cent = obj_data.data.x_pix.values[0]
+        obj_data.y_cent = obj_data.data.y_pix.values[0]
+        obj_data.dist_2 = np.zeros((1), float)
+        obj_data.rms_dist = 0.0
+        obj_data.snr_mean = obj_data.data.snr.values[0]
+        obj_data.snr_rms = 0.0
+        return
+
+    sum_snr = np.sum(obj_data.data.snr)
+    obj_data.x_cent = np.sum(obj_data.data.x_pix * obj_data.data.snr) / sum_snr
+    obj_data.y_cent = np.sum(obj_data.data.y_pix * obj_data.data.snr) / sum_snr
+    obj_data.dist_2 = np.array(
+        (obj_data.x_cent - obj_data.data.x_pix) ** 2
+        + (obj_data.y_cent - obj_data.data.y_pix) ** 2
     )
-    objData.rmsDist = np.sqrt(np.mean(objData.dist2))
-    objData.snrMean = np.mean(objData.data.SNR.values)
-    objData.snrRms = np.std(objData.data.SNR.values)
+    obj_data.rms_dist = np.sqrt(np.mean(obj_data.dist_2))
+    obj_data.snr_mean = np.mean(obj_data.data.snr.values)
+    obj_data.snr_rms = np.std(obj_data.data.snr.values)
 
-    subMask = objData.dist2 < pixelR2Cut
-    if subMask.all():
+    sub_mask = obj_data.dist_2 < pixel_r2_cut
+    if sub_mask.all():
         return
 
-    if recurse >= cellData.matcher.maxSubDivision:
+    if recurse >= cell_data.matcher.max_sub_division:
         return
 
-    heirarchicalSplitObject(objData, cellData, pixelR2Cut, recurse=recurse + 1)
+    heirarchicalSplitObject(obj_data, cell_data, pixel_r2_cut, recurse=recurse + 1)
     return
 
 
 def heirarchicalSplitObject(
-    objData: ObjectData, cellData: CellData, pixelR2Cut: float, recurse: int = 0
+    obj_data: ObjectData, cell_data: CellData, pixel_r2_cut: float, recurse: int = 0
 ) -> None:
     """Split up a cluster keeping only one source per input
     catalog
 
     Parameters
     ----------
-    objData:
+    obj_data:
         Object being processed
 
-    cellData:
+    cell_data:
         Associated cell
 
-    pixelR2Cut:
+    pixel_r2_cut:
         Distance cut for associated, in pixels**2
 
     recurse:
@@ -107,68 +107,68 @@ def heirarchicalSplitObject(
     This function actually does the splitting of objects
     """
 
-    if recurse > cellData.matcher.maxSubDivision:
+    if recurse > cell_data.matcher.max_sub_division:
         return
-    objData.recurse = recurse
-    objData.extract()
+    obj_data.recurse = recurse
+    obj_data.extract()
 
-    assert objData.data is not None
+    assert obj_data.data is not None
 
-    sliceX = objData.parentCluster.footprint.sliceX
-    sliceY = objData.parentCluster.footprint.sliceY
-    zoomFactors = [1, 2, 4, 8, 16, 32]
-    zoomFactor = zoomFactors[recurse]
+    slice_x = obj_data.parent_cluster.footprint.slice_x
+    slice_y = obj_data.parent_cluster.footprint.slice_y
+    zoom_factors = [1, 2, 4, 8, 16, 32]
+    zoom_factor = zoom_factors[recurse]
 
-    nPix = zoomFactor * np.array(
-        [sliceX.stop - sliceX.start, sliceY.stop - sliceY.start]
+    n_pix = zoom_factor * np.array(
+        [slice_x.stop - slice_x.start, slice_y.stop - slice_y.start]
     )
-    zoomX = zoomFactor * objData.data.xCluster / objData.parentCluster.pixelMatchScale
-    zoomY = zoomFactor * objData.data.yCluster / objData.parentCluster.pixelMatchScale
+    zoom_x = zoom_factor * obj_data.data.x_cluster / obj_data.parent_cluster.pixel_match_scale
+    zoom_y = zoom_factor * obj_data.data.y_cluster / obj_data.parent_cluster.pixel_match_scale
 
-    countsMap = utils.fillCountsMapFromArrays(zoomX, zoomY, nPix)
+    counts_map = utils.fillCountsMapFromArrays(zoom_x, zoom_y, n_pix)
 
-    fpDict = utils.getFootprints(countsMap, buf=0)
-    footprints = fpDict["footprints"]
-    nFootprints = len(footprints.footprints)
-    if nFootprints == 1:
-        if recurse >= cellData.matcher.maxSubDivision:
+    fp_dict = utils.getFootprints(counts_map, buf=0)
+    footprints = fp_dict["footprints"]
+    n_footprints = len(footprints.footprints)
+    if n_footprints == 1:
+        if recurse >= cell_data.matcher.max_sub_division:
             return
-        heirarchicalSplitObject(objData, cellData, pixelR2Cut, recurse=recurse + 1)
+        heirarchicalSplitObject(obj_data, cell_data, pixel_r2_cut, recurse=recurse + 1)
         return
 
-    footprintKey = fpDict["footprintKey"]
-    footprintIds = utils.findClusterIdsFromArrays(
-        zoomX.values.astype(int), zoomY.values.astype(int), footprintKey
+    footprint_key = fp_dict["footprint_key"]
+    footprint_ids = utils.findClusterIdsFromArrays(
+        zoom_x.values.astype(int), zoom_y.values.astype(int), footprint_key
     )
 
-    biggest = np.argmax(np.bincount(footprintIds))
-    biggestMask = np.zeros(objData.mask.shape, dtype=bool)
+    biggest = np.argmax(np.bincount(footprint_ids))
+    biggest_mask = np.zeros(obj_data.mask.shape, dtype=bool)
 
-    for iFp in range(nFootprints):
-        subMask = footprintIds == iFp
+    for i_fp in range(n_footprints):
+        sub_mask = footprint_ids == i_fp
         count = 0
-        newMask = np.zeros(objData.mask.shape, dtype=bool)
-        for i, val in enumerate(objData.mask):
+        new_mask = np.zeros(obj_data.mask.shape, dtype=bool)
+        for i, val in enumerate(obj_data.mask):
             if val:
-                newMask[i] = subMask[count]
+                new_mask[i] = sub_mask[count]
                 count += 1
-        assert subMask.sum() == newMask.sum()
+        assert sub_mask.sum() == new_mask.sum()
 
-        if iFp == biggest:
-            biggestMask = newMask
+        if i_fp == biggest:
+            biggest_mask = new_mask
             continue
 
-        newObject = objData.parentCluster.addObject(cellData, newMask)
-        heirarchicalProcessObject(newObject, cellData, pixelR2Cut, recurse=recurse)
+        new_object = obj_data.parent_cluster.addObject(cell_data, new_mask)
+        heirarchicalProcessObject(new_object, cell_data, pixel_r2_cut, recurse=recurse)
 
-    objData.mask = biggestMask
-    objData.extract()
-    heirarchicalProcessObject(objData, cellData, pixelR2Cut, recurse=recurse)
+    obj_data.mask = biggest_mask
+    obj_data.extract()
+    heirarchicalProcessObject(obj_data, cell_data, pixel_r2_cut, recurse=recurse)
     return
 
 
 def heirarchicalProcessCluster(
-    cluster: ClusterData, cellData: CellData, pixelR2Cut: float
+    cluster: ClusterData, cell_data: CellData, pixel_r2_cut: float
 ) -> list[ObjectData]:
     """Function that is called recursively to
     split clusters until they consist only of sources within
@@ -181,46 +181,46 @@ def heirarchicalProcessCluster(
     cluster:
         Cluster being processed
 
-    cellData:
+    cell_data:
         Associated cell
 
-    pixelR2Cut:
+    pixel_r2_cut:
         Distance cut for associated, in pixels**2
 
     Returns
     -------
     Objects produced in cluster processing
     """
-    cluster.extract(cellData)
+    cluster.extract(cell_data)
     assert cluster.data is not None
 
-    cluster.nSrc = len(cluster.data.iCat)
-    cluster.nUnique = len(np.unique(cluster.data.iCat.values))
-    if cluster.nSrc == 0:
-        print("Empty cluster", cluster.nSrc, cluster.nUnique)
+    cluster.n_src = len(cluster.data.i_cat)
+    cluster.n_unique = len(np.unique(cluster.data.i_cat.values))
+    if cluster.n_src == 0:
+        print("Empty cluster", cluster.n_src, cluster.n_unique)
         return cluster.objects
 
-    if cluster.nSrc == 1:
-        cluster.xCent = cluster.data.xPix.values[0]
-        cluster.yCent = cluster.data.yPix.values[0]
-        cluster.dist2 = np.zeros((1))
-        cluster.rmsDist = 0.0
-        cluster.snrMean = cluster.data.SNR.values[0]
-        cluster.snrRms = 0.0
-        initialObject = cluster.addObject(cellData)
-        heirarchicalProcessObject(initialObject, cellData, pixelR2Cut)
+    if cluster.n_src == 1:
+        cluster.x_cent = cluster.data.x_pix.values[0]
+        cluster.y_cent = cluster.data.y_pix.values[0]
+        cluster.dist_2 = np.zeros((1))
+        cluster.rms_dist = 0.0
+        cluster.snr_mean = cluster.data.snr.values[0]
+        cluster.snr_rms = 0.0
+        initial_object = cluster.addObject(cell_data)
+        heirarchicalProcessObject(initial_object, cell_data, pixel_r2_cut)
         return cluster.objects
 
-    sumSnr = np.sum(cluster.data.SNR)
-    cluster.xCent = np.sum(cluster.data.xPix * cluster.data.SNR) / sumSnr
-    cluster.yCent = np.sum(cluster.data.yPix * cluster.data.SNR) / sumSnr
-    cluster.dist2 = (cluster.xCent - cluster.data.xPix) ** 2 + (
-        cluster.yCent - cluster.data.yPix
+    sum_snr = np.sum(cluster.data.snr)
+    cluster.x_cent = np.sum(cluster.data.x_pix * cluster.data.snr) / sum_snr
+    cluster.y_cent = np.sum(cluster.data.y_pix * cluster.data.snr) / sum_snr
+    cluster.dist_2 = (cluster.x_cent - cluster.data.x_pix) ** 2 + (
+        cluster.y_cent - cluster.data.y_pix
     ) ** 2
-    cluster.rmsDist = np.sqrt(np.mean(cluster.dist2))
-    cluster.snrMean = np.mean(cluster.data.SNR.values)
-    cluster.snrRms = np.std(cluster.data.SNR.values)
+    cluster.rms_dist = np.sqrt(np.mean(cluster.dist_2))
+    cluster.snr_mean = np.mean(cluster.data.snr.values)
+    cluster.snr_rms = np.std(cluster.data.snr.values)
 
-    initialObject = cluster.addObject(cellData)
-    heirarchicalProcessObject(initialObject, cellData, pixelR2Cut)
+    initial_object = cluster.addObject(cell_data)
+    heirarchicalProcessObject(initial_object, cell_data, pixel_r2_cut)
     return cluster.objects

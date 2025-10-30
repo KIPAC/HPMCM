@@ -39,6 +39,7 @@ dev = [
     "pre-commit", # Used to run checks before finalizing a git commit
     "pylint", # Used for static linting of files
     "jupyter", # Used to render simple test notebook
+    "mypy",   # typechecking
 ]
 docs = [
     "nbsphinx",
@@ -112,6 +113,10 @@ warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_ignores = true
 
+[tool.pylint.MASTER]
+ignore-paths = [
+    "src/hpmcm/_version.py",
+]
 
 [tool.coverage.run]
 omit = [

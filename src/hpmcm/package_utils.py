@@ -48,7 +48,7 @@ def teardownTestDataArea() -> None:  # pragma: no cover
     If the env var "NO_TEARDOWN" is set, this will not remove the data
     """
     if "NO_TEARDOWN" in os.environ:
-        pass
+        return
     os.system("\\rm -rf examples/test_data")
     try:
         os.unlink("examples/test_data.tgz")

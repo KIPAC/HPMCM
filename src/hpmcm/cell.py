@@ -40,7 +40,7 @@ class CellData:
     matcher: Match
         Parent Match object
 
-    idOffset: int
+    id_offset: int
         Offset used for the Object and Cluster IDs for this cell
 
     corner: np.ndarray
@@ -55,30 +55,30 @@ class CellData:
     buf: int
         Number of buffer pixels around the edge of the cell
 
-    minPix: np.ndarray
+    min_pix: np.ndarray
         Lowest number pixel in center of cell
 
-    maxPix: np.ndarray
+    max_pix: np.ndarray
         Highest number pixel in center of cell
 
-    nPix: np.ndarray
+    n_pix: np.ndarray
         Number of pixels in center of cell
 
     data : list[pandas.DataFrame]
         Reduced dataframes with only sources for this cell
 
-    nSrc : int
+    n_src : int
         Number of sources in this cell
 
-    footprintIds : list[np.ndarray]
+    footprint_ids : list[np.ndarray]
         Matched arrays with the index of the cluster associated to each
         source.  I.e., these could added to the Dataframes as
         additional columns
 
-    clusterDict : OrderedDict[int, ClusterData]
+    cluster_dict : OrderedDict[int, ClusterData]
         Dictionary with cluster membership data
 
-    objectDict : OrderedDict[int, ObjectData]
+    object_dict : OrderedDict[int, ObjectData]
         Dictionary with object membership data
 
     """
@@ -86,7 +86,7 @@ class CellData:
     def __init__(
         self,
         matcher: Match,
-        idOffset: int,
+        id_offset: int,
         corner: np.ndarray,
         size: np.ndarray,
         idx: int,
@@ -94,112 +94,112 @@ class CellData:
     ):
         self.matcher: Match = matcher
         # Offset used for the Object and Cluster IDs for this cell
-        self.idOffset: int = idOffset
+        self.id_offset: int = id_offset
         self.corner: np.ndarray = corner  # pixX, pixY for corner of cell
         self.size: np.ndarray = size  # size of cell
         self.idx: int = idx  # cell index
         self.buf: int = buf
-        self.minPix: np.ndarray = corner - buf
-        self.maxPix: np.ndarray = corner + size + buf
-        self.nPix: np.ndarray = self.maxPix - self.minPix
+        self.min_pix: np.ndarray = corner - buf
+        self.max_pix: np.ndarray = corner + size + buf
+        self.n_pix: np.ndarray = self.max_pix - self.min_pix
 
         self.data: list[pandas.DataFrame] = []
-        self.nSrc: int = 0
-        self.footprintIds: list[np.ndarray] = []
-        self.clusterDict: OrderedDict[int, ClusterData] = OrderedDict()
-        self.objectDict: OrderedDict[int, ObjectData] = OrderedDict()
+        self.n_src: int = 0
+        self.footprint_ids: list[np.ndarray] = []
+        self.cluster_dict: OrderedDict[int, ClusterData] = OrderedDict()
+        self.object_dict: OrderedDict[int, ObjectData] = OrderedDict()
 
     def reduceData(self, data: list[pandas.DataFrame]) -> None:
         """Pull out only the data needed for this cell"""
         self.data = [self.reduceDataframe(i, val) for i, val in enumerate(data)]
-        self.nSrc = int(np.sum([len(df) for df in self.data]))
+        self.n_src = int(np.sum([len(df) for df in self.data]))
 
     @property
-    def nClusters(self) -> int:
+    def n_clusters(self) -> int:
         """Return the number of clusters in this cell"""
-        return len(self.clusterDict)
+        return len(self.cluster_dict)
 
     @property
-    def nObjects(self) -> int:
+    def n_objects(self) -> int:
         """Return the number of objects in this cell"""
-        return len(self.objectDict)
+        return len(self.object_dict)
 
     def reduceDataframe(
-        self, iCat: int, dataframe: pandas.DataFrame
+        self, i_cat: int, dataframe: pandas.DataFrame
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
-        assert iCat is not None
+        assert i_cat is not None
 
         # WCS is defined, use it
-        xCell = dataframe["xPix"] - self.minPix[0]
-        yCell = dataframe["yPix"] - self.minPix[1]
+        x_cell = dataframe["x_pix"] - self.min_pix[0]
+        y_cell = dataframe["y_pix"] - self.min_pix[1]
         filtered = (
-            (xCell >= 0)
-            & (xCell < self.nPix[0])
-            & (yCell >= 0)
-            & (yCell < self.nPix[1])
+            (x_cell >= 0)
+            & (x_cell < self.n_pix[0])
+            & (y_cell >= 0)
+            & (y_cell < self.n_pix[1])
         )
         red = dataframe[filtered].copy(deep=True)
-        red["xCell"] = xCell[filtered]
-        red["yCell"] = yCell[filtered]
+        red["x_cell"] = x_cell[filtered]
+        red["y_cell"] = y_cell[filtered]
         return red
 
-    def countsMap(self, weightName: str | None = None) -> np.ndarray:
+    def countsMap(self, weight_name: str | None = None) -> np.ndarray:
         """Fill a map that counts the number of source per cell"""
-        toFill = self._emtpyCountsMaps()
+        to_fill = self._emtpyCountsMaps()
         assert self.data is not None
         for df in self.data:
-            toFill += self._singleCatalogCountsMap(df, weightName)
-        return toFill
+            to_fill += self._singleCatalogCountsMap(df, weight_name)
+        return to_fill
 
     def buildClusterData(
         self,
-        fpSet: FootprintSet,
-        pixelR2Cut: float = 4.0,
+        fp_set: FootprintSet,
+        pixel_r2_cut: float = 4.0,
     ) -> None:
         """Loop through cluster ids and collect sources into
         the ClusterData objects"""
-        footprintDict: dict[int, list[tuple[int, int, int]]] = {}
-        nMissing = 0
-        nFound = 0
+        footprint_dict: dict[int, list[tuple[int, int, int]]] = {}
+        n_missing = 0
+        n_found = 0
         assert self.data is not None
-        assert self.footprintIds
-        for iCat, (df, footprintIds) in enumerate(zip(self.data, self.footprintIds)):
-            for srcIdx, (srcId, footprintId) in enumerate(zip(df["id"], footprintIds)):
-                if footprintId < 0:
-                    nMissing += 1
+        assert self.footprint_ids
+        for i_cat, (df, footprint_ids) in enumerate(zip(self.data, self.footprint_ids)):
+            for src_idx, (src_id, footprint_id) in enumerate(zip(df["id"], footprint_ids)):
+                if footprint_id < 0:
+                    n_missing += 1
                     continue
-                if footprintId not in footprintDict:
-                    footprintDict[footprintId] = [(iCat, srcId, srcIdx)]
+                if footprint_id not in footprint_dict:
+                    footprint_dict[footprint_id] = [(i_cat, src_id, src_idx)]
                 else:
-                    footprintDict[footprintId].append((iCat, srcId, srcIdx))
-                nFound += 1
-        for footprintId, sources in footprintDict.items():
-            footprint = fpSet.footprints[footprintId]
-            iCluster = footprintId + self.idOffset
-            cluster = self._buildClusterData(iCluster, footprint, np.array(sources).T)
-            self.clusterDict[iCluster] = cluster
-            match_utils.heirarchicalProcessCluster(cluster, self, pixelR2Cut)
+                    footprint_dict[footprint_id].append((i_cat, src_id, src_idx))
+                n_found += 1
+        for footprint_id, sources in footprint_dict.items():
+            footprint = fp_set.footprints[footprint_id]
+            i_cluster = footprint_id + self.id_offset
+            cluster = self._buildClusterData(i_cluster, footprint, np.array(sources).T)
+            self.cluster_dict[i_cluster] = cluster
+            match_utils.heirarchicalProcessCluster(cluster, self, pixel_r2_cut)
 
     def analyze(
-        self, weightName: str | None = None, pixelR2Cut: float = 2.0
+        self, weight_name: str | None = None, pixel_r2_cut: float = 2.0
     ) -> dict | None:
         """Analyze this cell
 
         Note that this returns the counts maps and clustering info,
         which can be helpful for debugging.
         """
-        if self.nSrc == 0:
+        if self.n_src == 0:
             return None
-        countsMap = self.countsMap(weightName)
-        oDict = self._getFootprints(countsMap)
-        oDict["countsMap"] = countsMap
+        counts_map = self.countsMap(weight_name)
+        o_dict = self._getFootprints(counts_map)
+        o_dict["counts_map"] = counts_map
         assert self.data is not None
-        self.footprintIds = self._associateSourcesToFootprints(
-            self.data, oDict["footprintKey"]
+        self.footprint_ids = self._associateSourcesToFootprints(
+            self.data, o_dict["footprint_key"]
         )
-        self.buildClusterData(oDict["footprints"], pixelR2Cut)
-        return oDict
+        self.buildClusterData(o_dict["footprints"], pixel_r2_cut)
+        return o_dict
 
     def addObject(
         self, cluster: ClusterData, mask: np.ndarray | None = None
@@ -218,53 +218,53 @@ class CellData:
         -------
         Newly created ObjectData
         """
-        objectId = self.nObjects + self.idOffset
-        newObject = self._newObject(cluster, objectId, mask)
-        self.objectDict[objectId] = newObject
-        return newObject
+        object_id = self.n_objects + self.id_offset
+        new_object = self._newObject(cluster, object_id, mask)
+        self.object_dict[object_id] = new_object
+        return new_object
 
     @classmethod
     def _newObject(
-        cls, cluster: ClusterData, objectId: int, mask: np.ndarray | None
+        cls, cluster: ClusterData, object_id: int, mask: np.ndarray | None
     ) -> ObjectData:
-        return ObjectData(cluster, objectId, mask)
+        return ObjectData(cluster, object_id, mask)
 
     def _emtpyCountsMaps(self) -> np.ndarray:
-        toFill = np.zeros(np.ceil(self.nPix).astype(int))
-        return toFill
+        to_fill = np.zeros(np.ceil(self.n_pix).astype(int))
+        return to_fill
 
     def _singleCatalogCountsMap(
-        self, df: pandas.DataFrame, weightName: str | None = None
+        self, df: pandas.DataFrame, weight_name: str | None = None
     ) -> np.ndarray:
         return utils.fillCountsMapFromDf(
             df,
-            nPix=self.nPix,
-            weightName=weightName,
+            n_pix=self.n_pix,
+            weight_name=weight_name,
         )
 
     def _buildClusterData(
-        self, iCluster: int, footprint: Footprint, sources: np.ndarray
+        self, i_cluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
-        return ClusterData(iCluster, footprint, sources)
+        return ClusterData(i_cluster, footprint, sources)
 
-    def _getFootprints(self, countsMap: np.ndarray) -> dict:
-        return utils.getFootprints(countsMap, buf=self.buf)
+    def _getFootprints(self, counts_map: np.ndarray) -> dict:
+        return utils.getFootprints(counts_map, buf=self.buf)
 
     def _associateSourcesToFootprints(
         self,
         data: list[pandas.DataFrame],
-        clusterKey: np.ndarray,
+        cluster_key: np.ndarray,
     ) -> list[np.ndarray]:
         return utils.associateSourcesToFootprints(
             data,
-            clusterKey,
+            cluster_key,
         )
 
     def getRaDec(
-        self, xCents: np.ndarray, yCents: np.ndarray
+        self, x_cents: np.ndarray, y_cents: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
         """Return the RA, DEC of based from pixel coords"""
-        return self.matcher.pixToWorld(xCents, yCents)
+        return self.matcher.pixToWorld(x_cents, y_cents)
 
 
 class ShearCellData(CellData):
@@ -272,73 +272,73 @@ class ShearCellData(CellData):
 
     Attributes
     ----------
-    pixelMatchScale: int
+    pixel_match_scale: int
         Number of pixel merged in the original counts map
     """
 
     def __init__(
         self,
         matcher: ShearMatch,
-        idOffset: int,
+        id_offset: int,
         corner: np.ndarray,
         size: np.ndarray,
         idx: int,
         buf: int = 10,
     ):
-        CellData.__init__(self, matcher, idOffset, corner, size, idx, buf)
-        self.pixelMatchScale = matcher.pixelMatchScale
+        CellData.__init__(self, matcher, id_offset, corner, size, idx, buf)
+        self.pixel_match_scale = matcher.pixel_match_scale
 
     def reduceDataframe(
-        self, iCat: int, dataframe: pandas.DataFrame
+        self, i_cat: int, dataframe: pandas.DataFrame
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
-        return shear_utils.reduceShearDataForCell(self, iCat, dataframe)
+        return shear_utils.reduceShearDataForCell(self, i_cat, dataframe)
 
     @classmethod
     def _newObject(
-        cls, cluster: ClusterData, objectId: int, mask: np.ndarray | None
+        cls, cluster: ClusterData, object_id: int, mask: np.ndarray | None
     ) -> ObjectData:
-        return ShearObjectData(cluster, objectId, mask)
+        return ShearObjectData(cluster, object_id, mask)
 
     def _emtpyCountsMaps(self) -> np.ndarray:
-        pixelMatchScale = self.pixelMatchScale
-        toFill = np.zeros(np.ceil(self.nPix / pixelMatchScale).astype(int))
-        return toFill
+        pixel_match_scale = self.pixel_match_scale
+        to_fill = np.zeros(np.ceil(self.n_pix / pixel_match_scale).astype(int))
+        return to_fill
 
     def _singleCatalogCountsMap(
-        self, df: pandas.DataFrame, weightName: str | None = None
+        self, df: pandas.DataFrame, weight_name: str | None = None
     ) -> np.ndarray:
         return utils.fillCountsMapFromDf(
             df,
-            nPix=self.nPix,
-            weightName=weightName,
-            pixelMatchScale=self.pixelMatchScale,
+            n_pix=self.n_pix,
+            weight_name=weight_name,
+            pixel_match_scale=self.pixel_match_scale,
         )
 
     def _buildClusterData(
-        self, iCluster: int, footprint: Footprint, sources: np.ndarray
+        self, i_cluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
         return ShearClusterData(
-            iCluster, footprint, sources, pixelMatchScale=self.pixelMatchScale
+            i_cluster, footprint, sources, pixel_match_scale=self.pixel_match_scale
         )
 
-    def _getFootprints(self, countsMap: np.ndarray) -> dict:
+    def _getFootprints(self, counts_map: np.ndarray) -> dict:
         return utils.getFootprints(
-            countsMap, buf=0, pixelMatchScale=self.pixelMatchScale
+            counts_map, buf=0, pixel_match_scale=self.pixel_match_scale
         )
 
     def _associateSourcesToFootprints(
         self,
         data: list[pandas.DataFrame],
-        clusterKey: np.ndarray,
+        cluster_key: np.ndarray,
     ) -> list[np.ndarray]:
         return utils.associateSourcesToFootprints(
             data,
-            clusterKey,
-            pixelMatchScale=self.pixelMatchScale,
+            cluster_key,
+            pixel_match_scale=self.pixel_match_scale,
         )
 
     def getRaDec(
-        self, xCents: np.ndarray, yCents: np.ndarray
+        self, x_cents: np.ndarray, y_cents: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        return np.repeat(np.nan, len(xCents)), np.repeat(np.nan, len(yCents))
+        return np.repeat(np.nan, len(x_cents)), np.repeat(np.nan, len(y_cents))

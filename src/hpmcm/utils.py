@@ -8,9 +8,9 @@ from .footprint import FootprintSet
 
 
 def findClusterIdsFromArrays(
-    xLocals: np.ndarray,
-    yLocals: np.ndarray,
-    clusterKey: np.ndarray,
+    x_locals: np.ndarray,
+    y_locals: np.ndarray,
+    cluster_key: np.ndarray,
 ) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
@@ -18,13 +18,13 @@ def findClusterIdsFromArrays(
 
     Parameters
     ----------
-    xLocals:
+    x_locals:
         Local pixel x-positions
 
-    yLocals:
+    y_locals:
         Local pixel y-positions
 
-    clusterKey:
+    cluster_key:
         2D-map of cluster Ids by pixel position
 
     Returns
@@ -32,14 +32,14 @@ def findClusterIdsFromArrays(
     Ids of associated clusters
     """
     return np.array(
-        [clusterKey[xLocal, yLocal] for xLocal, yLocal in zip(xLocals, yLocals)]
+        [cluster_key[x_local_, y_local_] for x_local_, y_local_ in zip(x_locals, y_locals)]
     ).astype(np.int32)
 
 
 def findClusterIds(
     df: pandas.DataFrame,
-    clusterKey: np.ndarray,
-    pixelMatchScale: int = 1,
+    cluster_key: np.ndarray,
+    pixel_match_scale: int = 1,
 ) -> np.ndarray:
     """Associate sources to clusters using `clusterkey`
     which is a map where any pixel associated to a cluster
@@ -48,12 +48,12 @@ def findClusterIds(
     Parameters
     ----------
     df:
-        DataFrame with local pixel positions (xCell, yCell)
+        DataFrame with local pixel positions (x_cell, y_cell)
 
-    clusterKey:
+    cluster_key:
         2D-map of cluster Ids by pixel position
 
-    pixelMatchScale:
+    pixel_match_scale:
         Scale-factor to use in making cluster map
 
     Returns
@@ -61,29 +61,29 @@ def findClusterIds(
     Ids of associated clusters
     """
     return findClusterIdsFromArrays(
-        np.floor(df["xCell"] / pixelMatchScale).astype(int),
-        np.floor(df["yCell"] / pixelMatchScale).astype(int),
-        clusterKey,
+        np.floor(df["x_cell"] / pixel_match_scale).astype(int),
+        np.floor(df["y_cell"] / pixel_match_scale).astype(int),
+        cluster_key,
     )
 
 
 def fillCountsMapFromArrays(
-    xLocals: np.ndarray,
-    yLocals: np.ndarray,
-    nPix: np.ndarray,
+    x_locals: np.ndarray,
+    y_locals: np.ndarray,
+    n_pix: np.ndarray,
     weights: np.ndarray | None = None,
 ) -> np.ndarray:
     """Fill a source counts map
 
     Parameters
     ----------
-    xLocals:
+    x_locals:
         Local pixel x-positions
 
-    yLocals:
+    y_locals:
         Local pixel y-positions
 
-    nPix:
+    n_pix:
         Number of pixels in x,y for counts map
 
     weights:
@@ -91,13 +91,13 @@ def fillCountsMapFromArrays(
 
     Returns
     -------
-    Counts map of source in cell, projected into nPix,nPix grid
+    Counts map of source in cell, projected into n_pix,n_pix grid
     """
     hist = np.histogram2d(
-        xLocals,
-        yLocals,
-        bins=(nPix[0], nPix[1]),
-        range=((0, nPix[0]), (0, nPix[1])),
+        x_locals,
+        y_locals,
+        bins=(n_pix[0], n_pix[1]),
+        range=((0, n_pix[0]), (0, n_pix[1])),
         weights=weights,
     )
     return hist[0]
@@ -105,9 +105,9 @@ def fillCountsMapFromArrays(
 
 def fillCountsMapFromDf(
     df: pandas.DataFrame,
-    nPix: np.ndarray,
-    weightName: str | None = None,
-    pixelMatchScale: int = 1,
+    n_pix: np.ndarray,
+    weight_name: str | None = None,
+    pixel_match_scale: int = 1,
 ) -> np.ndarray:
     """Fill a source counts map from a reduced dataframe for one input
     catalog
@@ -115,74 +115,76 @@ def fillCountsMapFromDf(
     Parameters
     ----------
     df:
-        DataFrame with local pixel positions (xCell, yCell)
+        DataFrame with local pixel positions (x_cell, y_cell)
 
-    nPix:
+    n_pix:
         Number of pixels in x,y for counts map
 
-    weightName:
+    weight_name:
         If provided column to use for weights
 
-    pixelMatchScale:
+    pixel_match_scale:
         Scale-factor to use in making cluster map
 
     Returns
     -------
-    Counts map of source in cell, projected into nPix,nPix grid
+    Counts map of source in cell, projected into n_pix,n_pix grid
     """
-    if weightName is None:
+    if weight_name is None:
         weights = None
     else:  # pragma: no cover
-        weights = df[weightName].values
+        weights = df[weight_name].values
     return fillCountsMapFromArrays(
-        df["xCell"] / pixelMatchScale,
-        df["yCell"] / pixelMatchScale,
-        nPix=np.ceil(nPix / pixelMatchScale).astype(int),
+        df["x_cell"] / pixel_match_scale,
+        df["y_cell"] / pixel_match_scale,
+        n_pix=np.ceil(n_pix / pixel_match_scale).astype(int),
         weights=weights,
     )
 
 
 def getFootprints(
-    countsMap: np.ndarray,
+    counts_map: np.ndarray,
     buf: int,
-    pixelMatchScale: int = 1,
+    pixel_match_scale: int = 1,
 ) -> dict:
     """Take a source counts map and do clustering using Footprint detection
 
     Parameters
     ----------
-    countsMap:
+    counts_map:
         Map of source counts
 
     buf:
         Number of pixels in cell-edge buffer
 
-    pixelMatchScale:
+    pixel_match_scale:
         Scale-factor used in making cluster map
 
     Returns
     -------
     Footprint data
 
+    +---------------+------------------+---------------------------------+
+    | Key           | Type             | Description                     |
+    +===============+==================+=================================+
+    | image         | np.ndarray       | Counts map of sources           |
+    +---------------+------------------+---------------------------------+
+    | footprints    | FootprintSet     | Clustering footprints           |
+    +---------------+------------------+---------------------------------+
+    | footprint_key | np.ndarray       | Array with cluster associations |
+    +---------------+------------------+---------------------------------+
 
-    Notes
-    -----
-    image: np.ndarray : countsMap
-
-    footprints: FootprintSet : Clustering FootprintSet
-
-    footprintKey: np.ndarray : Array with same shape as countsMap, with cluster associations
     """
-    footprintsOrig = FootprintSet.detect(countsMap)
-    footprints = footprintsOrig.filter(buf, pixelMatchScale)
-    footprintKey = footprints.fpKey
-    return dict(image=countsMap, footprints=footprints, footprintKey=footprintKey)
+    footprints_orig = FootprintSet.detect(counts_map)
+    footprints = footprints_orig.filter(buf, pixel_match_scale)
+    footprint_key = footprints.fp_key
+    return dict(image=counts_map, footprints=footprints, footprint_key=footprint_key)
 
 
 def associateSourcesToFootprints(
     data: list[pandas.DataFrame],
-    clusterKey: np.ndarray,
-    pixelMatchScale: int = 1,
+    cluster_key: np.ndarray,
+    pixel_match_scale: int = 1,
 ) -> list[np.ndarray]:
     """Loop through data and associate sources to clusters
 
@@ -191,10 +193,10 @@ def associateSourcesToFootprints(
     data:
         Input DataFrames
 
-    clusterKey:
+    cluster_key:
         2D-map of cluster Ids by pixel position
 
-    pixelMatchScale:
+    pixel_match_scale:
         Scale-factor used in making cluster map
 
     Returns
@@ -203,4 +205,4 @@ def associateSourcesToFootprints(
     output[i][j] will give the id of the cluster associated
     to source j in input catalog i.
     """
-    return [findClusterIds(df, clusterKey, pixelMatchScale) for df in data]
+    return [findClusterIds(df, cluster_key, pixel_match_scale) for df in data]

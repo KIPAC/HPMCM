@@ -94,8 +94,8 @@ class ClusterData:
         """Extract the x_pix, y_pix and snr data from
         the sources in this cluster
         """
-        x_offset = self.footprint.sliceX.start * self.pixel_match_scale
-        y_offset = self.footprint.sliceY.start * self.pixel_match_scale
+        x_offset = self.footprint.slice_x.start * self.pixel_match_scale
+        y_offset = self.footprint.slice_y.start * self.pixel_match_scale
 
         series_list = []
 
@@ -106,8 +106,8 @@ class ClusterData:
         self.data["i_cat"] = self.sources[0]
         self.data["src_id"] = self.sources[1]
         self.data["src_idx"] = self.sources[2]
-        self.data["x_cluster"] = self.data.xCell - x_offset
-        self.data["y_cluster"] = self.data.yCell - y_offset
+        self.data["x_cluster"] = self.data.x_cell - x_offset
+        self.data["y_cluster"] = self.data.y_cell - y_offset
 
     @property
     def catalog_id(self) -> np.ndarray:
@@ -119,7 +119,7 @@ class ClusterData:
     def src_id(self) -> np.ndarray:
         """Return the ids for all the sources in the cluster"""
         assert self.data is not None
-        return self.data.src_d
+        return self.data.src_id
 
     @property
     def src_idx(self) -> np.ndarray:

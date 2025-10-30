@@ -23,7 +23,7 @@ __all__: list[str] = [
     "tract",
 ]
 
-EnumType_co = TypeVar("EnumType_co", bound=Type[enum.Enum], covariant=True)
+EnumType_co = TypeVar("EnumType_co", bound=Type[enum.Enum], covariant=True)  # pylint: disable=invalid-name
 
 
 class EnumChoice(click.Choice):  # pragma: no cover
