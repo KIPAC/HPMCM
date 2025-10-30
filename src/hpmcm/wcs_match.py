@@ -10,9 +10,9 @@ from .match import Match
 
 
 def createGlobalWcs(
-    refDir: tuple[float, float],
-    pixSize: float,
-    nPix: np.ndarray,
+    ref_dir: tuple[float, float],
+    pix_size: float,
+    n_pix: np.ndarray,
 ) -> wcs.WCS:
     """Helper function to create the WCS used to project the
     sources in a skymap
@@ -20,13 +20,13 @@ def createGlobalWcs(
 
     Parameters
     ----------
-    refDir:
+    ref_dir:
         Reference Direction (RA, DEC) in degrees
 
-    pixSize:
+    pix_size:
         Pixel size in degrees
 
-    nPix:
+    n_pix:
         Number of pixels in x, y
 
     Returns
@@ -34,9 +34,9 @@ def createGlobalWcs(
     WCS to create the pixel grid
     """
     w = wcs.WCS(naxis=2)
-    w.wcs.cdelt = [-pixSize, pixSize]
-    w.wcs.crpix = [nPix[0] / 2, nPix[1] / 2]
-    w.wcs.crval = [refDir[0], refDir[1]]
+    w.wcs.cdelt = [-pix_size, pix_size]
+    w.wcs.crpix = [n_pix[0] / 2, n_pix[1] / 2]
+    w.wcs.crval = [ref_dir[0], ref_dir[1]]
     return w
 
 
@@ -60,26 +60,26 @@ class WcsMatch(Match):
     +-------------+---------------------------------------------------------------+
     | dec         | DEC in degress                                                |
     +-------------+---------------------------------------------------------------+
-    | SNR         | Signal-to-Noise of source, used for filtering and centroiding |
+    | snr         | Signal-to-Noise of source, used for filtering and centroiding |
     +-------------+---------------------------------------------------------------+
     """
 
     def __init__(
         self,
-        matchWcs: wcs.WCS,
+        match_wcs: wcs.WCS,
         **kwargs: Any,
     ):
-        self.wcs: wcs.WCS = matchWcs
-        pixelSize: float = self.wcs.wcs.cdelt[1]
-        nPixSide: np.ndarray = np.ceil(2 * np.array(self.wcs.wcs.crpix)).astype(int)
-        Match.__init__(self, pixelSize=pixelSize, nPixSide=nPixSide, **kwargs)
+        self.wcs: wcs.WCS = match_wcs
+        pixel_size: float = self.wcs.wcs.cdelt[1]
+        n_pix_side: np.ndarray = np.ceil(2 * np.array(self.wcs.wcs.crpix)).astype(int)
+        Match.__init__(self, pixel_size=pixel_size, n_pix_side=n_pix_side, **kwargs)
 
     @classmethod
     def create(
         cls,
-        refDir: tuple[float, float],
-        regionSize: tuple[float, float],
-        pixelSize: float,
+        ref_dir: tuple[float, float],
+        region_size: tuple[float, float],
+        pixel_size: float,
         **kwargs: Any,
     ) -> WcsMatch:
         """Helper function to create a Match object.
@@ -89,35 +89,35 @@ class WcsMatch(Match):
 
         Parameters
         ----------
-        refDir:
+        ref_dir:
             Reference Direction (RA, DEC) in degrees
 
-        regionSize:
+        region_size:
             Size of match region, in degrees
 
-        pixSize:
+        pix_size:
             Pixel size in degrees
 
         Returns
         -------
         Object to create matches for the requested region
         """
-        nPix = (np.array(regionSize) / pixelSize).astype(int)
-        matchWcs = createGlobalWcs(refDir, pixelSize, nPix)
-        return cls(matchWcs, nPixels=nPix, **kwargs)
+        n_pix = (np.array(region_size) / pixel_size).astype(int)
+        match_wcs = createGlobalWcs(ref_dir, pixel_size, n_pix)
+        return cls(match_wcs, n_pixels=n_pix, **kwargs)
 
     def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        xPix, yPix = self.wcs.wcs_world2pix(df["ra"].values, df["dec"].values, 0)
-        return xPix, yPix
+        x_pix, y_pix = self.wcs.wcs_world2pix(df["ra"].values, df["dec"].values, 0)
+        return x_pix, y_pix
 
     def pixToWorld(
         self,
-        xPix: np.ndarray,
-        yPix: np.ndarray,
+        x_pix: np.ndarray,
+        y_pix: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Convert local coords in pixels to world coordinates (RA, DEC)"""
         assert self.wcs is not None
-        return self.wcs.wcs_pix2world(xPix, yPix, 0)
+        return self.wcs.wcs_pix2world(x_pix, y_pix, 0)
 
     def reduceDataFrame(
         self,
@@ -127,7 +127,7 @@ class WcsMatch(Match):
 
         Notes
         -----
-        This applies a trivial cut on signal-to-noise (SNR>1).
+        This applies a trivial cut on signal-to-noise (snr>1).
         and adds the pixel coordinates to the DataFrame.
 
         This will add these columns to the output dataframes
@@ -142,25 +142,25 @@ class WcsMatch(Match):
         +--------------+-------------------------------------+
         | dec          | Source DEC                          |
         +--------------+-------------------------------------+
-        | xPix         | X-coordinate in global WCS frame    |
+        | x_pix        | X-coordinate in global WCS frame    |
         +--------------+-------------------------------------+
-        | yPix         | Y-coordinate in global WCS frame    |
+        | y_pix        | Y-coordinate in global WCS frame    |
         +--------------+-------------------------------------+
-        | SNR          | Signal-to-noise ratio               |
+        | snr          | Signal-to-noise ratio               |
         +--------------+-------------------------------------+
 
         """
-        df_clean = df[(df.SNR > 1)]
-        xPix, yPix = self.wcs.wcs_world2pix(
+        df_clean = df[(df.snr > 1)]
+        x_pix, y_pix = self.wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
         )
-        df_clean["xPix"] = xPix
-        df_clean["yPix"] = yPix
+        df_clean["x_pix"] = x_pix
+        df_clean["y_pix"] = y_pix
         filtered = (
-            (df_clean.xPix >= 0)
-            & (df_clean.xPix < self.nPixSide[0])
-            & (df_clean.yPix >= 0)
-            & (df_clean.yPix < self.nPixSide[1])
+            (df_clean.x_pix >= 0)
+            & (df_clean.x_pix < self.n_pix_side[0])
+            & (df_clean.y_pix >= 0)
+            & (df_clean.y_pix < self.n_pix_side[1])
         )
 
         df_red = df_clean[filtered].copy(deep=True)
@@ -170,8 +170,8 @@ class WcsMatch(Match):
                 "id",
                 "ra",
                 "dec",
-                "xPix",
-                "yPix",
-                "SNR",
+                "x_pix",
+                "y_pix",
+                "snr",
             ]
         ]

@@ -62,41 +62,41 @@ def shearStats(df: pandas.DataFrame) -> dict:
 
     If the matching is not good, then delta_g_1 = delta_g_2 = np.nan
     """
-    outDict: dict[str, float | int] = {}
-    allGood = True
+    out_dict: dict[str, float | int] = {}
+    all_good = True
     for i, name_ in enumerate(SHEAR_NAMES):
-        mask = df.iCat == i
-        nCat = mask.sum()
-        if nCat != 1:
-            allGood = False
-        outDict[f"n_{name_}"] = int(nCat)
-        if nCat:
-            outDict[f"g_1_{name_}"] = df[mask].g_1.values.mean()
-            outDict[f"g_2_{name_}"] = df[mask].g_2.values.mean()
+        mask = df.i_cat == i
+        n_cat = mask.sum()
+        if n_cat != 1:
+            all_good = False
+        out_dict[f"n_{name_}"] = int(n_cat)
+        if n_cat:
+            out_dict[f"g_1_{name_}"] = df[mask].g_1.values.mean()
+            out_dict[f"g_2_{name_}"] = df[mask].g_2.values.mean()
         else:
-            outDict[f"g_1_{name_}"] = np.nan
-            outDict[f"g_2_{name_}"] = np.nan
-    if allGood:
-        outDict["delta_g_1_1"] = outDict["g_1_1p"] - outDict["g_1_1m"]
-        outDict["delta_g_2_2"] = outDict["g_2_2p"] - outDict["g_2_2m"]
-        outDict["delta_g_1_2"] = outDict["g_1_2p"] - outDict["g_1_2m"]
-        outDict["delta_g_2_1"] = outDict["g_2_1p"] - outDict["g_2_1m"]
+            out_dict[f"g_1_{name_}"] = np.nan
+            out_dict[f"g_2_{name_}"] = np.nan
+    if all_good:
+        out_dict["delta_g_1_1"] = out_dict["g_1_1p"] - out_dict["g_1_1m"]
+        out_dict["delta_g_2_2"] = out_dict["g_2_2p"] - out_dict["g_2_2m"]
+        out_dict["delta_g_1_2"] = out_dict["g_1_2p"] - out_dict["g_1_2m"]
+        out_dict["delta_g_2_1"] = out_dict["g_2_1p"] - out_dict["g_2_1m"]
     else:
-        outDict["delta_g_1_1"] = np.nan
-        outDict["delta_g_2_2"] = np.nan
-        outDict["delta_g_1_2"] = np.nan
-        outDict["delta_g_2_1"] = np.nan
-    outDict["good"] = allGood
-    return outDict
+        out_dict["delta_g_1_1"] = np.nan
+        out_dict["delta_g_2_2"] = np.nan
+        out_dict["delta_g_1_2"] = np.nan
+        out_dict["delta_g_2_1"] = np.nan
+    out_dict["good"] = all_good
+    return out_dict
 
 
 def shearReport(
     basefile: str,
-    outputFileBase: str | None,
+    output_file_base: str | None,
     shear: float,
-    catType: str,
+    cat_type: str,
     tract: int,
-    snrCut: float = 7.5,
+    snr_cut: float = 7.5,
 ) -> None:
     """Report on the shear calibration
 
@@ -105,19 +105,19 @@ def shearReport(
     basefile
         Input base file name (see notes)
 
-    outputFileBase:
+    output_file_base:
         Output file name (see notes)
 
     shear:
         Applied shear
 
-    catType:
+    cat_type:
         Catalog type (one of ["pgauss", "gauss", "wmom"]
 
     tract:
         Tract, written to outout data
 
-    snrCut:
+    snr_cut:
         Signal-to-noise cut.
 
     Notes
@@ -125,22 +125,22 @@ def shearReport(
     This will read the object shear data from "{basefile}_cluster_shear.pq"
     This will read the object statisticis from "{basefile}_cluster_stats.pq"
 
-    This will write the shear stats to "{outputFileBase}.pkl"
-    This will write the figures to "{outputFileBase}_{figure}.png"
+    This will write the shear stats to "{output_file_base}.pkl"
+    This will write the figures to "{output_file_base}_{figure}.png"
     """
     t = tables_io.read(f"{basefile}_cluster_shear.pq")
     t2 = tables_io.read(f"{basefile}_cluster_stats.pq")
 
-    shearData = ShearData(t, t2, shear, catType, tract, snrCut=snrCut)
+    shear_data = ShearData(t, t2, shear, cat_type, tract, snr_cut=snr_cut)
 
-    if outputFileBase is not None:
-        shearData.save(f"{outputFileBase}.pkl")
-        shearData.savefigs(outputFileBase)
+    if output_file_base is not None:
+        shear_data.save(f"{output_file_base}.pkl")
+        shear_data.savefigs(output_file_base)
 
 
 def mergeShearReports(
     inputs: list[str],
-    outputFile: str,
+    output_file: str,
 ) -> None:
     """Merge reports on the shear calibration
 
@@ -149,28 +149,28 @@ def mergeShearReports(
     inputs:
         List of input ShearData pickle files
 
-    outputFile:
+    output_file:
         Where to write the merged file
     """
-    outDict: dict[str, Any] = {}
+    out_dict: dict[str, Any] = {}
     for input_ in inputs:
-        shearData = ShearData.load(input_)
-        inputDict = shearData.toDict()
-        for key, val in inputDict.items():
-            if key in outDict:
-                outDict[key].append(val)
+        shear_data = ShearData.load(input_)
+        input_dict = shear_data.toDict()
+        for key, val in input_dict.items():
+            if key in out_dict:
+                out_dict[key].append(val)
             else:
-                outDict[key] = [val]
+                out_dict[key] = [val]
 
-    outDF = pandas.DataFrame(outDict)
-    outDF.to_parquet(outputFile)
+    out_df = pandas.DataFrame(out_dict)
+    out_df.to_parquet(output_file)
 
 
 def splitByTypeAndClean(
     basefile: str,
     tract: int,
     shear: float,
-    catType: str,
+    cat_type: str,
     *,
     clean: bool = False,
 ) -> None:  # pragma: no cover
@@ -187,7 +187,7 @@ def splitByTypeAndClean(
     shear:
         Applied shear, saved to output
 
-    catType:
+    cat_type:
         Catalog type to select
 
     clean:
@@ -205,55 +205,55 @@ def splitByTypeAndClean(
     +--------------+-------------------------------------+
     | orig_id      | Original object id                  |
     +--------------+-------------------------------------+
-    | cellIdxX     | X-index of Cell                     |
+    | cell_idx_x   | X-index of Cell                     |
     +--------------+-------------------------------------+
-    | cellIdxY     | Y-index of Cell                     |
+    | cell_idx_y   | Y-index of Cell                     |
     +--------------+-------------------------------------+
-    | xCellCoadd   | X-coordinate in cell frame          |
+    | x_cell_coadd | X-coordinate in cell frame          |
     +--------------+-------------------------------------+
-    | yCellCoadd   | Y-coordinate in cell frame          |
+    | y_cell_coadd | Y-coordinate in cell frame          |
     +--------------+-------------------------------------+
-    | xPix         | X-coordinate in global WCS frame    |
+    | x_pix        | X-coordinate in global WCS frame    |
     +--------------+-------------------------------------+
-    | yPix         | Y-coordinate in global WCS frame    |
+    | y_pix        | Y-coordinate in global WCS frame    |
     +--------------+-------------------------------------+
     | g_1          | Shear g_1 component estimate        |
     +--------------+-------------------------------------+
     | g_2          | Shear g_2 component estimate        |
     +--------------+-------------------------------------+
-    | SNR          | Signal-to-noise ratio               |
+    | snr          | Signal-to-noise ratio               |
     +--------------+-------------------------------------+
 
     """
     p = tables_io.read(basefile)
     if clean:
         clean_st = "cleaned"
-        cellCut = 75
+        cell_cut = 75
     else:
         clean_st = "uncleaned"
-        cellCut = 80
+        cell_cut = 80
     for type_ in SHEAR_NAMES:
         mask = p["shear_type"] == type_
         sub = p[mask].copy(deep=True)
-        cellIdxX = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
-        cellIdxY = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
-        cent_x = 150 * cellIdxX - 75
-        cent_y = 150 * cellIdxY - 75
-        xCellCoadd = sub["col"] - cent_x
-        yCellCoadd = sub["row"] - cent_y
-        sub["xPix"] = sub["col"] + 25
-        sub["yPix"] = sub["row"] + 25
-        sub["xCellCoadd"] = xCellCoadd
-        sub["yCellCoadd"] = yCellCoadd
-        sub["SNR"] = sub[f"{catType}_band_flux_r"] / sub[f"{catType}_band_flux_err_r"]
-        sub["g_1"] = sub[f"{catType}_g_1"]
-        sub["g_2"] = sub[f"{catType}_g_2"]
-        sub["cellIdxX"] = cellIdxX
-        sub["cellIdxY"] = cellIdxY
+        cell_idx_x = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
+        cell_idx_y = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
+        cent_x = 150 * cell_idx_x - 75
+        cent_y = 150 * cell_idx_y - 75
+        x_cell_coadd = sub["col"] - cent_x
+        y_cell_coadd = sub["row"] - cent_y
+        sub["x_pix"] = sub["col"] + 25
+        sub["y_pix"] = sub["row"] + 25
+        sub["x_cell_coadd"] = x_cell_coadd
+        sub["y_cell_coadd"] = y_cell_coadd
+        sub["snr"] = sub[f"{cat_type}_band_flux_r"] / sub[f"{cat_type}_band_flux_err_r"]
+        sub["g_1"] = sub[f"{cat_type}_g_1"]
+        sub["g_2"] = sub[f"{cat_type}_g_2"]
+        sub["cell_idx_x"] = cell_idx_x
+        sub["cell_idx_y"] = cell_idx_y
         sub["orig_id"] = sub.id
         sub["id"] = np.arange(len(sub))
         central_to_cell = np.bitwise_and(
-            np.fabs(xCellCoadd) < cellCut, np.fabs(yCellCoadd) < cellCut
+            np.fabs(x_cell_coadd) < cell_cut, np.fabs(y_cell_coadd) < cell_cut
         )
         central_to_patch = np.bitwise_and(
             np.fabs(sub["cell_x"].values - 10.5) < 10,
@@ -268,7 +268,7 @@ def splitByTypeAndClean(
 
 
 def reduceShearDataForCell(
-    cell: CellData, iCat: int, dataframe: pandas.DataFrame
+    cell: CellData, i_cat: int, dataframe: pandas.DataFrame
 ) -> pandas.DataFrame:
     """Filters dataframe to keep only sources in the cell
 
@@ -277,7 +277,7 @@ def reduceShearDataForCell(
     cell:
         The cell being analyzed
 
-    iCat:
+    i_cat:
         Catalog index
 
     dataframe:
@@ -299,17 +299,17 @@ def reduceShearDataForCell(
     +-----------+-------------------------------------+
     | Column    | Description                         |
     +===========+=====================================+
-    | xCell     | X-coordinate in cell frame          |
+    | x_cell    | X-coordinate in cell frame          |
     +-----------+-------------------------------------+
-    | yCell     | Y-coordinate in cell frame          |
+    | y_cell    | Y-coordinate in cell frame          |
     +-----------+-------------------------------------+
-    | xPix      | X-coordinate in global WCS frame    |
+    | x_pix     | X-coordinate in global WCS frame    |
     +-----------+-------------------------------------+
-    | yPix      | Y-coordinate in global WCS frame    |
+    | y_pix     | Y-coordinate in global WCS frame    |
     +-----------+-------------------------------------+
-    | dxShear   | Change in X position when desheared |
+    | dx_shear  | Change in X position when desheared |
     +-----------+-------------------------------------+
-    | dyShear   | Change in X position when desheared |
+    | dy_shear  | Change in X position when desheared |
     +-----------+-------------------------------------+
 
     """
@@ -319,45 +319,83 @@ def reduceShearDataForCell(
     if TYPE_CHECKING:
         assert isinstance(matcher, ShearMatch)
 
-    filteredIdx = matcher.getCellIndices(dataframe) == cell.idx
-    reduced = dataframe[filteredIdx].copy(deep=True)
+    filtered_idx = matcher.getCellIndices(dataframe) == cell.idx
+    reduced = dataframe[filtered_idx].copy(deep=True)
 
-    xCellOrig = reduced["xCellCoadd"]
-    yCellOrig = reduced["yCellCoadd"]
-    xPixOrig = reduced["xPix"]
-    yPixOrig = reduced["yPix"]
+    x_cell_orig = reduced["x_cell_coadd"]
+    y_cell_orig = reduced["y_cell_coadd"]
+    x_pix_orig = reduced["x_pix"]
+    y_pix_orig = reduced["y_pix"]
 
     if matcher.deshear is not None:
         # De-shear in the cell frame to do matching
-        dxShear = matcher.deshear * (
-            xCellOrig * DESHEAR_COEFFS[iCat][0] + yCellOrig * DESHEAR_COEFFS[iCat][2]
+        dx_shear = matcher.deshear * (
+            x_cell_orig * DESHEAR_COEFFS[i_cat][0] + y_cell_orig * DESHEAR_COEFFS[i_cat][2]
         )
-        dyShear = matcher.deshear * (
-            xCellOrig * DESHEAR_COEFFS[iCat][1] + yCellOrig * DESHEAR_COEFFS[iCat][3]
+        dy_shear = matcher.deshear * (
+            x_cell_orig * DESHEAR_COEFFS[i_cat][1] + y_cell_orig * DESHEAR_COEFFS[i_cat][3]
         )
-        xCell = xCellOrig + dxShear
-        yCell = yCellOrig + dyShear
-        xPix = xPixOrig + dxShear
-        yPix = yPixOrig + dyShear
+        x_cell = x_cell_orig + dx_shear
+        y_cell = y_cell_orig + dy_shear
+        x_pix = x_pix_orig + dx_shear
+        y_pix = y_pix_orig + dy_shear
     else:  # pragma: no cover
-        dxShear = np.zeros(len(dataframe))
-        dyShear = np.zeros(len(dataframe))
-        xCell = xCellOrig
-        yCell = yCellOrig
-        xPix = xPixOrig
-        yPix = yPixOrig
+        dx_shear = np.zeros(len(dataframe))
+        dy_shear = np.zeros(len(dataframe))
+        x_cell = x_cell_orig
+        y_cell = y_cell_orig
+        x_pix = x_pix_orig
+        y_pix = y_pix_orig
 
-    xCell = (xCell + 100) / matcher.pixelMatchScale
-    yCell = (yCell + 100) / matcher.pixelMatchScale
-    filteredX = np.bitwise_and(xCell >= 0, xCell < cell.nPix[0])
-    filteredY = np.bitwise_and(yCell >= 0, yCell < cell.nPix[1])
-    filteredBounds = np.bitwise_and(filteredX, filteredY)
-    red = reduced[filteredBounds].copy(deep=True)
-    red["xCell"] = xCell[filteredBounds]
-    red["yCell"] = yCell[filteredBounds]
-    red["xPix"] = xPix[filteredBounds]
-    red["yPix"] = yPix[filteredBounds]
+    x_cell = (x_cell + 100) / matcher.pixel_match_scale
+    y_cell = (y_cell + 100) / matcher.pixel_match_scale
+    filtered_x = np.bitwise_and(x_cell >= 0, x_cell < cell.n_pix[0])
+    filtered_y = np.bitwise_and(y_cell >= 0, y_cell < cell.n_pix[1])
+    filtered_bounds = np.bitwise_and(filtered_x, filtered_y)
+    red = reduced[filtered_bounds].copy(deep=True)
+    red["x_cell"] = x_cell[filtered_bounds]
+    red["y_cell"] = y_cell[filtered_bounds]
+    red["x_pix"] = x_pix[filtered_bounds]
+    red["y_pix"] = y_pix[filtered_bounds]
     if matcher.deshear is not None:
-        red["dxShear"] = dxShear[filteredBounds]
-        red["dyShear"] = dyShear[filteredBounds]
+        red["dx_shear"] = dx_shear[filtered_bounds]
+        red["dy_shear"] = dy_shear[filtered_bounds]
     return red
+
+
+def makeMatchedShearSourceCatalogs(
+    source_base_name: str,
+    match_base_name: str,
+) -> dict[str, pandas.DataFrame]:
+    """Use the associations to join the source tables to their match obects
+
+    Parameters
+    ----------
+    source_base_name:
+        _base file name for souces catalogs
+
+    match_base_name:
+        _base file naem for match tables
+    
+    Returns
+    -------
+    Dict of tables, keyed by shear type, which have the
+    souces catalogs joined to the associated objects
+    """
+    keys = ['object_stats', 'object_assoc', 'object_shear']
+    shear_types = {v:k for k,v in enumerate(SHEAR_NAMES)}
+    td = tables_io.read(match_base_name, keys=keys)
+    itd = tables_io.read(source_base_name, keys=list(shear_types.keys()))
+    td['object_stats']['idx'] = np.arange(len(td['object_stats']))
+    td['object_shear']['idx'] = np.arange(len(td['object_shear']))
+    merged_object = td['object_stats'].merge(td['object_shear'], on='idx', how="inner", suffixes=["_l", "_r"])
+    merged_object_assoc = td['object_assoc'].merge(merged_object, on="objectId", how="inner", suffixes=["_l", "_r"])
+    out_dict = {}
+    for cat_type_, i_cat_ in shear_types.items():
+        merged_object_assoc_mask = merged_object_assoc.catalogId == i_cat_
+        merged_object_assoc_masked = merged_object_assoc[merged_object_assoc_mask]
+        sources = itd[cat_type_]
+        sources['sourceId'] = sources['id']
+        matched_source = merged_object_assoc_masked.merge(sources, on="sourceId", how="inner", suffixes=["_l", "_r"])
+        out_dict[cat_type_] = matched_source
+    return out_dict

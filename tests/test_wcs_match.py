@@ -20,48 +20,48 @@ def testWCSMatch(setup_data: int) -> None:
     assert setup_data == 0
 
     # get the data
-    
+
     source_tablesfiles = sorted(
         glob.glob(os.path.join(DATADIR, f"shear_*_{SHEAR_ST}_cleaned_{TRACT}_ns.pq"))
     )
     source_tablesfiles.append(os.path.join(DATADIR, f"object_{TRACT}.pq"))
     source_tablesfiles.reverse()
     source_tablesfiles = [source_tablesfiles[0], source_tablesfiles[1]]
-    catalog_ids = np.arange(len(source_tablesfiles))
+    catalog_ids: list[int] = list(np.arange(len(source_tablesfiles)))
 
     # Create matcher
     matcher = hpmcm.WcsMatch.create(
-        REF_DIR, REGION_SIZE, pixelSize=PIXEL_SIZE, pixelR2Cut=PIXEL_R2CUT
+        REF_DIR, REGION_SIZE, pixel_size=PIXEL_SIZE, pixel_R2_cut=PIXEL_R2CUT
     )
 
     # Reduce the input data
     matcher.reduceData(source_tablesfiles, catalog_ids)
 
     # Make sure it got the right number of cells
-    assert matcher.nCell[0] == 3
-    assert matcher.nCell[1] == 3
+    assert matcher.n_cell[0] == 3
+    assert matcher.n_cell[1] == 3
 
     # Define the range of cells to run over
-    xRange = range(1, 2)
-    yRange = range(1, 2)
+    x_range = range(1, 2)
+    y_range = range(1, 2)
 
     # Run the analysis
-    matcher.analysisLoop(xRange, yRange)
+    matcher.analysisLoop(x_range, y_range)
 
     # Extract some data
     stats = matcher.extractStats()
     assert stats is not None
 
     # Test the classification codes
-    objLists = hpmcm.classify.classifyObjects(matcher, SNRCut=10.0)
-    hpmcm.classify.printObjectTypes(objLists)
+    obj_lists = hpmcm.classify.classifyObjects(matcher, SNRCut=10.0)
+    hpmcm.classify.printObjectTypes(obj_lists)
 
     # Test the classification codes
     odict = hpmcm.classify.matchObjectsAgainstRef(matcher, snrCut=10.0)
     hpmcm.classify.printObjectMatchTypes(odict)
 
     # Make sure the match efficiency is high
-    n_good = len(objLists["ideal"])
+    n_good = len(obj_lists["ideal"])
     bad_list = [
         "edge_mixed",
         "edge_missing",
@@ -73,13 +73,13 @@ def testWCSMatch(setup_data: int) -> None:
         "extra",
         "caught",
     ]
-    n_bad = np.sum([len(objLists[x]) for x in bad_list])
+    n_bad = np.sum([len(obj_lists[x]) for x in bad_list])
     effic = n_good / (n_good + n_bad)
 
     assert effic > 0.85
 
     # Get a particular cell and rerun the analysis to test visualization
     # and classification functions
-    cell = matcher.cellDict[matcher.getCellIdx(1, 1)]
+    cell = matcher.cell_dict[matcher.getCellIdx(1, 1)]
     _od = cell.analyze(None, 4)
-    _cluster = list(cell.clusterDict.values())[0]
+    _cluster = list(cell.cluster_dict.values())[0]

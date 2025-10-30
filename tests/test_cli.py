@@ -2,7 +2,7 @@ from click.testing import CliRunner, Result
 from hpmcm.cli.commands import cli
 
 
-def check_result(
+def checkResult(
     result: Result,
 ) -> None:
     """Check the result of an invocation"""
@@ -10,25 +10,25 @@ def check_result(
         raise ValueError(f"{result} failed with {result.exit_code} {result.output}")
 
 
-def test_cli_help() -> None:
+def testCliHelp() -> None:
     """Make sure the hpmcm --help command works"""
     runner = CliRunner()
 
     result = runner.invoke(cli, "--help")
-    check_result(result)
+    checkResult(result)
 
 
-def test_cli_shear() -> None:
+def testCliShear() -> None:
     """Make sure the hpmcm shear --help command works"""
     runner = CliRunner()
 
     result = runner.invoke(cli, "shear --help")
-    check_result(result)
+    checkResult(result)
 
 
-def test_cli_shear_match() -> None:
+def testCliShearMatch() -> None:
     """Make sure the hpmcm shear match --help command works"""
     runner = CliRunner()
 
     result = runner.invoke(cli, "shear match --help")
-    check_result(result)
+    checkResult(result)

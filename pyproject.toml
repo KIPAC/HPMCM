@@ -39,6 +39,7 @@ dev = [
     "pre-commit", # Used to run checks before finalizing a git commit
     "pylint", # Used for static linting of files
     "jupyter", # Used to render simple test notebook
+    "mypy",   # typechecking
 ]
 docs = [
     "nbsphinx",
@@ -76,7 +77,7 @@ addopts = [
 [tool.pylint]
 disable = [
     "abstract-method",
-    "invalid-name",
+    "chained-comparison",
     "too-many-statements",
     "too-many-arguments",
     "too-many-instance-attributes",
@@ -85,8 +86,16 @@ disable = [
     "too-few-public-methods",
     "duplicate-code",
     "use-dict-literal",
-    "broad-exception-caught",
+    "broad-exception-caught",    
 ]
+
+function-naming-style = "camelCase"
+method-naming-style = "camelCase"
+variable-naming-style = "snake_case"
+argument-naming-style = "snake_case"
+class-naming-style = "PascalCase"
+attr-naming-style = "snake_case"
+
 max-line-length = 120
 max-locals = 50
 max-branches = 25
@@ -104,6 +113,10 @@ warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_ignores = true
 
+[tool.pylint.MASTER]
+ignore-paths = [
+    "src/hpmcm/_version.py",
+]
 
 [tool.coverage.run]
 omit = [

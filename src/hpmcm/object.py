@@ -16,117 +16,117 @@ class ObjectData:
 
     Attributes
     ----------
-    parentCluster : ClusterData
+    parent_cluster : ClusterData
         Parent cluster that this object is build from
 
-    objectId : int
+    object_id : int
         Unique object identifier
 
     mask : np.ndarray[bool]
         Mask of which source in parent cluster are in this object
 
-    catIndices: np.ndarray[int]
+    catalog_id: np.ndarray[int]
         Indicies showing which catalog each source belongs to
 
-    nSrc: int
+    n_src: int
         Number of sources in this object
 
-    nUnique: int
+    n_unique: int
         Number of catalogs contributing to this object
 
     data: pandas.DataFrame
-        Data for the sources in this object
+        Data the sources in this object
 
     recurse: int
         Recursion level needed to make this object
 
-    xCent: float
+    x_cent: float
         X Centeroid of this object in global pixel coordinates
 
-    yCent: float
+    y_cent: float
         Y Centeroid of this object in global pixel coordinates
 
-    rmsDist: float
+    rms_dist: float
         RMS distance of sources to the centroid
 
-    dist2: np.ndarray
+    dist_2: np.ndarray
         Distances of sources to the centroid
     """
 
     def __init__(
         self,
         cluster: ClusterData,
-        objectId: int,
+        object_id: int,
         mask: np.ndarray | None,
         recurse: int = 0,
     ):
-        """Build from `ClusterData`, an objectId and mask specifying with sources
+        """Build from `ClusterData`, an object_id and mask specifying with sources
         in the cluster are part of the object"""
-        self.parentCluster: ClusterData = cluster
-        self.objectId: int = objectId
+        self.parent_cluster: ClusterData = cluster
+        self.object_id: int = object_id
         if mask is None:
-            self.mask = np.ones((self.parentCluster.nSrc), dtype=bool)
+            self.mask = np.ones((self.parent_cluster.n_src), dtype=bool)
         else:
             self.mask = mask
-        self.catIndices: np.ndarray = self.parentCluster.catIndices[self.mask]
-        self.nSrc: int = self.catIndices.size
-        self.nUnique: int = np.unique(self.catIndices).size
+        self.catalog_id: np.ndarray = self.parent_cluster.catalog_id[self.mask]
+        self.n_src: int = self.catalog_id.size
+        self.n_unique: int = np.unique(self.catalog_id).size
         self.data: pandas.DataFrame | None = None
 
         self.recurse: int = recurse
-        self.xCent: float = np.nan
-        self.yCent: float = np.nan
-        self.rmsDist: float = np.nan
-        self.snrMean: float = np.nan
-        self.snrRms: float = np.nan
-        self.dist2: np.ndarray = np.array([])
+        self.x_cent: float = np.nan
+        self.y_cent: float = np.nan
+        self.rms_dist: float = np.nan
+        self.snr_mean: float = np.nan
+        self.snr_rms: float = np.nan
+        self.dist_2: np.ndarray = np.array([])
         self.extract()
 
     @property
-    def xCluster(self) -> np.ndarray:
+    def x_cluster(self) -> np.ndarray:
         """Return the x-position of the sources within the footprint"""
         assert self.data is not None
-        return self.data.xCluster
+        return self.data.x_cluster
 
     @property
-    def yCluster(self) -> np.ndarray:
+    def y_cluster(self) -> np.ndarray:
         """Return the y-position of the sources within the footprint"""
         assert self.data is not None
-        return self.data.yCluster
+        return self.data.y_cluster
 
     @property
-    def xPix(self) -> np.ndarray:
+    def x_pix(self) -> np.ndarray:
         """Return the x-position of the sources within the cell"""
         assert self.data is not None
-        return self.data.xPix
+        return self.data.x_pix
 
     @property
-    def yPix(self) -> np.ndarray:
+    def y_pix(self) -> np.ndarray:
         """Return the y-position of the sources within the cell"""
         assert self.data is not None
-        return self.data.yPix
+        return self.data.y_pix
 
-    def hasRefCatalog(self, refCatId: int = 0) -> bool:
+    def hasRefCatalog(self, ref_cat_id: int = 0) -> bool:
         """Is there a source from the reference catalog"""
-        return refCatId in self.catIndices
+        return ref_cat_id in self.catalog_id
 
     def sourceIds(self) -> np.ndarray:
         """Return the source ids for the sources in the object"""
-        return self.parentCluster.srcIds[self.mask]
+        return self.parent_cluster.src_id[self.mask]
 
     def sourceIdxs(self) -> np.ndarray:
         """Return the source indices for the sources in the object"""
-        return self.parentCluster.srcIdxs[self.mask]
+        return self.parent_cluster.src_idx[self.mask]
 
     def _updateCatIndices(self) -> None:
-        self.catIndices = self.parentCluster.catIndices[self.mask]
-        self.nSrc = self.catIndices.size
-        self.nUnique = np.unique(self.catIndices).size
+        self.catalog_id = self.parent_cluster.catalog_id[self.mask]
+        self.n_src = self.catalog_id.size
+        self.n_unique = np.unique(self.catalog_id).size
 
     def extract(self) -> None:
         """Extract data from parent cluster"""
-        assert self.parentCluster.data is not None
-        self.data = self.parentCluster.data.iloc[self.mask]
+        assert self.parent_cluster.data is not None
+        self.data = self.parent_cluster.data.iloc[self.mask]
         self._updateCatIndices()
 
 

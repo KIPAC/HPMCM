@@ -10,17 +10,17 @@ if TYPE_CHECKING:
     from .match import Match
 
 
-def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
+def clusterStats(cluster_dict: OrderedDict[int, ClusterData]) -> np.ndarray:
     """Helper function to get stats about the clusters
 
     Parameters
     ----------
-    clusterDict:
+    cluster_dict:
         Dict from clusterId to ClusterData object
 
     Returns
     -------
-    Cluster Statistics (nClusters, nOrphan, nMixed, nConfused)
+    Cluster Statistics (nClusters, n_orphan, n_mixed, n_confused)
 
     Notes
     -----
@@ -28,38 +28,38 @@ def clusterStats(clusterDict: OrderedDict[int, ClusterData]) -> np.ndarray:
 
     nClusters: Total number of clusters
 
-    nOrphan: Number of single source clusters (i.e., single detections)
+    n_orphan: Number of single source clusters (i.e., single detections)
 
-    nMixed: Number of clusters with more than one source from each input catalog
+    n_mixed: Number of clusters with more than one source from each input catalog
 
-    nConfused: Number of souces with more than four cases of duplication
+    n_confused: Number of souces with more than four cases of duplication
     """
-    nOrphan = 0
-    nMixed = 0
-    nConfused = 0
-    for val in clusterDict.values():
-        if val.nSrc == 1:
-            nOrphan += 1
-        if val.nSrc != val.nUnique:
-            nMixed += 1
-            if val.nSrc > val.nUnique + 3:  # pragma: no cover
-                nConfused += 1
-    return np.array([len(clusterDict), nOrphan, nMixed, nConfused])
+    n_orphan = 0
+    n_mixed = 0
+    n_confused = 0
+    for val in cluster_dict.values():
+        if val.n_src == 1:
+            n_orphan += 1
+        if val.n_src != val.n_unique:
+            n_mixed += 1
+            if val.n_src > val.n_unique + 3:  # pragma: no cover
+                n_confused += 1
+    return np.array([len(cluster_dict), n_orphan, n_mixed, n_confused])
 
 
 def printSummaryStats(matcher: Match) -> np.ndarray:
     """Helper function to print info about clusters"""
     stats = np.zeros((4), int)
-    for key, cellData in matcher.cellDict.items():
-        cellStats = clusterStats(cellData.clusterDict)
+    for key, cell_data in matcher.cell_dict.items():
+        cell_stats = clusterStats(cell_data.cluster_dict)
         print(
             f"{key:5}: "
-            f"{cellStats[0]:5} "
-            f"{cellStats[1]:5} "
-            f"{cellStats[2]:5} "
-            f"{cellStats[3]:5}"
+            f"{cell_stats[0]:5} "
+            f"{cell_stats[1]:5} "
+            f"{cell_stats[2]:5} "
+            f"{cell_stats[3]:5}"
         )
-        stats += cellStats
+        stats += cell_stats
     return stats
 
 
@@ -89,30 +89,30 @@ def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
     extra = []
     caught = []
 
-    cell_edge = kwargs.get("cellEdge", 75)
-    edge_cut = kwargs.get("edgeCut", 2)
-    snr_cut = kwargs.get("SNRCut", 7.5)
+    cell_edge = kwargs.get("cell_edge", 75)
+    edge_cut = kwargs.get("edge_cut", 2)
+    snr_cut = kwargs.get("snr_cut", 7.5)
 
-    n_cat = len(matcher.redData)
+    n_cat = len(matcher.red_data)
 
-    for iC, cellData in matcher.cellDict.items():
-        cd = cellData.clusterDict
+    for i_c, cell_data in matcher.cell_dict.items():
+        cd = cell_data.cluster_dict
 
         for key, c in cd.items():
-            k = (iC, key)
+            k = (i_c, key)
 
             assert c.data is not None
 
-            nsrcs.append(c.nSrc)
+            nsrcs.append(c.n_src)
 
-            if (np.fabs(c.data.xCellCoadd) > cell_edge).all() or (
-                np.fabs(c.data.yCellCoadd) > cell_edge
+            if (np.fabs(c.data.x_cell_coadd) > cell_edge).all() or (
+                np.fabs(c.data.y_cell_coadd) > cell_edge
             ).all():
                 cut1.append(k)
                 continue
             if (
-                np.fabs(c.data.xCellCoadd.mean()) > cell_edge
-                or np.fabs(c.data.yCellCoadd.mean()) > cell_edge
+                np.fabs(c.data.x_cell_coadd.mean()) > cell_edge
+                or np.fabs(c.data.y_cell_coadd.mean()) > cell_edge
             ):
                 cut2.append(k)
                 continue
@@ -121,36 +121,36 @@ def classifyClusters(matcher: Match, **kwargs: Any) -> dict[str, list]:
 
             edge_case = False
             is_faint = False
-            if (np.fabs(c.data.xCellCoadd) > cell_edge - edge_cut).any() or (
-                np.fabs(c.data.yCellCoadd) > cell_edge - edge_cut
+            if (np.fabs(c.data.x_cell_coadd) > cell_edge - edge_cut).any() or (
+                np.fabs(c.data.y_cell_coadd) > cell_edge - edge_cut
             ).any():
                 edge_case = True
-            if (c.data.SNR < snr_cut).any():
+            if (c.data.snr < snr_cut).any():
                 is_faint = True
 
-            if c.nSrc == c.nUnique and c.nSrc == n_cat and is_faint:
+            if c.n_src == c.n_unique and c.n_src == n_cat and is_faint:
                 ideal_faint.append(k)
-            elif c.nSrc == c.nUnique and c.nSrc == n_cat:
+            elif c.n_src == c.n_unique and c.n_src == n_cat:
                 ideal.append(k)
-            elif c.nSrc < n_cat and is_faint:
+            elif c.n_src < n_cat and is_faint:
                 faint.append(k)
             elif (
-                c.nSrc == n_cat and c.nUnique != n_cat and edge_case
+                c.n_src == n_cat and c.n_unique != n_cat and edge_case
             ):  # pragma: no cover
                 edge_mixed.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat:  # pragma: no cover
+            elif c.n_src == n_cat and c.n_unique != n_cat:  # pragma: no cover
                 mixed.append(k)
-            elif c.nSrc < n_cat and edge_case:  # pragma: no cover
+            elif c.n_src < n_cat and edge_case:  # pragma: no cover
                 edge_missing.append(k)
-            elif c.nSrc > n_cat and edge_case:  # pragma: no cover
+            elif c.n_src > n_cat and edge_case:  # pragma: no cover
                 edge_extra.append(k)
-            elif c.nSrc == n_cat - 1:  # pragma: no cover
+            elif c.n_src == n_cat - 1:  # pragma: no cover
                 missing.append(k)
-            elif c.nSrc == n_cat - 2:  # pragma: no cover
+            elif c.n_src == n_cat - 2:  # pragma: no cover
                 two_missing.append(k)
-            elif c.nSrc < n_cat - 2:
+            elif c.n_src < n_cat - 2:
                 many_missing.append(k)
-            elif c.nSrc > n_cat:
+            elif c.n_src > n_cat:
                 extra.append(k)
             else:  # pragma: no cover
                 caught.append(k)
@@ -194,24 +194,24 @@ def matchObjectsAgainstRef(matcher: Match, **kwargs: Any) -> dict[str, list]:
     many_missing = []
     caught = []
 
-    snr_cut = kwargs.get("SNRCut", 7.5)
+    snr_cut = kwargs.get("snr_cut", 7.5)
 
-    n_cat = len(matcher.redData)
+    n_cat = len(matcher.red_data)
 
-    for iC, cellData in matcher.cellDict.items():
-        od = cellData.objectDict
+    for i_c, cell_data in matcher.cell_dict.items():
+        od = cell_data.object_dict
         for key, c in od.items():
-            k = (iC, key)
+            k = (i_c, key)
 
             assert c.data is not None
-            nsrcs.append(c.nSrc)
+            nsrcs.append(c.n_src)
             used.append(k)
 
             is_faint = False
-            if (c.data.SNR < snr_cut).any():
+            if (c.data.snr < snr_cut).any():
                 is_faint = True
 
-            if (c.catIndices == 0).any():
+            if (c.catalog_id == 0).any():
                 in_ref.append(k)
             else:
                 if is_faint:
@@ -220,19 +220,19 @@ def matchObjectsAgainstRef(matcher: Match, **kwargs: Any) -> dict[str, list]:
                     not_in_ref.append(k)
                 continue
 
-            if c.nSrc == c.nUnique and c.nSrc == n_cat and is_faint:
+            if c.n_src == c.n_unique and c.n_src == n_cat and is_faint:
                 ideal_faint.append(k)
-            elif c.nSrc == c.nUnique and c.nSrc == n_cat:
+            elif c.n_src == c.n_unique and c.n_src == n_cat:
                 ideal.append(k)
             elif is_faint:
                 faint.append(k)
-            elif c.nSrc == n_cat - 1:
+            elif c.n_src == n_cat - 1:
                 missing.append(k)
-            elif c.nSrc == n_cat - 2:  # pragma: no cover
+            elif c.n_src == n_cat - 2:  # pragma: no cover
                 two_missing.append(k)
-            elif c.nSrc < n_cat - 2:  # pragma: no cover
+            elif c.n_src < n_cat - 2:  # pragma: no cover
                 many_missing.append(k)
-            elif c.nSrc > n_cat:
+            elif c.n_src > n_cat:
                 extra.append(k)
             else:  # pragma: no cover
                 caught.append(k)
@@ -254,21 +254,21 @@ def matchObjectsAgainstRef(matcher: Match, **kwargs: Any) -> dict[str, list]:
     )
 
 
-def printObjectMatchTypes(oDict: dict) -> None:
+def printObjectMatchTypes(o_dict: dict) -> None:
     """Print numbers of different types of object matches"""
-    print("All            ", len(oDict["nsrcs"]))
-    print("Used           ", len(oDict["used"]))
-    print("  New            ", len(oDict["not_in_ref"]))
-    print("  New (faint)    ", len(oDict["not_in_ref_faint"]))
-    print("In Ref         ", len(oDict["in_ref"]))
-    print("Faint          ", len(oDict["faint"]))
-    print("Good           ", len(oDict["ideal"]))
-    print("  Good (faint)   ", len(oDict["ideal_faint"]))
-    print("Missing        ", len(oDict["missing"]))
-    print("Two Missing    ", len(oDict["two_missing"]))
-    print("All Missing    ", len(oDict["many_missing"]))
-    print("Extra          ", len(oDict["extra"]))
-    print("Caught         ", len(oDict["caught"]))
+    print("All            ", len(o_dict["nsrcs"]))
+    print("Used           ", len(o_dict["used"]))
+    print("  New            ", len(o_dict["not_in_ref"]))
+    print("  New (faint)    ", len(o_dict["not_in_ref_faint"]))
+    print("In Ref         ", len(o_dict["in_ref"]))
+    print("Faint          ", len(o_dict["faint"]))
+    print("Good           ", len(o_dict["ideal"]))
+    print("  Good (faint)   ", len(o_dict["ideal_faint"]))
+    print("Missing        ", len(o_dict["missing"]))
+    print("Two Missing    ", len(o_dict["two_missing"]))
+    print("All Missing    ", len(o_dict["many_missing"]))
+    print("Extra          ", len(o_dict["extra"]))
+    print("Caught         ", len(o_dict["caught"]))
 
 
 def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
@@ -299,25 +299,25 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
     extra = []
     caught = []
 
-    cell_edge = kwargs.get("cellEdge", 75)
-    edge_cut = kwargs.get("edgeCut", 2)
-    snr_cut = kwargs.get("SNRCut", 7.5)
+    cell_edge = kwargs.get("cell_edge", 75)
+    edge_cut = kwargs.get("edge_cut", 2)
+    snr_cut = kwargs.get("snr_cut", 7.5)
 
-    n_cat = len(matcher.redData)
+    n_cat = len(matcher.red_data)
 
-    for iC, cellData in matcher.cellDict.items():
-        od = cellData.objectDict
+    for i_c, cell_data in matcher.cell_dict.items():
+        od = cell_data.object_dict
 
         for key, c in od.items():
-            k = (iC, key)
+            k = (i_c, key)
 
             assert c.data is not None
 
-            nsrcs.append(c.nSrc)
+            nsrcs.append(c.n_src)
 
             try:
-                if (np.fabs(c.data.xCellCoadd) > cell_edge).all() or (
-                    np.fabs(c.data.yCellCoadd) > cell_edge
+                if (np.fabs(c.data.x_cell_coadd) > cell_edge).all() or (
+                    np.fabs(c.data.y_cell_coadd) > cell_edge
                 ).all():
                     cut1.append(k)
                     continue
@@ -325,8 +325,8 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 pass
             try:
                 if (
-                    np.fabs(c.data.xCellCoadd.mean()) > cell_edge
-                    or np.fabs(c.data.yCellCoadd.mean()) > cell_edge
+                    np.fabs(c.data.x_cell_coadd.mean()) > cell_edge
+                    or np.fabs(c.data.y_cell_coadd.mean()) > cell_edge
                 ):
                     cut2.append(k)
                     continue
@@ -338,39 +338,39 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
             edge_case = False
             is_faint = False
             try:
-                if (np.fabs(c.data.xCellCoadd) > cell_edge - edge_cut).any() or (
-                    np.fabs(c.data.yCellCoadd) > cell_edge - edge_cut
+                if (np.fabs(c.data.x_cell_coadd) > cell_edge - edge_cut).any() or (
+                    np.fabs(c.data.y_cell_coadd) > cell_edge - edge_cut
                 ).any():
                     edge_case = True
             except Exception:
                 edge_case = False
-            if (c.data.SNR < snr_cut).any():
+            if (c.data.snr < snr_cut).any():
                 is_faint = True
-            if c.nSrc == c.nUnique and c.nSrc == n_cat and is_faint:
+            if c.n_src == c.n_unique and c.n_src == n_cat and is_faint:
                 ideal_faint.append(k)
-            elif c.nSrc == c.nUnique and c.nSrc == n_cat:
+            elif c.n_src == c.n_unique and c.n_src == n_cat:
                 ideal.append(k)
-            elif c.nSrc < n_cat and is_faint:
+            elif c.n_src < n_cat and is_faint:
                 faint.append(k)
             elif (
-                c.nSrc == n_cat and c.nUnique != n_cat and edge_case
+                c.n_src == n_cat and c.n_unique != n_cat and edge_case
             ):  # pragma: no cover
                 edge_mixed.append(k)
-            elif c.nSrc == n_cat and c.nUnique != n_cat:
+            elif c.n_src == n_cat and c.n_unique != n_cat:
                 mixed.append(k)
-            elif c.nSrc < n_cat and edge_case:  # pragma: no cover
+            elif c.n_src < n_cat and edge_case:  # pragma: no cover
                 edge_missing.append(k)
-            elif c.nSrc < n_cat and c.parentCluster.nSrc >= n_cat:  # pragma: no cover
+            elif c.n_src < n_cat and c.parent_cluster.n_src >= n_cat:  # pragma: no cover
                 orphan.append(k)
-            elif c.nSrc == n_cat - 1:
+            elif c.n_src == n_cat - 1:
                 missing.append(k)
-            elif c.nSrc == n_cat - 2:  # pragma: no cover
+            elif c.n_src == n_cat - 2:  # pragma: no cover
                 two_missing.append(k)
-            elif c.nSrc < n_cat - 2:
+            elif c.n_src < n_cat - 2:
                 many_missing.append(k)
-            elif c.nSrc > n_cat and edge_case:  # pragma: no cover
+            elif c.n_src > n_cat and edge_case:  # pragma: no cover
                 edge_extra.append(k)
-            elif c.nSrc > n_cat:
+            elif c.n_src > n_cat:
                 extra.append(k)
             else:  # pragma: no cover
                 caught.append(k)
@@ -396,105 +396,105 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
     )
 
 
-def printClusterTypes(clusterTypes: dict[str, list]) -> None:
+def printClusterTypes(cluster_types: dict[str, list]) -> None:
     """Print numbers of different types of clusters"""
     print(
         "All Clusters:                                  ",
-        len(clusterTypes["nsrcs"]),
+        len(cluster_types["nsrcs"]),
     )
-    print("cut 1                                          ", len(clusterTypes["cut1"]))
-    print("cut 2                                          ", len(clusterTypes["cut2"]))
-    print("Used:                                          ", len(clusterTypes["used"]))
+    print("cut 1                                          ", len(cluster_types["cut1"]))
+    print("cut 2                                          ", len(cluster_types["cut2"]))
+    print("Used:                                          ", len(cluster_types["used"]))
     print(
         "good (n source from n catalogs):               ",
-        len(clusterTypes["ideal"]),
+        len(cluster_types["ideal"]),
     )
     print(
         "good faint                                     ",
-        len(clusterTypes["ideal_faint"]),
+        len(cluster_types["ideal_faint"]),
     )
     print(
-        "faint (< n sources, SNR < cut):                ",
-        len(clusterTypes["faint"]),
+        "faint (< n sources, snr < cut):                ",
+        len(cluster_types["faint"]),
     )
     print(
         "mixed (n source from < n catalogs):            ",
-        len(clusterTypes["mixed"]),
+        len(cluster_types["mixed"]),
     )
     print(
         "edge_mixed (mixed near edge of cell):          ",
-        len(clusterTypes["edge_mixed"]),
+        len(cluster_types["edge_mixed"]),
     )
     print(
         "edge_missing (< n sources, near edge of cell): ",
-        len(clusterTypes["edge_missing"]),
+        len(cluster_types["edge_missing"]),
     )
     print(
         "edge_extra (> n sources, near edge of cell):   ",
-        len(clusterTypes["edge_extra"]),
+        len(cluster_types["edge_extra"]),
     )
     print(
-        "faint (< n sources, SNR < cut):                ",
-        len(clusterTypes["faint"]),
+        "faint (< n sources, snr < cut):                ",
+        len(cluster_types["faint"]),
     )
     print(
         "one missing (n-1 sources, not near edge):      ",
-        len(clusterTypes["missing"]),
+        len(cluster_types["missing"]),
     )
     print(
         "two missing (n-2 sources, not near edge):      ",
-        len(clusterTypes["two_missing"]),
+        len(cluster_types["two_missing"]),
     )
     print(
         "many missing (< n-2 sources, not near edge):   ",
-        len(clusterTypes["many_missing"]),
+        len(cluster_types["many_missing"]),
     )
     print(
         "extra (> n sources, not near edge):            ",
-        len(clusterTypes["extra"]),
+        len(cluster_types["extra"]),
     )
 
 
-def printObjectTypes(objectTypes: dict[str, list]) -> None:
+def printObjectTypes(object_types: dict[str, list]) -> None:
     """Print numbers of different types of objects"""
-    print("All Objects:                                   ", len(objectTypes["nsrcs"]))
-    print("cut 1                                          ", len(objectTypes["cut1"]))
-    print("cut 2                                          ", len(objectTypes["cut2"]))
-    print("Used:                                          ", len(objectTypes["used"]))
-    print("good (n source from n catalogs):               ", len(objectTypes["ideal"]))
+    print("All Objects:                                   ", len(object_types["nsrcs"]))
+    print("cut 1                                          ", len(object_types["cut1"]))
+    print("cut 2                                          ", len(object_types["cut2"]))
+    print("Used:                                          ", len(object_types["used"]))
+    print("good (n source from n catalogs):               ", len(object_types["ideal"]))
     print(
         "good faint                                     ",
-        len(objectTypes["ideal_faint"]),
+        len(object_types["ideal_faint"]),
     )
-    print("faint (< n sources, SNR < cut):                ", len(objectTypes["faint"]))
-    print("mixed (n source from < n catalogs):            ", len(objectTypes["mixed"]))
+    print("faint (< n sources, snr < cut):                ", len(object_types["faint"]))
+    print("mixed (n source from < n catalogs):            ", len(object_types["mixed"]))
     print(
         "edge_mixed (mixed near edge of cell):          ",
-        len(objectTypes["edge_mixed"]),
+        len(object_types["edge_mixed"]),
     )
     print(
         "edge_missing (< n sources, near edge of cell): ",
-        len(objectTypes["edge_missing"]),
+        len(object_types["edge_missing"]),
     )
     print(
         "edge_extra (> n sources, near edge of cell):   ",
-        len(objectTypes["edge_extra"]),
+        len(object_types["edge_extra"]),
     )
-    print("faint (< n sources, SNR < cut):                ", len(objectTypes["faint"]))
+    print("faint (< n sources, snr < cut):                ", len(object_types["faint"]))
     print(
         "orphan (split off from larger cluster          ",
-        len(objectTypes["orphan"]),
+        len(object_types["orphan"]),
     )
     print(
         "one missing (n-1 sources, not near edge):      ",
-        len(objectTypes["missing"]),
+        len(object_types["missing"]),
     )
     print(
         "two missing (n-2 sources, not near edge):      ",
-        len(objectTypes["two_missing"]),
+        len(object_types["two_missing"]),
     )
     print(
         "many missing (< n-2 sources, not near edge):   ",
-        len(objectTypes["many_missing"]),
+        len(object_types["many_missing"]),
     )
-    print("extra (> n sources, not near edge):            ", len(objectTypes["extra"]))
+    print("extra (> n sources, not near edge):            ", len(object_types["extra"]))
