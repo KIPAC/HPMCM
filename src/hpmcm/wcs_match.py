@@ -142,9 +142,9 @@ class WcsMatch(Match):
         +--------------+-------------------------------------+
         | dec          | Source DEC                          |
         +--------------+-------------------------------------+
-        | x_pix         | X-coordinate in global WCS frame    |
+        | x_pix        | X-coordinate in global WCS frame    |
         +--------------+-------------------------------------+
-        | y_pix         | Y-coordinate in global WCS frame    |
+        | y_pix        | Y-coordinate in global WCS frame    |
         +--------------+-------------------------------------+
         | snr          | Signal-to-noise ratio               |
         +--------------+-------------------------------------+
