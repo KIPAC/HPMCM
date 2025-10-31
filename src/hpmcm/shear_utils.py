@@ -330,10 +330,12 @@ def reduceShearDataForCell(
     if matcher.deshear is not None:
         # De-shear in the cell frame to do matching
         dx_shear = matcher.deshear * (
-            x_cell_orig * DESHEAR_COEFFS[i_cat][0] + y_cell_orig * DESHEAR_COEFFS[i_cat][2]
+            x_cell_orig * DESHEAR_COEFFS[i_cat][0]
+            + y_cell_orig * DESHEAR_COEFFS[i_cat][2]
         )
         dy_shear = matcher.deshear * (
-            x_cell_orig * DESHEAR_COEFFS[i_cat][1] + y_cell_orig * DESHEAR_COEFFS[i_cat][3]
+            x_cell_orig * DESHEAR_COEFFS[i_cat][1]
+            + y_cell_orig * DESHEAR_COEFFS[i_cat][3]
         )
         x_cell = x_cell_orig + dx_shear
         y_cell = y_cell_orig + dy_shear
@@ -376,26 +378,32 @@ def makeMatchedShearSourceCatalogs(
 
     match_base_name:
         _base file naem for match tables
-    
+
     Returns
     -------
     Dict of tables, keyed by shear type, which have the
     souces catalogs joined to the associated objects
     """
-    keys = ['object_stats', 'object_assoc', 'object_shear']
-    shear_types = {v:k for k,v in enumerate(SHEAR_NAMES)}
+    keys = ["object_stats", "object_assoc", "object_shear"]
+    shear_types = {v: k for k, v in enumerate(SHEAR_NAMES)}
     td = tables_io.read(match_base_name, keys=keys)
     itd = tables_io.read(source_base_name, keys=list(shear_types.keys()))
-    td['object_stats']['idx'] = np.arange(len(td['object_stats']))
-    td['object_shear']['idx'] = np.arange(len(td['object_shear']))
-    merged_object = td['object_stats'].merge(td['object_shear'], on='idx', how="inner", suffixes=["_l", "_r"])
-    merged_object_assoc = td['object_assoc'].merge(merged_object, on="objectId", how="inner", suffixes=["_l", "_r"])
+    td["object_stats"]["idx"] = np.arange(len(td["object_stats"]))
+    td["object_shear"]["idx"] = np.arange(len(td["object_shear"]))
+    merged_object = td["object_stats"].merge(
+        td["object_shear"], on="idx", how="inner", suffixes=["_l", "_r"]
+    )
+    merged_object_assoc = td["object_assoc"].merge(
+        merged_object, on="objectId", how="inner", suffixes=["_l", "_r"]
+    )
     out_dict = {}
     for cat_type_, i_cat_ in shear_types.items():
         merged_object_assoc_mask = merged_object_assoc.catalogId == i_cat_
         merged_object_assoc_masked = merged_object_assoc[merged_object_assoc_mask]
         sources = itd[cat_type_]
-        sources['sourceId'] = sources['id']
-        matched_source = merged_object_assoc_masked.merge(sources, on="sourceId", how="inner", suffixes=["_l", "_r"])
+        sources["sourceId"] = sources["id"]
+        matched_source = merged_object_assoc_masked.merge(
+            sources, on="sourceId", how="inner", suffixes=["_l", "_r"]
+        )
         out_dict[cat_type_] = matched_source
     return out_dict

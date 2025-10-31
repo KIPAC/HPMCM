@@ -165,7 +165,9 @@ class CellData:
         assert self.data is not None
         assert self.footprint_ids
         for i_cat, (df, footprint_ids) in enumerate(zip(self.data, self.footprint_ids)):
-            for src_idx, (src_id, footprint_id) in enumerate(zip(df["id"], footprint_ids)):
+            for src_idx, (src_id, footprint_id) in enumerate(
+                zip(df["id"], footprint_ids)
+            ):
                 if footprint_id < 0:
                     n_missing += 1
                     continue

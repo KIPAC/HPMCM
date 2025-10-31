@@ -426,11 +426,19 @@ class ShearStats:
         hists: ShearHistograms,
     ):
 
-        self.delta_g_1_1 = ShearHistogramStats(hists.good_delta_g_1_1, hists.bin_centers)
-        self.delta_g_2_2 = ShearHistogramStats(hists.good_delta_g_2_2, hists.bin_centers)
+        self.delta_g_1_1 = ShearHistogramStats(
+            hists.good_delta_g_1_1, hists.bin_centers
+        )
+        self.delta_g_2_2 = ShearHistogramStats(
+            hists.good_delta_g_2_2, hists.bin_centers
+        )
 
-        self.delta_g_1_2 = ShearHistogramStats(hists.good_delta_g_1_2, hists.bin_centers)
-        self.delta_g_2_1 = ShearHistogramStats(hists.good_delta_g_2_1, hists.bin_centers)
+        self.delta_g_1_2 = ShearHistogramStats(
+            hists.good_delta_g_1_2, hists.bin_centers
+        )
+        self.delta_g_2_1 = ShearHistogramStats(
+            hists.good_delta_g_2_1, hists.bin_centers
+        )
 
         self.good_g_1_1 = ShearHistogramStats(
             hists.good_g_1_1p + hists.good_g_1_1m, hists.bin_centers

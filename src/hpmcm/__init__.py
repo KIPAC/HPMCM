@@ -40,20 +40,16 @@ The two sub-classes of `Match` are:
    shear catalogs.
 """
 
-from . import classify, match_utils, package_utils, shear_utils, utils, viz_utils
+from . import (classify, match_utils, package_utils, shear_utils, utils,
+               viz_utils)
 from ._version import __version__
 from .cell import CellData, ShearCellData
 from .cluster import ClusterData, ShearClusterData
 from .footprint import Footprint, FootprintSet
 from .match import Match
 from .object import ObjectData, ShearObjectData
-from .output_tables import (
-    ClusterAssocTable,
-    ClusterStatsTable,
-    ObjectAssocTable,
-    ObjectStatsTable,
-    ShearTable,
-)
+from .output_tables import (ClusterAssocTable, ClusterStatsTable,
+                            ObjectAssocTable, ObjectStatsTable, ShearTable)
 from .shear_data import ShearData
 from .shear_match import ShearMatch
 from .table import TableColumnInfo, TableInterface

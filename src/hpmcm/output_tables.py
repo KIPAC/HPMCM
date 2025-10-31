@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
 
+
 class ObjectAssocTable(TableInterface):
     """Interface of table with associations between objects and sources"""
 

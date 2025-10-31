@@ -122,8 +122,16 @@ def heirarchicalSplitObject(
     n_pix = zoom_factor * np.array(
         [slice_x.stop - slice_x.start, slice_y.stop - slice_y.start]
     )
-    zoom_x = zoom_factor * obj_data.data.x_cluster / obj_data.parent_cluster.pixel_match_scale
-    zoom_y = zoom_factor * obj_data.data.y_cluster / obj_data.parent_cluster.pixel_match_scale
+    zoom_x = (
+        zoom_factor
+        * obj_data.data.x_cluster
+        / obj_data.parent_cluster.pixel_match_scale
+    )
+    zoom_y = (
+        zoom_factor
+        * obj_data.data.y_cluster
+        / obj_data.parent_cluster.pixel_match_scale
+    )
 
     counts_map = utils.fillCountsMapFromArrays(zoom_x, zoom_y, n_pix)
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-
 import numpy as np
 import pandas
+import tables_io
 
 from .footprint import FootprintSet
 
@@ -32,7 +32,10 @@ def findClusterIdsFromArrays(
     Ids of associated clusters
     """
     return np.array(
-        [cluster_key[x_local_, y_local_] for x_local_, y_local_ in zip(x_locals, y_locals)]
+        [
+            cluster_key[x_local_, y_local_]
+            for x_local_, y_local_ in zip(x_locals, y_locals)
+        ]
     ).astype(np.int32)
 
 
@@ -206,3 +209,68 @@ def associateSourcesToFootprints(
     to source j in input catalog i.
     """
     return [findClusterIds(df, cluster_key, pixel_match_scale) for df in data]
+
+
+def reduceObjectTable(
+    basefile: str,
+    outfile: str,
+    extra_cols: list[str] | None = None,
+) -> None:  # pragma: no cover
+    """Reduce an object table to just the colums needed for matching
+
+    Parameters
+    ----------
+    basefile:
+        Original file name
+
+    outfile:
+        Output file name
+
+    extra_cols:
+        Extra columns to copy
+
+    Notes
+    -----
+    This will produce a DataFrame with at least these columns:
+
+    +-----------------------+---------------------------------------------------------------+
+    | Column name           | Description                                                   |
+    +=======================+===============================================================+
+    | id                    | source ID                                                     |
+    +-----------------------+---------------------------------------------------------------+
+    | tract                 | Tract source was found in                                     |
+    +-----------------------+---------------------------------------------------------------+
+    | patch                 | Patch source was found in                                     |
+    +-----------------------+---------------------------------------------------------------+
+    | ra                    | RA in degrees                                                 |
+    +-----------------------+---------------------------------------------------------------+
+    | dec                   | DEC in degress                                                |
+    +-----------------------+---------------------------------------------------------------+
+    | snr                   | Signal-to-Noise of source, used for filtering and centroiding |
+    +-----------------------+---------------------------------------------------------------+
+    | {band}_gaapPsfFlux    | Flux, for band in u,g,r,i,z,y                                 |
+    +-----------------------+---------------------------------------------------------------+
+    | {band}_gaapPsfFluxErr | Flux error, for band in u,g,r,i,z,y                           |
+    +-----------------------+---------------------------------------------------------------+
+
+    """
+    t = tables_io.read(basefile)
+    cols = ["tract", "patch", "coord_ra", "coord_dec", "objectId"]
+    cols += [f"{band}_gaapPsfFlux" for band in "ugrizy"]
+    cols += [f"{band}_gaapPsfFluxErr" for band in "ugrizy"]
+
+    if extra_cols is not None:
+        cols += extra_cols
+
+    tout = t[cols].copy(deep=True)
+
+    tout["ra"] = tout["coord_ra"]
+    tout["dec"] = tout["coord_dec"]
+    tout["snr"] = np.where(
+        np.isfinite(tout["r_gaapPsfFlux"]),
+        tout["r_gaapPsfFlux"] / tout["i_gaapPsfFluxErr"],
+        0,
+    )
+    tout["id"] = tout["objectId"]
+
+    tout.to_parquet(outfile)
