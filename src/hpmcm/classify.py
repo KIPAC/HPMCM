@@ -360,7 +360,9 @@ def classifyObjects(matcher: Match, **kwargs: Any) -> dict[str, list]:
                 mixed.append(k)
             elif c.n_src < n_cat and edge_case:  # pragma: no cover
                 edge_missing.append(k)
-            elif c.n_src < n_cat and c.parent_cluster.n_src >= n_cat:  # pragma: no cover
+            elif (
+                c.n_src < n_cat and c.parent_cluster.n_src >= n_cat
+            ):  # pragma: no cover
                 orphan.append(k)
             elif c.n_src == n_cat - 1:
                 missing.append(k)

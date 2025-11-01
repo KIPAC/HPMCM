@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy import ndimage
 from photutils.segmentation import detect_sources
+from scipy import ndimage
 
 
 class Footprint:
@@ -112,10 +112,10 @@ class FootprintSet:
 
         # The easiest way to do this is to mask out the outer
         # region in the footprint key
-        n_exclude = np.floor(buf/pixel_match_scale).astype(int)
+        n_exclude = np.floor(buf / pixel_match_scale).astype(int)
         n_x, n_y = self.fp_key.shape
         self.fp_key[0:n_exclude] = -1
-        self.fp_key[n_x-n_exclude:n_x] = -1
-        self.fp_key[:,0:n_exclude] = -1
-        self.fp_key[:,n_y-n_exclude:n_y] = -1
+        self.fp_key[n_x - n_exclude : n_x] = -1
+        self.fp_key[:, 0:n_exclude] = -1
+        self.fp_key[:, n_y - n_exclude : n_y] = -1
         return self

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 # These are the names of the various shear catalogs
+# They are in reverse "alphabetic" order
 SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
 
 # These are the coeffs for the various shear catalogs
@@ -26,6 +27,18 @@ DESHEAR_COEFFS = np.array(
         [-1, 0, 0, 1],
     ]
 )
+
+# These parameters will have to change if the cells change
+CELL_INNER_SIZE = 150
+CELL_BUFFER = 25
+CELL_OFFSET = 0.5
+N_PATCH = 20
+
+# These are calculated from the above
+CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
+CLEAN_CELL_CUT = int(CELL_INNER_SIZE) / 2
+UNCLEAN_CELL_CUT = CLEAN_CELL_CUT + 5
+PATCH_OFFSET = (N_PATCH + 1 / 2)
 
 
 def shearStats(df: pandas.DataFrame) -> dict:
@@ -228,21 +241,25 @@ def splitByTypeAndClean(
     p = tables_io.read(basefile)
     if clean:
         clean_st = "cleaned"
-        cell_cut = 75
+        cell_cut = CLEAN_CELL_CUT
     else:
         clean_st = "uncleaned"
-        cell_cut = 80
+        cell_cut = UNCLEAN_CELL_CUT
     for type_ in SHEAR_NAMES:
         mask = p["shear_type"] == type_
         sub = p[mask].copy(deep=True)
-        cell_idx_x = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
-        cell_idx_y = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
-        cent_x = 150 * cell_idx_x - 75
-        cent_y = 150 * cell_idx_y - 75
+        cell_idx_x = (N_PATCH * sub["patch_x"].values + sub["cell_x"].values).astype(
+            int
+        )
+        cell_idx_y = (N_PATCH * sub["patch_y"].values + sub["cell_y"].values).astype(
+            int
+        )
+        cent_x = CELL_INNER_SIZE * (cell_idx_x - CELL_OFFSET)
+        cent_y = CELL_INNER_SIZE * (cell_idx_y - CELL_OFFSET)
         x_cell_coadd = sub["col"] - cent_x
         y_cell_coadd = sub["row"] - cent_y
-        sub["x_pix"] = sub["col"] + 25
-        sub["y_pix"] = sub["row"] + 25
+        sub["x_pix"] = sub["col"] + CELL_BUFFER
+        sub["y_pix"] = sub["row"] + CELL_BUFFER
         sub["x_cell_coadd"] = x_cell_coadd
         sub["y_cell_coadd"] = y_cell_coadd
         sub["snr"] = sub[f"{cat_type}_band_flux_r"] / sub[f"{cat_type}_band_flux_err_r"]
@@ -256,8 +273,8 @@ def splitByTypeAndClean(
             np.fabs(x_cell_coadd) < cell_cut, np.fabs(y_cell_coadd) < cell_cut
         )
         central_to_patch = np.bitwise_and(
-            np.fabs(sub["cell_x"].values - 10.5) < 10,
-            np.fabs(sub["cell_y"].values - 10.5) < 10,
+            np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_PATCH/2),
+            np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_PATCH/2)
         )
         right_tract = sub["tract"] == tract
         central = np.bitwise_and(central_to_cell, central_to_patch)
@@ -330,10 +347,12 @@ def reduceShearDataForCell(
     if matcher.deshear is not None:
         # De-shear in the cell frame to do matching
         dx_shear = matcher.deshear * (
-            x_cell_orig * DESHEAR_COEFFS[i_cat][0] + y_cell_orig * DESHEAR_COEFFS[i_cat][2]
+            x_cell_orig * DESHEAR_COEFFS[i_cat][0]
+            + y_cell_orig * DESHEAR_COEFFS[i_cat][2]
         )
         dy_shear = matcher.deshear * (
-            x_cell_orig * DESHEAR_COEFFS[i_cat][1] + y_cell_orig * DESHEAR_COEFFS[i_cat][3]
+            x_cell_orig * DESHEAR_COEFFS[i_cat][1]
+            + y_cell_orig * DESHEAR_COEFFS[i_cat][3]
         )
         x_cell = x_cell_orig + dx_shear
         y_cell = y_cell_orig + dy_shear
@@ -347,8 +366,8 @@ def reduceShearDataForCell(
         x_pix = x_pix_orig
         y_pix = y_pix_orig
 
-    x_cell = (x_cell + 100) / matcher.pixel_match_scale
-    y_cell = (y_cell + 100) / matcher.pixel_match_scale
+    x_cell = (x_cell + (CELL_OUTER_SIZE/2)) / matcher.pixel_match_scale
+    y_cell = (y_cell + (CELL_OUTER_SIZE/2)) / matcher.pixel_match_scale
     filtered_x = np.bitwise_and(x_cell >= 0, x_cell < cell.n_pix[0])
     filtered_y = np.bitwise_and(y_cell >= 0, y_cell < cell.n_pix[1])
     filtered_bounds = np.bitwise_and(filtered_x, filtered_y)
@@ -376,26 +395,32 @@ def makeMatchedShearSourceCatalogs(
 
     match_base_name:
         _base file naem for match tables
-    
+
     Returns
     -------
     Dict of tables, keyed by shear type, which have the
     souces catalogs joined to the associated objects
     """
-    keys = ['object_stats', 'object_assoc', 'object_shear']
-    shear_types = {v:k for k,v in enumerate(SHEAR_NAMES)}
+    keys = ["object_stats", "object_assoc", "object_shear"]
+    shear_types = {v: k for k, v in enumerate(SHEAR_NAMES)}
     td = tables_io.read(match_base_name, keys=keys)
     itd = tables_io.read(source_base_name, keys=list(shear_types.keys()))
-    td['object_stats']['idx'] = np.arange(len(td['object_stats']))
-    td['object_shear']['idx'] = np.arange(len(td['object_shear']))
-    merged_object = td['object_stats'].merge(td['object_shear'], on='idx', how="inner", suffixes=["_l", "_r"])
-    merged_object_assoc = td['object_assoc'].merge(merged_object, on="objectId", how="inner", suffixes=["_l", "_r"])
+    td["object_stats"]["idx"] = np.arange(len(td["object_stats"]))
+    td["object_shear"]["idx"] = np.arange(len(td["object_shear"]))
+    merged_object = td["object_stats"].merge(
+        td["object_shear"], on="idx", how="inner", suffixes=["_l", "_r"]
+    )
+    merged_object_assoc = td["object_assoc"].merge(
+        merged_object, on="objectId", how="inner", suffixes=["_l", "_r"]
+    )
     out_dict = {}
     for cat_type_, i_cat_ in shear_types.items():
         merged_object_assoc_mask = merged_object_assoc.catalogId == i_cat_
         merged_object_assoc_masked = merged_object_assoc[merged_object_assoc_mask]
         sources = itd[cat_type_]
-        sources['sourceId'] = sources['id']
-        matched_source = merged_object_assoc_masked.merge(sources, on="sourceId", how="inner", suffixes=["_l", "_r"])
+        sources["sourceId"] = sources["id"]
+        matched_source = merged_object_assoc_masked.merge(
+            sources, on="sourceId", how="inner", suffixes=["_l", "_r"]
+        )
         out_dict[cat_type_] = matched_source
     return out_dict

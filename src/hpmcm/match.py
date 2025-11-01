@@ -215,7 +215,9 @@ class Match:
         cell_data.reduceData(list(self.red_data.values()))
         o_dict = cell_data.analyze(pixel_r2_cut=self.pixel_r2_cut)
         if cell_data.n_objects >= self.cell_max_object:  # pragma: no cover
-            print("Too many object in a cell", cell_data.n_objects, self.cell_max_object)
+            print(
+                "Too many object in a cell", cell_data.n_objects, self.cell_max_object
+            )
 
         self.cell_dict[i_cell] = cell_data
         if o_dict is None:
