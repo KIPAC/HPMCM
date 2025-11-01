@@ -10,6 +10,7 @@ from .cell import CellData, ShearCellData
 from .match import Match
 
 
+# These parameters will have to change if the cells change
 TRACT_SIZE = np.array([30000, 30000])
 PIXEL_SIZE = 0.2 / 3600.0
 CELL_INNER_SIZE = 150

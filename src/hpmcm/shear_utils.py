@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 
 # These are the names of the various shear catalogs
+# They are in reverse "alphabetic" order
 SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
 
 # These are the coeffs for the various shear catalogs
@@ -30,13 +31,14 @@ DESHEAR_COEFFS = np.array(
 # These parameters will have to change if the cells change
 CELL_INNER_SIZE = 150
 CELL_BUFFER = 25
-CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
 CELL_OFFSET = 0.5
 N_PATCH = 20
 
 # These are calculated from the above
+CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
 CLEAN_CELL_CUT = int(CELL_INNER_SIZE) / 2
 UNCLEAN_CELL_CUT = CLEAN_CELL_CUT + 5
+PATCH_OFFSET = (N_PATCH + 1 / 2)
 
 
 def shearStats(df: pandas.DataFrame) -> dict:
@@ -271,8 +273,8 @@ def splitByTypeAndClean(
             np.fabs(x_cell_coadd) < cell_cut, np.fabs(y_cell_coadd) < cell_cut
         )
         central_to_patch = np.bitwise_and(
-            np.fabs(sub["cell_x"].values - 10.5) < 10,
-            np.fabs(sub["cell_y"].values - 10.5) < 10,
+            np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_PATCH/2),
+            np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_PATCH/2)
         )
         right_tract = sub["tract"] == tract
         central = np.bitwise_and(central_to_cell, central_to_patch)
@@ -364,8 +366,8 @@ def reduceShearDataForCell(
         x_pix = x_pix_orig
         y_pix = y_pix_orig
 
-    x_cell = (x_cell + 100) / matcher.pixel_match_scale
-    y_cell = (y_cell + 100) / matcher.pixel_match_scale
+    x_cell = (x_cell + (CELL_OUTER_SIZE/2)) / matcher.pixel_match_scale
+    y_cell = (y_cell + (CELL_OUTER_SIZE/2)) / matcher.pixel_match_scale
     filtered_x = np.bitwise_and(x_cell >= 0, x_cell < cell.n_pix[0])
     filtered_y = np.bitwise_and(y_cell >= 0, y_cell < cell.n_pix[1])
     filtered_bounds = np.bitwise_and(filtered_x, filtered_y)
