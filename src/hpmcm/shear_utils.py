@@ -27,6 +27,17 @@ DESHEAR_COEFFS = np.array(
     ]
 )
 
+# These parameters will have to change if the cells change
+CELL_INNER_SIZE = 150
+CELL_BUFFER = 25
+CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
+CELL_OFFSET = 0.5
+N_PATCH = 20
+
+# These are calculated from the above
+CLEAN_CELL_CUT = int(CELL_INNER_SIZE) / 2
+UNCLEAN_CELL_CUT = CLEAN_CELL_CUT + 5
+
 
 def shearStats(df: pandas.DataFrame) -> dict:
     """Return the shear statistics
@@ -228,21 +239,25 @@ def splitByTypeAndClean(
     p = tables_io.read(basefile)
     if clean:
         clean_st = "cleaned"
-        cell_cut = 75
+        cell_cut = CLEAN_CELL_CUT
     else:
         clean_st = "uncleaned"
-        cell_cut = 80
+        cell_cut = UNCLEAN_CELL_CUT
     for type_ in SHEAR_NAMES:
         mask = p["shear_type"] == type_
         sub = p[mask].copy(deep=True)
-        cell_idx_x = (20 * sub["patch_x"].values + sub["cell_x"].values).astype(int)
-        cell_idx_y = (20 * sub["patch_y"].values + sub["cell_y"].values).astype(int)
-        cent_x = 150 * cell_idx_x - 75
-        cent_y = 150 * cell_idx_y - 75
+        cell_idx_x = (N_PATCH * sub["patch_x"].values + sub["cell_x"].values).astype(
+            int
+        )
+        cell_idx_y = (N_PATCH * sub["patch_y"].values + sub["cell_y"].values).astype(
+            int
+        )
+        cent_x = CELL_INNER_SIZE * (cell_idx_x - CELL_OFFSET)
+        cent_y = CELL_INNER_SIZE * (cell_idx_y - CELL_OFFSET)
         x_cell_coadd = sub["col"] - cent_x
         y_cell_coadd = sub["row"] - cent_y
-        sub["x_pix"] = sub["col"] + 25
-        sub["y_pix"] = sub["row"] + 25
+        sub["x_pix"] = sub["col"] + CELL_BUFFER
+        sub["y_pix"] = sub["row"] + CELL_BUFFER
         sub["x_cell_coadd"] = x_cell_coadd
         sub["y_cell_coadd"] = y_cell_coadd
         sub["snr"] = sub[f"{cat_type}_band_flux_r"] / sub[f"{cat_type}_band_flux_err_r"]

@@ -10,10 +10,23 @@ from .cell import CellData, ShearCellData
 from .match import Match
 
 
+TRACT_SIZE = np.array([30000, 30000])
+PIXEL_SIZE = 0.2 / 3600.0
+CELL_INNER_SIZE = 150
+CELL_BUFFER = 25
+
+
 class ShearMatch(Match):
     """Class to do N-way matching for shear calibration.
 
     Uses pre-assigned pixel locations from cell-based coadd WCS.
+
+    Since the pixel locations and cells are pre-assigned, the only
+    configurable parameters this class takes are the attributres listed
+    here.
+
+    The pixel_match_scale can we used to allow for matching sources
+    that are seperate by more that 1 pixel.
 
     Expects 5 input catalogs: a reference catalog and 4 counterfactual
     shear catalogs.
@@ -21,13 +34,13 @@ class ShearMatch(Match):
     Attributes
     ----------
     pixel_match_scale: int
-        Number of cells to merge in original counts map
+        Number of pixels to merge in original counts map
 
     cat_type: str
         Shear catalog type
 
     deshear: float | None
-        Deshearing parameter, -1*applied shear.  None -> dshearing is not done.
+        Deshearing parameter, -1*applied shear.  None -> deshearing is not done.
 
     Notes
     -----
@@ -126,12 +139,12 @@ class ShearMatch(Match):
         -------
         Object to create matches for the requested region
         """
-        n_pix = np.array([30000, 30000])
+        n_pix = TRACT_SIZE
         kw = dict(
-            pixel_size=0.2 / 3600.0,
+            pixel_size=PIXEL_SIZE,
             n_pixels=n_pix,
-            cell_size=150,
-            cell_buffer=25,
+            cell_size=CELL_INNER_SIZE,
+            cell_buffer=CELL_BUFFER,
             cell_max_object=1000,
         )
         return cls(**kw, **kwargs)
