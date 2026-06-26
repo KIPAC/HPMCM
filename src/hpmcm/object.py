@@ -131,7 +131,7 @@ class ObjectData:
 
 
 class ShearObjectData(ObjectData):
-    """Subclass of ObjectData that can compute shear statisitics"""
+    """Subclass of ObjectData that can compute shear statistics"""
 
     def shearStats(self) -> dict:
         """Return the shear statistics"""

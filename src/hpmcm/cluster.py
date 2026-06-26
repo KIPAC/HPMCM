@@ -165,7 +165,7 @@ class ClusterData:
 
 
 class ShearClusterData(ClusterData):
-    """Subclass of ClusterData that can compute shear statisitics
+    """Subclass of ClusterData that can compute shear statistics
 
     Attributes
     ----------

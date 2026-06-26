@@ -25,10 +25,10 @@ class CoaddSourceTable(TableInterface):
         id=TableColumnInfo(int, "Unique ID for source"),
         tract=TableColumnInfo(int, "Tract"),
         x_cell_coadd=TableColumnInfo(
-            float, "X-postion in cell-based coadd used for metadetect"
+            float, "X-position in cell-based coadd used for metadetect"
         ),
         y_cell_coadd=TableColumnInfo(
-            float, "Y-postion in cell-based coadd used for metadetect"
+            float, "Y-position in cell-based coadd used for metadetect"
         ),
         snr=TableColumnInfo(float, "Signal-to-noise of source"),
         cell_idx_x=TableColumnInfo(int, "Cell x-index within Tract"),

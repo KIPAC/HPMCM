@@ -406,7 +406,7 @@ class ShearHistograms:
 
 
 class ShearStats:
-    """Simple class to store shear statisitics
+    """Simple class to store shear statistics
 
     {type} is the matching type, one of "good", "bad", "all"
 
@@ -483,7 +483,7 @@ class ShearStats:
 class ShearData:
     """Collection of shear related data for a single catalog
 
-    Attritubes
+    Attributes
     ----------
     shear: float
         Applied shear

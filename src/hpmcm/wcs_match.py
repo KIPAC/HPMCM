@@ -150,7 +150,7 @@ class WcsMatch(Match):
         +--------------+-------------------------------------+
 
         """
-        df_clean = df[(df.snr > 1)]
+        df_clean = df[(df.snr > 1)].copy()
         x_pix, y_pix = self.wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0
         )

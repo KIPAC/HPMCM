@@ -130,9 +130,8 @@ class CellData:
         """Filters dataframe to keep only source in the cell"""
         assert i_cat is not None
 
-        # WCS is defined, use it
-        x_cell = dataframe["x_pix"] - self.min_pix[0]
-        y_cell = dataframe["y_pix"] - self.min_pix[1]
+        x_cell = dataframe["x_pix"].values - self.min_pix[0]
+        y_cell = dataframe["y_pix"].values - self.min_pix[1]
         filtered = (
             (x_cell >= 0)
             & (x_cell < self.n_pix[0])
@@ -146,7 +145,7 @@ class CellData:
 
     def countsMap(self, weight_name: str | None = None) -> np.ndarray:
         """Fill a map that counts the number of source per cell"""
-        to_fill = self._emtpyCountsMaps()
+        to_fill = self._emptyCountsMaps()
         assert self.data is not None
         for df in self.data:
             to_fill += self._singleCatalogCountsMap(df, weight_name)
@@ -231,7 +230,7 @@ class CellData:
     ) -> ObjectData:
         return ObjectData(cluster, object_id, mask)
 
-    def _emtpyCountsMaps(self) -> np.ndarray:
+    def _emptyCountsMaps(self) -> np.ndarray:
         to_fill = np.zeros(np.ceil(self.n_pix).astype(int))
         return to_fill
 
@@ -270,7 +269,7 @@ class CellData:
 
 
 class ShearCellData(CellData):
-    """Subclass of CellData that can compute shear statisitics
+    """Subclass of CellData that can compute shear statistics
 
     Attributes
     ----------
@@ -302,7 +301,7 @@ class ShearCellData(CellData):
     ) -> ObjectData:
         return ShearObjectData(cluster, object_id, mask)
 
-    def _emtpyCountsMaps(self) -> np.ndarray:
+    def _emptyCountsMaps(self) -> np.ndarray:
         pixel_match_scale = self.pixel_match_scale
         to_fill = np.zeros(np.ceil(self.n_pix / pixel_match_scale).astype(int))
         return to_fill

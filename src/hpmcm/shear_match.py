@@ -55,9 +55,9 @@ class ShearMatch(Match):
     +--------------+---------------------------------------------------------------+
     | tract        | Tract being matched                                           |
     +--------------+---------------------------------------------------------------+
-    | x_cell_coadd | X-postion in cell-based coadd used for metadetect             |
+    | x_cell_coadd | X-position in cell-based coadd used for metadetect             |
     +--------------+---------------------------------------------------------------+
-    | y_cell_coadd | Y-postion in cell-based coadd used for metadetect             |
+    | y_cell_coadd | Y-position in cell-based coadd used for metadetect             |
     +--------------+---------------------------------------------------------------+
     | snr          | Signal-to-Noise of source, used for filtering and centroiding |
     +--------------+---------------------------------------------------------------+
@@ -67,7 +67,7 @@ class ShearMatch(Match):
     +--------------+---------------------------------------------------------------+
     | g_1          | Shear g1 component                                            |
     +--------------+---------------------------------------------------------------+
-    | g_2          | Shear g1 component                                            |
+    | g_2          | Shear g2 component                                            |
     +--------------+---------------------------------------------------------------+
 
     (see :py:class:`hpmcm.input_tables.ShearCoaddSourceTable`)
