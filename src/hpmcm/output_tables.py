@@ -137,8 +137,6 @@ class ObjectStatsTable(TableInterface):
             n_srcs[idx] = obj.n_src
             n_uniques[idx] = obj.n_unique
             dist_rms[idx] = obj.rms_dist
-            x_cents[idx] = obj.x_cent
-            y_cents[idx] = obj.y_cent
             assert obj.data is not None
             sum_snr = obj.data.snr.sum()
             x_cents[idx] = np.sum(obj.data.snr * obj.data.x_cell) / sum_snr
@@ -266,7 +264,6 @@ class ClusterStatsTable(TableInterface):
         n_srcs = np.zeros((n_clust), dtype=int)
         n_uniques = np.zeros((n_clust), dtype=int)
         n_objects = np.zeros((n_clust), dtype=int)
-        n_uniques = np.zeros((n_clust), dtype=int)
         dist_rms = np.zeros((n_clust), dtype=float)
         x_cents = np.zeros((n_clust), dtype=float)
         y_cents = np.zeros((n_clust), dtype=float)
@@ -279,7 +276,6 @@ class ClusterStatsTable(TableInterface):
             n_srcs[idx] = cluster.n_src
             n_uniques[idx] = cluster.n_unique
             n_objects[idx] = len(cluster.objects)
-            n_uniques[idx] = cluster.n_unique
             dist_rms[idx] = cluster.rms_dist
             assert cluster.data is not None
             sum_snr = cluster.data.snr.sum()
@@ -316,7 +312,7 @@ class ShearTable(TableInterface):
     _schema["good"] = TableColumnInfo(bool, "Has unique match")
     for _name in SHEAR_NAMES:
         _schema[f"n_{_name}"] = TableColumnInfo(
-            float, f"number of sourcrs from catalog {_name}"
+            float, f"number of sources from catalog {_name}"
         )
         for _i in [1, 2]:
             _schema[f"g_{_i}_{_name}"] = TableColumnInfo(
