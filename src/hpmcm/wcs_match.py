@@ -35,7 +35,7 @@ def createGlobalWcs(
     """
     w = wcs.WCS(naxis=2)
     w.wcs.cdelt = [-pix_size, pix_size]
-    w.wcs.crpix = [n_pix[0] / 2, n_pix[1] / 2]
+    w.wcs.crpix = [(n_pix[0] / 2) - 1, (n_pix[1] / 2) - 1]
     w.wcs.crval = [ref_dir[0], ref_dir[1]]
     return w
 
@@ -150,6 +150,14 @@ class WcsMatch(Match):
         +--------------+-------------------------------------+
 
         """
+        if "snr" not in df.columns:
+            df["snr"] = np.full(len(df), 2.0)
+        if "id" not in df.columns:
+            if "object_id" in df.columns:
+                df["id"] = df["object_id"]
+            else:
+                df["id"] = np.arange(len(df))
+
         df_clean = df[(df.snr > 1)].copy()
         x_pix, y_pix = self.wcs.wcs_world2pix(
             df_clean["ra"].values, df_clean["dec"].values, 0

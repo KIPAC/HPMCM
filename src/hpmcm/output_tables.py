@@ -104,6 +104,7 @@ class ObjectStatsTable(TableInterface):
         snr_rms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
         has_ref_cat=TableColumnInfo(bool, "Has source from the reference catalog"),
+        catalog_mask=TableColumnInfo(int, "Mask of which catalogs are in object"),
     )
 
     @staticmethod
@@ -120,6 +121,7 @@ class ObjectStatsTable(TableInterface):
         Object stats table
         """
         n_obj = cell_data.n_objects
+        catalog_id_map = cell_data.matcher.catalog_id_map
         cluster_ids = np.zeros((n_obj), dtype=int)
         object_ids = np.zeros((n_obj), dtype=int)
         n_srcs = np.zeros((n_obj), dtype=int)
@@ -130,6 +132,7 @@ class ObjectStatsTable(TableInterface):
         snrs = np.zeros((n_obj), dtype=float)
         snr_rms = np.zeros((n_obj), dtype=float)
         has_ref_cat = np.zeros((n_obj), dtype=bool)
+        catalog_mask = np.zeros((n_obj), dtype=int)
 
         for idx, obj in enumerate(cell_data.object_dict.values()):
             cluster_ids[idx] = obj.parent_cluster.i_cluster
@@ -144,6 +147,7 @@ class ObjectStatsTable(TableInterface):
             snrs[idx] = obj.snr_mean
             snr_rms[idx] = obj.snr_rms
             has_ref_cat[idx] = obj.hasRefCatalog()
+            catalog_mask[idx] = obj.catalogMask(catalog_id_map)
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
@@ -162,6 +166,7 @@ class ObjectStatsTable(TableInterface):
             snr_rms=snr_rms,
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
             has_ref_cat=has_ref_cat,
+            catalog_mask=catalog_mask,
         )
 
 
@@ -244,6 +249,7 @@ class ClusterStatsTable(TableInterface):
         snr_rms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
         has_ref_cat=TableColumnInfo(bool, "Has source from reference catalog"),
+        catalog_mask=TableColumnInfo(int, "Mask of which catalogs are in cluster"),
     )
 
     @staticmethod
@@ -260,6 +266,7 @@ class ClusterStatsTable(TableInterface):
         Object stats table
         """
         n_clust = cell_data.n_clusters
+        catalog_id_map = cell_data.matcher.catalog_id_map
         cluster_ids = np.zeros((n_clust), dtype=int)
         n_srcs = np.zeros((n_clust), dtype=int)
         n_uniques = np.zeros((n_clust), dtype=int)
@@ -270,6 +277,7 @@ class ClusterStatsTable(TableInterface):
         snrs = np.zeros((n_clust), dtype=float)
         snr_rms = np.zeros((n_clust), dtype=float)
         has_ref_cat = np.zeros((n_clust), dtype=bool)
+        catalog_mask = np.zeros((n_clust), dtype=int)
 
         for idx, cluster in enumerate(cell_data.cluster_dict.values()):
             cluster_ids[idx] = cluster.i_cluster
@@ -284,6 +292,7 @@ class ClusterStatsTable(TableInterface):
             snrs[idx] = cluster.snr_mean
             snr_rms[idx] = cluster.snr_rms
             has_ref_cat[idx] = cluster.hasRefCatalog()
+            catalog_mask[idx] = cluster.catalogMask(catalog_id_map)
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
@@ -302,6 +311,7 @@ class ClusterStatsTable(TableInterface):
             snr_rms=snr_rms,
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
             has_ref_cat=has_ref_cat,
+            catalog_mask=catalog_mask,
         )
 
 

@@ -92,6 +92,7 @@ def showCluster(
     cluster: ClusterData,
     cell_data: CellData,
     mask: np.ndarray | None = None,
+    color_dict: dict[int, float] | None = None,
 ) -> Figure | SubFigure:
     """Draw a cluster
 
@@ -109,27 +110,39 @@ def showCluster(
     mask:
         Mask showing which sources are in the cluster
 
+    color_dict:
+        Maps catalog ids to display colors
+
     Returns
     -------
     Figure showing the cluster in question
     """
     extent = cluster.footprint.extent()
+    image_extent = (0, extent[1] - extent[0], 0, extent[3] - extent[2])
     cluster.extract(cell_data)
-    x_offset = cell_data.min_pix[0] + 25
-    y_offset = cell_data.min_pix[1] + 25
-    x_off = cluster.x_cluster
-    y_off = cluster.y_cluster
+    x_offset = cell_data.min_pix[0] + extent[0]
+    y_offset = cell_data.min_pix[1] + extent[2]
+    fp_x, fp_y = cluster.footprint_offset
+    x_off = cluster.data.x_cell - fp_x
+    y_off = cluster.data.y_cell - fp_y
+    i_cat = cluster.data.i_cat
     if mask is not None:  # pragma: no cover
         x_off = x_off[mask]
         y_off = y_off[mask]
+        i_cat = i_cat[mask]
     x_c = cluster.x_cent - x_offset
     y_c = cluster.y_cent - y_offset
 
+    if color_dict:
+        display_colors = [color_dict[idx] for idx in i_cat]
+    else:
+        display_colors = np.full(len(x_off), 1)
+
     img = plt.imshow(
-        image[cluster.footprint.slice_x][cluster.footprint.slice_y],
+        image[cluster.footprint.slice_x, cluster.footprint.slice_y].T,
         origin="lower",
-        extent=extent,
-        cmap="grey",
+        extent=image_extent,
+        cmap="grey_r",
     )
     _cb = plt.colorbar(label="Objects per pixel")
     try:
@@ -139,7 +152,7 @@ def showCluster(
         img.axes.scatter(x_off_u, y_off_u, marker="x")
     except Exception:  # pragma: no cover
         pass
-    img.axes.scatter(x_off, y_off)
+    img.axes.scatter(x_off, y_off, c=display_colors)
     img.axes.scatter(x_c, y_c, marker="+", c="green")
     img.axes.set_xlabel("x [pixels]")
     img.axes.set_ylabel("y [pixels]")
@@ -176,10 +189,11 @@ def showObjects(
     cluster.extract(cell_data)
     x_offset = cell_data.min_pix[0]
     y_offset = cell_data.min_pix[1]
-    x_off = cluster.x_cluster
-    y_off = cluster.y_cluster
+    fp_x, fp_y = cluster.footprint_offset
+    x_off = cluster.data.x_cell - fp_x
+    y_off = cluster.data.y_cell - fp_y
     img = plt.imshow(
-        image[cluster.footprint.slice_x][cluster.footprint.slice_y],
+        image[cluster.footprint.slice_x, cluster.footprint.slice_y],
         origin="lower",
         extent=extent,
     )
@@ -229,7 +243,7 @@ def showObjectsV2(
     x_off = cluster.x_pix - x_offset
     y_off = cluster.y_pix - y_offset
     img = plt.imshow(
-        image[cluster.footprint.slice_x][cluster.footprint.slice_y],
+        image[cluster.footprint.slice_x, cluster.footprint.slice_y],
         origin="lower",
         extent=extent,
     )

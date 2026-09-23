@@ -83,16 +83,9 @@ class ObjectData:
         self.extract()
 
     @property
-    def x_cluster(self) -> np.ndarray:
-        """Return the x-position of the sources within the footprint"""
-        assert self.data is not None
-        return self.data.x_cluster
-
-    @property
-    def y_cluster(self) -> np.ndarray:
-        """Return the y-position of the sources within the footprint"""
-        assert self.data is not None
-        return self.data.y_cluster
+    def footprint_offset(self) -> tuple[float, float]:
+        """Return the (x, y) pixel offset of the footprint origin within the cell"""
+        return self.parent_cluster.footprint_offset
 
     @property
     def x_pix(self) -> np.ndarray:
@@ -109,6 +102,15 @@ class ObjectData:
     def hasRefCatalog(self, ref_cat_id: int = 0) -> bool:
         """Is there a source from the reference catalog"""
         return ref_cat_id in self.catalog_id
+
+    def catalogMask(self, cat_map: dict[int, int]) -> int:
+        """Make a bit mask of which catalogs are in this object"""
+        unmapped = np.unique(self.catalog_id)
+        mapped_bits = set(cat_map[val] for val in unmapped)
+        ret_val = 0
+        for set_bit in mapped_bits:
+            ret_val += 1 << set_bit
+        return ret_val
 
     def sourceIds(self) -> np.ndarray:
         """Return the source ids for the sources in the object"""

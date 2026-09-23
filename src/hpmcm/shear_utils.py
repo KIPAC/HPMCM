@@ -39,7 +39,7 @@ N_PATCH = 20
 CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
 CLEAN_CELL_CUT = int(CELL_INNER_SIZE) / 2
 UNCLEAN_CELL_CUT = CLEAN_CELL_CUT + 5
-PATCH_OFFSET = (N_PATCH + 1 / 2)
+PATCH_OFFSET = (N_PATCH + 1) / 2
 
 
 def shearStats(df: pandas.DataFrame) -> dict:
@@ -191,7 +191,6 @@ def splitByTypeAndClean(
     basefile: str,
     tract: int,
     shear: float,
-    cat_type: str,
     *,
     clean: bool = False,
 ) -> None:  # pragma: no cover
@@ -207,9 +206,6 @@ def splitByTypeAndClean(
 
     shear:
         Applied shear, saved to output
-
-    cat_type:
-        Catalog type to select
 
     clean:
         Remove duplicates
@@ -238,12 +234,6 @@ def splitByTypeAndClean(
     +--------------+-------------------------------------+
     | y_pix        | Y-coordinate in global WCS frame    |
     +--------------+-------------------------------------+
-    | g_1          | Shear g_1 component estimate        |
-    +--------------+-------------------------------------+
-    | g_2          | Shear g_2 component estimate        |
-    +--------------+-------------------------------------+
-    | snr          | Signal-to-noise ratio               |
-    +--------------+-------------------------------------+
 
     """
     p = tables_io.read(basefile)
@@ -254,27 +244,49 @@ def splitByTypeAndClean(
         clean_st = "uncleaned"
         cell_cut = UNCLEAN_CELL_CUT
     for type_ in SHEAR_NAMES:
-        mask = p["shear_type"] == type_
+        try:
+            mask = p["mcal_step"] == type_
+        except KeyError:
+            mask = p["metaStep"] == type_
         sub = p[mask]
 
         # Filter on tract and patch centrality before computing derived columns
-        right_tract = sub["tract"] == tract
-        central_to_patch = (
-            (np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_PATCH / 2))
-            & (np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_PATCH / 2))
-        )
+        try:
+            right_tract = sub["tract"] == tract
+        except KeyError:
+            right_tract = np.ones(len(sub)).astype(bool)
+        try:
+            central_to_patch = (
+                np.fabs(sub["cell_i"].values - PATCH_OFFSET) < (N_PATCH / 2)
+            ) & (np.fabs(sub["cell_j"].values - PATCH_OFFSET) < (N_PATCH / 2))
+        except KeyError:
+            central_to_patch = (
+                np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_PATCH / 2)
+            ) & (np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_PATCH / 2))
         sub = sub[right_tract & central_to_patch].copy(deep=True)
 
-        cell_idx_x = (N_PATCH * sub["patch_x"].values + sub["cell_x"].values).astype(
-            int
-        )
-        cell_idx_y = (N_PATCH * sub["patch_y"].values + sub["cell_y"].values).astype(
-            int
-        )
+        if "patch_x" not in sub.columns:
+            sub["patch_x"] = sub["patch"] % 10
+            sub["patch_y"] = sub["patch"] // 10
+
+        try:
+            cell_idx_x = (
+                N_PATCH * sub["patch_x"].values + sub["cell_j"].values
+            ).astype(int)
+            cell_idx_y = (
+                N_PATCH * sub["patch_y"].values + sub["cell_i"].values
+            ).astype(int)
+        except KeyError:
+            cell_idx_x = (
+                N_PATCH * sub["patch_x"].values + sub["cell_x"].values
+            ).astype(int)
+            cell_idx_y = (
+                N_PATCH * sub["patch_y"].values + sub["cell_y"].values
+            ).astype(int)
         cent_x = CELL_INNER_SIZE * (cell_idx_x - CELL_OFFSET)
         cent_y = CELL_INNER_SIZE * (cell_idx_y - CELL_OFFSET)
-        x_cell_coadd = sub["col"].values - cent_x
-        y_cell_coadd = sub["row"].values - cent_y
+        x_cell_coadd = sub["x"].values - cent_x
+        y_cell_coadd = sub["y"].values - cent_y
 
         central_to_cell = (np.fabs(x_cell_coadd) < cell_cut) & (
             np.fabs(y_cell_coadd) < cell_cut
@@ -283,19 +295,20 @@ def splitByTypeAndClean(
 
         cleaned["x_cell_coadd"] = x_cell_coadd[central_to_cell]
         cleaned["y_cell_coadd"] = y_cell_coadd[central_to_cell]
-        cleaned["x_pix"] = cleaned["col"] + CELL_BUFFER
-        cleaned["y_pix"] = cleaned["row"] + CELL_BUFFER
-        cleaned["snr"] = (
-            cleaned[f"{cat_type}_band_flux_r"] / cleaned[f"{cat_type}_band_flux_err_r"]
-        )
-        cleaned["g_1"] = cleaned[f"{cat_type}_g_1"]
-        cleaned["g_2"] = cleaned[f"{cat_type}_g_2"]
+        cleaned["x_pix"] = cleaned["x"] + CELL_BUFFER
+        cleaned["y_pix"] = cleaned["y"] + CELL_BUFFER
         cleaned["cell_idx_x"] = cell_idx_x[central_to_cell]
         cleaned["cell_idx_y"] = cell_idx_y[central_to_cell]
-        cleaned["orig_id"] = cleaned["id"]
+        if "id" in cleaned.columns:
+            cleaned["orig_id"] = cleaned["id"]
+        else:
+            cleaned["orig_id"] = cleaned["shearObjectId"]
         cleaned["id"] = np.arange(len(cleaned))
         cleaned["shear"] = shear
-        cleaned.to_parquet(basefile.replace(".parq", f"_{clean_st}_{tract}_{type_}.pq"))
+        cleaned["meta_step"] = np.full(len(cleaned), type_)
+        cleaned.to_parquet(
+            basefile.replace(".parq", f"_{clean_st}_{tract}_{type_}.parq")
+        )
 
 
 def reduceShearDataForCell(
@@ -361,12 +374,8 @@ def reduceShearDataForCell(
 
     coeffs = DESHEAR_COEFFS[i_cat]
     if matcher.deshear is not None:
-        dx_shear = matcher.deshear * (
-            x_cell_orig * coeffs[0] + y_cell_orig * coeffs[2]
-        )
-        dy_shear = matcher.deshear * (
-            x_cell_orig * coeffs[1] + y_cell_orig * coeffs[3]
-        )
+        dx_shear = matcher.deshear * (x_cell_orig * coeffs[0] + y_cell_orig * coeffs[2])
+        dy_shear = matcher.deshear * (x_cell_orig * coeffs[1] + y_cell_orig * coeffs[3])
         x_cell = x_cell_orig + dx_shear
         y_cell = y_cell_orig + dy_shear
         x_pix = x_pix_orig + dx_shear
@@ -382,8 +391,10 @@ def reduceShearDataForCell(
     x_cell = (x_cell + (CELL_OUTER_SIZE / 2)) / matcher.pixel_match_scale
     y_cell = (y_cell + (CELL_OUTER_SIZE / 2)) / matcher.pixel_match_scale
     filtered_bounds = (
-        (x_cell >= 0) & (x_cell < cell.n_pix[0])
-        & (y_cell >= 0) & (y_cell < cell.n_pix[1])
+        (x_cell >= 0)
+        & (x_cell < cell.n_pix[0])
+        & (y_cell >= 0)
+        & (y_cell < cell.n_pix[1])
     )
 
     # Single copy at the end
@@ -417,32 +428,34 @@ def makeMatchedShearSourceCatalogs(
     Dict of tables, keyed by shear type, which have the
     source catalogs joined to the associated objects
     """
-    keys = ['object_stats', 'object_assoc', 'object_shear']
+    keys = ["object_stats", "object_assoc", "object_shear"]
     shear_types = {v: k for k, v in enumerate(SHEAR_NAMES)}
     td = tables_io.read(match_base_name, keys=keys)
     itd = tables_io.read(source_base_name, keys=list(shear_types.keys()))
     # Stats and shear tables are row-aligned; concat is cheaper than merge on synthetic index
     merged_object = pandas.concat(
-        [td['object_stats'].reset_index(drop=True),
-         td['object_shear'].reset_index(drop=True)],
+        [
+            td["object_stats"].reset_index(drop=True),
+            td["object_shear"].reset_index(drop=True),
+        ],
         axis=1,
     )
     # Remove duplicate column names (keep first occurrence)
     merged_object = merged_object.loc[:, ~merged_object.columns.duplicated()]
-    merged_object_assoc = td['object_assoc'].merge(
+    merged_object_assoc = td["object_assoc"].merge(
         merged_object, on="object_id", how="inner", suffixes=["_assoc", "_object"]
     )
 
     out_dict: dict[str, pandas.DataFrame] = {}
 
     # Process 'ns' (i_cat==0) first so it's available for left-joins below
-    ns_sources = itd['ns'].copy()
-    ns_sources['source_id'] = ns_sources['id']
+    ns_sources = itd["ns"].copy()
+    ns_sources["source_id"] = ns_sources["id"]
     ns_mask = merged_object_assoc.catalog_id == 0
     ns_matched = merged_object_assoc[ns_mask].merge(
         ns_sources, on="source_id", how="inner", suffixes=["_object", "_source"]
     )
-    out_dict['ns'] = ns_matched
+    out_dict["ns"] = ns_matched
 
     for cat_type_, i_cat_ in shear_types.items():
         if i_cat_ == 0:
@@ -450,12 +463,12 @@ def makeMatchedShearSourceCatalogs(
         merged_object_assoc_mask = merged_object_assoc.catalog_id == i_cat_
         merged_object_assoc_masked = merged_object_assoc[merged_object_assoc_mask]
         sources = itd[cat_type_].copy()
-        sources['source_id'] = sources['id']
+        sources["source_id"] = sources["id"]
         matched_source = merged_object_assoc_masked.merge(
             sources, on="source_id", how="inner", suffixes=["_object", "_source"]
         )
         fully_merged = matched_source.merge(
-            out_dict['ns'], on='object_id', how='left', suffixes=['', '_ns']
+            out_dict["ns"], on="object_id", how="left", suffixes=["", "_ns"]
         )
         out_dict[cat_type_] = fully_merged
 

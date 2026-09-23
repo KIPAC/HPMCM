@@ -19,7 +19,6 @@ def setupTestDataArea() -> int:  # pragma: no cover
     This will not download the files if they are already present
     """
     if not os.path.exists("examples/test_data"):
-
         if not os.path.exists("examples/test_data.tgz"):
             urlretrieve(
                 "http://s3df.slac.stanford.edu/people/echarles/package_test_data/hpmcm/hpmcm_test_data.tgz",
