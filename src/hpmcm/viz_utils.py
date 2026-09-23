@@ -28,11 +28,9 @@ def showShearObjs(matcher: Match, i_k: tuple[int, int]) -> Figure | SubFigure:
     cluster = cell_data.cluster_dict[i_k[1]]
     extent = cluster.footprint.extent()
     cluster.extract(cell_data)
-    x_offset = cell_data.min_pix[0] + 25
-    y_offset = cell_data.min_pix[1] + 25
     assert cluster.data is not None
-    x_off = cluster.data.x_pix - x_offset
-    y_off = cluster.data.y_pix - y_offset
+    x_off = cluster.data.x_cell - 25
+    y_off = cluster.data.y_cell - 25
     catalog_ids = cluster.catalog_id
     image = cluster.footprint.cutout
     img = plt.imshow(image, origin="lower", extent=extent)
@@ -67,11 +65,9 @@ def showShearObj(matcher: Match, i_k: tuple[int, int]) -> Figure | SubFigure:
     cluster = the_obj.parent_cluster
     extent = cluster.footprint.extent()
     cluster.extract(cell_data)
-    x_offset = cell_data.min_pix[0] + 25
-    y_offset = cell_data.min_pix[1] + 25
     assert cluster.data is not None
-    x_off = cluster.data.x_pix - x_offset
-    y_off = cluster.data.y_pix - y_offset
+    x_off = cluster.data.x_cell - 25
+    y_off = cluster.data.y_cell - 25
     catalog_ids = cluster.catalog_id
     img = plt.imshow(cluster.footprint.cutout, origin="lower", extent=extent)
     markers = [".", "<", ">", "v", "^"]
@@ -122,6 +118,7 @@ def showCluster(
     cluster.extract(cell_data)
     x_offset = cell_data.min_pix[0] + extent[0]
     y_offset = cell_data.min_pix[1] + extent[2]
+    assert cluster.data is not None
     fp_x, fp_y = cluster.footprint_offset
     x_off = cluster.data.x_cell - fp_x
     y_off = cluster.data.y_cell - fp_y
@@ -136,7 +133,7 @@ def showCluster(
     if color_dict:
         display_colors = [color_dict[idx] for idx in i_cat]
     else:
-        display_colors = np.full(len(x_off), 1)
+        display_colors = [1.0] * len(x_off)
 
     img = plt.imshow(
         image[cluster.footprint.slice_x, cluster.footprint.slice_y].T,
@@ -187,6 +184,7 @@ def showObjects(
     """
     extent = cluster.footprint.extent()
     cluster.extract(cell_data)
+    assert cluster.data is not None
     x_offset = cell_data.min_pix[0]
     y_offset = cell_data.min_pix[1]
     fp_x, fp_y = cluster.footprint_offset
@@ -238,10 +236,9 @@ def showObjectsV2(
     """
     extent = cluster.footprint.extent()
     cluster.extract(cell_data)
-    x_offset = cell_data.min_pix[0]
-    y_offset = cell_data.min_pix[1]
-    x_off = cluster.x_pix - x_offset
-    y_off = cluster.y_pix - y_offset
+    assert cluster.data is not None
+    x_off = cluster.data.x_cell
+    y_off = cluster.data.y_cell
     img = plt.imshow(
         image[cluster.footprint.slice_x, cluster.footprint.slice_y],
         origin="lower",

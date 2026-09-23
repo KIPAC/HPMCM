@@ -140,10 +140,8 @@ class ObjectStatsTable(TableInterface):
             n_srcs[idx] = obj.n_src
             n_uniques[idx] = obj.n_unique
             dist_rms[idx] = obj.rms_dist
-            assert obj.data is not None
-            sum_snr = obj.data.snr.sum()
-            x_cents[idx] = np.sum(obj.data.snr * obj.data.x_cell) / sum_snr
-            y_cents[idx] = np.sum(obj.data.snr * obj.data.y_cell) / sum_snr
+            x_cents[idx] = obj.x_cent
+            y_cents[idx] = obj.y_cent
             snrs[idx] = obj.snr_mean
             snr_rms[idx] = obj.snr_rms
             has_ref_cat[idx] = obj.hasRefCatalog()
@@ -285,10 +283,8 @@ class ClusterStatsTable(TableInterface):
             n_uniques[idx] = cluster.n_unique
             n_objects[idx] = len(cluster.objects)
             dist_rms[idx] = cluster.rms_dist
-            assert cluster.data is not None
-            sum_snr = cluster.data.snr.sum()
-            x_cents[idx] = np.sum(cluster.data.snr * cluster.data.x_cell) / sum_snr
-            y_cents[idx] = np.sum(cluster.data.snr * cluster.data.y_cell) / sum_snr
+            x_cents[idx] = cluster.x_cent
+            y_cents[idx] = cluster.y_cent
             snrs[idx] = cluster.snr_mean
             snr_rms[idx] = cluster.snr_rms
             has_ref_cat[idx] = cluster.hasRefCatalog()

@@ -41,10 +41,10 @@ class ObjectData:
         Recursion level needed to make this object
 
     x_cent: float
-        X Centeroid of this object in global pixel coordinates
+        X centroid of this object in cell pixel coordinates
 
     y_cent: float
-        Y Centeroid of this object in global pixel coordinates
+        Y centroid of this object in cell pixel coordinates
 
     rms_dist: float
         RMS distance of sources to the centroid
@@ -89,13 +89,13 @@ class ObjectData:
 
     @property
     def x_pix(self) -> np.ndarray:
-        """Return the x-position of the sources within the cell"""
+        """Return the x-position of the sources in global WCS pixel coordinates"""
         assert self.data is not None
         return self.data.x_pix
 
     @property
     def y_pix(self) -> np.ndarray:
-        """Return the y-position of the sources within the cell"""
+        """Return the y-position of the sources in global WCS pixel coordinates"""
         assert self.data is not None
         return self.data.y_pix
 

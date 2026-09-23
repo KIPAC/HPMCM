@@ -106,6 +106,7 @@ class Match:
         self.cell_max_object: int = kwargs.get("cell_max_object", 100000)
         self.max_sub_division: int = kwargs.get("max_sub_division", 3)
         self.pixel_r2_cut: float = kwargs.get("pixel_r2_cut", 1.0)
+        self.n_cell_buffer: int =  kwargs.get("n_cell_buffer", 0)
         self.n_cell: np.ndarray = np.ceil(self.n_pix_side / self.cell_size)
 
         self.full_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()
@@ -212,7 +213,7 @@ class Match:
         """
         i_cell = self.getCellIdx(ix, iy)
         cell_step = np.array([self.cell_size, self.cell_size])
-        corner = np.array([ix - 1, iy - 1]) * cell_step
+        corner = np.array([ix - self.n_cell_buffer, iy - self.n_cell_buffer]) * cell_step
         id_offset = self.getIdOffset(ix, iy)
         cell_data = self._buildCellData(id_offset, corner, cell_step, i_cell)
         cell_data.reduceData(list(self.red_data.values()))
