@@ -226,12 +226,12 @@ class ShearHistograms:
         axes.stairs(
             self.good_delta_g_1_1[val_slice],
             self.bin_edges[edge_slice],
-            label=f"R_11: {stats_g_1.mean/shear:.4f} +- {stats_g_1.error/shear:.4f}",
+            label=f"R_11: {stats_g_1.mean / shear:.4f} +- {stats_g_1.error / shear:.4f}",
         )
         axes.stairs(
             self.good_delta_g_2_2[val_slice],
             self.bin_edges[edge_slice],
-            label=f"R_22: {stats_g_2.mean/shear:.4f} +- {stats_g_2.error/shear:.4f}",
+            label=f"R_22: {stats_g_2.mean / shear:.4f} +- {stats_g_2.error / shear:.4f}",
         )
         axes.axvline(x=stats_g_1.mean, color="blue", linestyle="-", linewidth=2)
         axes.axvline(x=stats_g_2.mean, color="orange", linestyle="-", linewidth=2)
@@ -298,12 +298,12 @@ class ShearHistograms:
         axes.stairs(
             (hist1p + hist1m)[val_slice],
             self.bin_edges[edge_slice],
-            label=f"R_11: {2*stats_g_1.mean/shear:.4f} +- {2*stats_g_1.error/shear:.4f}",
+            label=f"R_11: {2 * stats_g_1.mean / shear:.4f} +- {2 * stats_g_1.error / shear:.4f}",
         )
         axes.stairs(
             (hist2p + hist2m)[val_slice],
             self.bin_edges[edge_slice],
-            label=f"R_22: {2*stats_g_2.mean/shear:.4f} +- {2*stats_g_2.error/shear:.4f}",
+            label=f"R_22: {2 * stats_g_2.mean / shear:.4f} +- {2 * stats_g_2.error / shear:.4f}",
         )
         axes.set_xlabel("g")
         axes.set_ylabel("Counts")

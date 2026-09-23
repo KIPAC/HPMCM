@@ -112,6 +112,8 @@ class Match:
         self.red_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self.cell_dict: OrderedDict[int, CellData] = OrderedDict()
 
+        self.catalog_id_map: dict[int, int] = {}
+
     def pixToArcsec(self) -> float:
         """Convert pixel size (in degrees) to arcseconds"""
         return 3600.0 * self.pix_size
@@ -156,7 +158,8 @@ class Match:
         that can be used.   Otherwise it is fine just to give a range from
         0 to nInputs.
         """
-        for f_name, cid in zip(input_files, catalog_id):
+        for idx, (f_name, cid) in enumerate(zip(input_files, catalog_id)):
+            self.catalog_id_map[cid] = idx
             self.full_data[cid] = self._readDataFrame(f_name)
             self.red_data[cid] = self.reduceDataFrame(self.full_data[cid])
             self.full_data[cid].set_index("id", inplace=True)
@@ -302,6 +305,18 @@ class Match:
                 object_stats_tables.append(
                     output_tables.ObjectStatsTable.buildFromCellData(cell_data).data,
                 )
+            if ix == 0:
+                pass
+            elif ix % 10 == 0:
+                sys.stdout.write(f" {ix}!\n")
+                sys.stdout.flush()
+            else:
+                sys.stdout.write(".")
+                sys.stdout.flush()
+
+        sys.stdout.write(" Done!\n")
+        sys.stdout.flush()
+
         return [
             pandas.concat(cluster_assoc_tables),
             pandas.concat(object_assoc_tables),

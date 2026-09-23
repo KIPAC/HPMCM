@@ -96,13 +96,13 @@ def testShearMatch(setup_data: int) -> None:
     cluster = matcher.getCluster(cluster_lists["ideal"][0])
     obj = matcher.getObject(obj_lists["ideal"][0])
 
-    assert len(cluster.x_cluster)
-    assert len(cluster.y_cluster)
+    assert len(cluster.data.x_cell)
+    assert len(cluster.data.y_cell)
     assert len(cluster.x_pix)
     assert len(cluster.y_pix)
 
-    assert len(obj.x_cluster)
-    assert len(obj.y_cluster)
+    assert len(obj.data.x_cell)
+    assert len(obj.data.y_cell)
     assert len(obj.x_pix)
     assert len(obj.y_pix)
 

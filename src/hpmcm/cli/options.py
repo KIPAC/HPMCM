@@ -73,6 +73,7 @@ basefile = PartialOption(
     required=True,
 )
 
+
 catalog_type = PartialOption(
     "--catalog-type",
     help="Which type of catalog 'gauss', 'pgauss', 'wmom'",

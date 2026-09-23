@@ -266,11 +266,198 @@ def reduceObjectTable(
 
     tout["ra"] = tout["coord_ra"]
     tout["dec"] = tout["coord_dec"]
-    tout["snr"] = np.where(
-        np.isfinite(tout["r_gaapPsfFlux"]),
-        tout["r_gaapPsfFlux"] / tout["i_gaapPsfFluxErr"],
-        0,
-    )
+
+    snr = np.zeros(len(tout["i_gaapPsfFlux"]))
+    for band in "riz":
+        snr += np.where(
+            np.isfinite(tout[f"{band}_gaapPsfFlux"]),
+            tout[f"{band}_gaapPsfFlux"] / tout[f"{band}_gaapPsfFluxErr"],
+            0,
+        )
+    tout["snr"] = snr
     tout["id"] = tout["objectId"]
+
+    tout.to_parquet(outfile)
+
+
+def reduceAnacalTable(
+    basefile: str,
+    outfile: str,
+    extra_cols: list[str] | None = None,
+) -> None:  # pragma: no cover
+    """Reduce an object table to just the colums needed for matching
+
+    Parameters
+    ----------
+    basefile:
+        Original file name
+
+    outfile:
+        Output file name
+
+    extra_cols:
+        Extra columns to copy
+
+    Notes
+    -----
+    This will produce a DataFrame with at least these columns:
+
+    +-----------------------------+---------------------------------------------------------------+
+    | Column name                 | Description                                                   |
+    +=============================+===============================================================+
+    | id                          | source ID                                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | tract                       | Tract source was found in                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | patch                       | Patch source was found in                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | ra                          | RA in degrees                                                 |
+    +-----------------------------+---------------------------------------------------------------+
+    | dec                         | DEC in degress                                                |
+    +-----------------------------+---------------------------------------------------------------+
+    | snr                         | Signal-to-Noise of source, used for filtering and centroiding |
+    +-----------------------------+---------------------------------------------------------------+
+    | lsst_{band}_flux_gauss2     | Flux, for band in u,g,r,i,z,y                                 |
+    +-----------------------------+---------------------------------------------------------------+
+    | lsst_{band}_flux_gauss2_err | Flux error, for band in u,g,r,i,z,y                           |
+    +-----------------------------+---------------------------------------------------------------+
+
+    """
+    t = tables_io.read(basefile)
+    cols = ["tract_id", "patch_x", "patch_y", "ra", "dec", "object_id"]
+    cols += [f"lsst_{band}_flux_gauss2" for band in "riz"]
+    cols += [f"lsst_{band}_flux_gauss2_err" for band in "riz"]
+    if extra_cols is not None:
+        cols += extra_cols
+
+    tout = t[cols].copy(deep=True)
+
+    tout["tract"] = tout["tract_id"]
+    tout["patch"] = 20 * tout["patch_x"] + tout["patch_y"]
+
+    snr = np.zeros(len(tout["lsst_i_flux_gauss2_err"]))
+    for band in "riz":
+        snr += np.where(
+            np.isfinite(tout[f"lsst_{band}_flux_gauss2"]),
+            tout[f"lsst_{band}_flux_gauss2"] / tout[f"lsst_{band}_flux_gauss2_err"],
+            0,
+        )
+    tout["snr"] = snr
+    tout["id"] = tout["object_id"]
+
+    tout.to_parquet(outfile)
+
+
+def reduceRubinMDTable(
+    basefile: str,
+    outfile: str,
+    extra_cols: list[str] | None = None,
+) -> None:  # pragma: no cover
+    """Reduce an object table to just the colums needed for matching
+
+    Parameters
+    ----------
+    basefile:
+        Original file name
+
+    outfile:
+        Output file name
+
+    extra_cols:
+        Extra columns to copy
+
+    Notes
+    -----
+    This will produce a DataFrame with at least these columns:
+
+    +-----------------------------+---------------------------------------------------------------+
+    | Column name                 | Description                                                   |
+    +=============================+===============================================================+
+    | id                          | source ID                                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | tract                       | Tract source was found in                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | patch                       | Patch source was found in                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | ra                          | RA in degrees                                                 |
+    +-----------------------------+---------------------------------------------------------------+
+    | dec                         | DEC in degress                                                |
+    +-----------------------------+---------------------------------------------------------------+
+    | snr                         | Signal-to-Noise of source, used for filtering and centroiding |
+    +-----------------------------+---------------------------------------------------------------+
+    | {band}_gaussFlux            | Flux, for band in u,g,r,i,z,y                                 |
+    +-----------------------------+---------------------------------------------------------------+
+    | {band}_gaussFluxErr         | Flux error, for band in u,g,r,i,z,y                           |
+    +-----------------------------+---------------------------------------------------------------+
+
+    """
+    t = tables_io.read(basefile)
+    cols = ["tract", "patch", "ra", "dec", "shearObjectId", "gauss_snr"]
+    cols += [f"{band}_gaussFlux" for band in "griz"]
+    cols += [f"{band}_gaussFluxErr" for band in "griz"]
+    if extra_cols is not None:
+        cols += extra_cols
+
+    tout = t[cols].copy(deep=True)
+
+    tout["snr"] = tout["gauss_snr"]
+    tout["id"] = tout["shearObjectId"]
+
+    tout.to_parquet(outfile)
+
+
+def reduceDESCMDTable(
+    basefile: str,
+    outfile: str,
+    extra_cols: list[str] | None = None,
+) -> None:  # pragma: no cover
+    """Reduce an object table to just the colums needed for matching
+
+    Parameters
+    ----------
+    basefile:
+        Original file name
+
+    outfile:
+        Output file name
+
+    extra_cols:
+        Extra columns to copy
+
+    Notes
+    -----
+    This will produce a DataFrame with at least these columns:
+
+    +-----------------------------+---------------------------------------------------------------+
+    | Column name                 | Description                                                   |
+    +=============================+===============================================================+
+    | id                          | source ID                                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | tract                       | Tract source was found in                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | patch                       | Patch source was found in                                     |
+    +-----------------------------+---------------------------------------------------------------+
+    | ra                          | RA in degrees                                                 |
+    +-----------------------------+---------------------------------------------------------------+
+    | dec                         | DEC in degress                                                |
+    +-----------------------------+---------------------------------------------------------------+
+    | snr                         | Signal-to-Noise of source, used for filtering and centroiding |
+    +-----------------------------+---------------------------------------------------------------+
+    | {band}_gaussFlux            | Flux, for band in u,g,r,i,z,y                                 |
+    +-----------------------------+---------------------------------------------------------------+
+    | {band}_gaussFluxErr         | Flux error, for band in u,g,r,i,z,y                           |
+    +-----------------------------+---------------------------------------------------------------+
+
+    """
+    t = tables_io.read(basefile)
+    cols = ["patch_x", "patch_y", "ra", "dec", "id", "s2n"]
+    cols += [f"flux_{band}" for band in "riz"]
+    cols += [f"flux_err_{band}" for band in "riz"]
+    if extra_cols is not None:
+        cols += extra_cols
+
+    tout = t[cols].copy(deep=True)
+
+    tout["snr"] = tout["s2n"]
 
     tout.to_parquet(outfile)

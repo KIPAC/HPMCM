@@ -132,16 +132,14 @@ def shearMatchCommand(
 @shearGroup.command(name="split")
 @options.basefile()
 @options.tract()
-@options.catalog_type()
 @options.shear(required=True)
 def shearSplitCommand(
     basefile: str,
     tract: int,
     shear: float,
-    catalog_type: str,
 ) -> None:
     """Split input shear catalogs"""
-    hpmcm.shear_utils.splitByTypeAndClean(basefile, tract, shear, catalog_type)
+    hpmcm.shear_utils.splitByTypeAndClean(basefile, tract, shear)
 
 
 @shearGroup.command(name="report")

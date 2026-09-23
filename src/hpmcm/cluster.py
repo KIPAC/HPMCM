@@ -94,9 +94,6 @@ class ClusterData:
         """Extract the x_pix, y_pix and snr data from
         the sources in this cluster
         """
-        x_offset = self.footprint.slice_x.start * self.pixel_match_scale
-        y_offset = self.footprint.slice_y.start * self.pixel_match_scale
-
         series_list = []
 
         for _i, (i_cat_, src_idx_) in enumerate(zip(self.sources[0], self.sources[2])):
@@ -106,8 +103,6 @@ class ClusterData:
         self.data["i_cat"] = self.sources[0]
         self.data["src_id"] = self.sources[1]
         self.data["src_idx"] = self.sources[2]
-        self.data["x_cluster"] = self.data.x_cell - x_offset
-        self.data["y_cluster"] = self.data.y_cell - y_offset
 
     @property
     def catalog_id(self) -> np.ndarray:
@@ -131,17 +126,22 @@ class ClusterData:
         """Is there a source from the reference catalog"""
         return ref_cat_id in self.sources[0]
 
-    @property
-    def x_cluster(self) -> np.ndarray:
-        """Return the x-positions of the soures w.r.t. the footprint"""
-        assert self.data is not None
-        return self.data.x_cluster
+    def catalogMask(self, cat_map: dict[int, int]) -> int:
+        """Make a bit mask of which catalogs are in this object"""
+        unmapped = np.unique(self.catalog_id)
+        mapped_bits = set(cat_map[val] for val in unmapped)
+        ret_val = 0
+        for set_bit in mapped_bits:
+            ret_val += 1 << set_bit
+        return ret_val
 
     @property
-    def y_cluster(self) -> np.ndarray:
-        """Return the y-positions of the soures w.r.t. the footprint"""
-        assert self.data is not None
-        return self.data.y_cluster
+    def footprint_offset(self) -> tuple[float, float]:
+        """Return the (x, y) pixel offset of the footprint origin within the cell"""
+        return (
+            self.footprint.slice_x.start * self.pixel_match_scale,
+            self.footprint.slice_y.start * self.pixel_match_scale,
+        )
 
     @property
     def x_pix(self) -> np.ndarray:
