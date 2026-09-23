@@ -30,16 +30,39 @@ DESHEAR_COEFFS = np.array(
 )
 
 # These parameters will have to change if the cells change
+PIXEL_OFFSET = 0.5
 CELL_INNER_SIZE = 150
-CELL_BUFFER = 25
-CELL_OFFSET = 0.5
-N_PATCH = 20
+CELL_BUFFER = 50
+CELL_INNER_BUFFER = 5  # extra pixels beyond inner region retained in uncleaned catalogs
+N_CELL_IN_PATCH = 20
+N_CELL_PATCH_BUFFER = 1
 
 # These are calculated from the above
 CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
-CLEAN_CELL_CUT = int(CELL_INNER_SIZE) / 2
-UNCLEAN_CELL_CUT = CLEAN_CELL_CUT + 5
-PATCH_OFFSET = (N_PATCH + 1) / 2
+PATCH_OFFSET = (N_CELL_IN_PATCH + N_CELL_PATCH_BUFFER) / 2
+
+
+def innerCellMask(df: pandas.DataFrame) -> np.ndarray:
+    """Return a boolean mask selecting sources within the inner cell region.
+
+    The inner region spans [CELL_BUFFER, CELL_BUFFER + CELL_INNER_SIZE) in both
+    x_cell and y_cell, where x_cell = 0 is the outer edge of the cell.
+
+    Parameters
+    ----------
+    df:
+        DataFrame with x_cell and y_cell columns in the cell frame
+
+    Returns
+    -------
+    Boolean array, True for sources within the inner cell region
+    """
+    return (
+        (df["x_cell"].values >= CELL_BUFFER)
+        & (df["x_cell"].values < CELL_BUFFER + CELL_INNER_SIZE)
+        & (df["y_cell"].values >= CELL_BUFFER)
+        & (df["y_cell"].values < CELL_BUFFER + CELL_INNER_SIZE)
+    )
 
 
 def shearStats(df: pandas.DataFrame) -> dict:
@@ -187,7 +210,7 @@ def mergeShearReports(
     out_df.to_parquet(output_file)
 
 
-def splitByTypeAndClean(
+def splitRubinMDByTypeAndClean(
     basefile: str,
     tract: int,
     shear: float,
@@ -237,79 +260,161 @@ def splitByTypeAndClean(
 
     """
     p = tables_io.read(basefile)
-    if clean:
-        clean_st = "cleaned"
-        cell_cut = CLEAN_CELL_CUT
-    else:
-        clean_st = "uncleaned"
-        cell_cut = UNCLEAN_CELL_CUT
+    clean_st = "cleaned" if clean else "uncleaned"
+
     for type_ in SHEAR_NAMES:
-        try:
-            mask = p["mcal_step"] == type_
-        except KeyError:
-            mask = p["metaStep"] == type_
+        mask = p["metaStep"] == type_
         sub = p[mask]
 
         # Filter on tract and patch centrality before computing derived columns
-        try:
-            right_tract = sub["tract"] == tract
-        except KeyError:
-            right_tract = np.ones(len(sub)).astype(bool)
-        try:
-            central_to_patch = (
-                np.fabs(sub["cell_i"].values - PATCH_OFFSET) < (N_PATCH / 2)
-            ) & (np.fabs(sub["cell_j"].values - PATCH_OFFSET) < (N_PATCH / 2))
-        except KeyError:
-            central_to_patch = (
-                np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_PATCH / 2)
-            ) & (np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_PATCH / 2))
+        right_tract = sub["tract"] == tract
+        central_to_patch = (
+            np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2)
+        ) & (np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2))
+
+        print(f"Centeral to patch {central_to_patch.sum()} {len(central_to_patch)}")
         sub = sub[right_tract & central_to_patch].copy(deep=True)
 
         if "patch_x" not in sub.columns:
             sub["patch_x"] = sub["patch"] % 10
             sub["patch_y"] = sub["patch"] // 10
 
-        try:
-            cell_idx_x = (
-                N_PATCH * sub["patch_x"].values + sub["cell_j"].values
-            ).astype(int)
-            cell_idx_y = (
-                N_PATCH * sub["patch_y"].values + sub["cell_i"].values
-            ).astype(int)
-        except KeyError:
-            cell_idx_x = (
-                N_PATCH * sub["patch_x"].values + sub["cell_x"].values
-            ).astype(int)
-            cell_idx_y = (
-                N_PATCH * sub["patch_y"].values + sub["cell_y"].values
-            ).astype(int)
-        cent_x = CELL_INNER_SIZE * (cell_idx_x - CELL_OFFSET)
-        cent_y = CELL_INNER_SIZE * (cell_idx_y - CELL_OFFSET)
-        x_cell_coadd = sub["x"].values - cent_x
-        y_cell_coadd = sub["y"].values - cent_y
+        cell_idx_x = (
+            N_CELL_IN_PATCH * sub["patch_x"].values + sub["cell_x"].values
+        ).astype(int)
+        cell_idx_y = (
+            N_CELL_IN_PATCH * sub["patch_y"].values + sub["cell_y"].values
+        ).astype(int)
 
-        central_to_cell = (np.fabs(x_cell_coadd) < cell_cut) & (
-            np.fabs(y_cell_coadd) < cell_cut
+        # x_cell_coadd = 0 at the left edge of the inner region (cell_idx * CELL_INNER_SIZE)
+        x_cell_coadd = sub["x"].values - cell_idx_x * CELL_INNER_SIZE
+        y_cell_coadd = sub["y"].values - cell_idx_y * CELL_INNER_SIZE
+
+        buf = 0 if clean else CELL_INNER_BUFFER
+        central_to_cell = (
+            (x_cell_coadd >= -buf)
+            & (x_cell_coadd < CELL_INNER_SIZE + buf)
+            & (y_cell_coadd >= -buf)
+            & (y_cell_coadd < CELL_INNER_SIZE + buf)
         )
+        print(f"Centeral to cell {central_to_cell.sum()} {len(central_to_cell)}")
+
         cleaned = sub[central_to_cell].copy(deep=True)
 
         cleaned["x_cell_coadd"] = x_cell_coadd[central_to_cell]
         cleaned["y_cell_coadd"] = y_cell_coadd[central_to_cell]
-        cleaned["x_pix"] = cleaned["x"] + CELL_BUFFER
-        cleaned["y_pix"] = cleaned["y"] + CELL_BUFFER
+        cleaned["x_pix"] = cleaned["x"]
+        cleaned["y_pix"] = cleaned["y"]
         cleaned["cell_idx_x"] = cell_idx_x[central_to_cell]
         cleaned["cell_idx_y"] = cell_idx_y[central_to_cell]
-        if "id" in cleaned.columns:
-            cleaned["orig_id"] = cleaned["id"]
-        else:
-            cleaned["orig_id"] = cleaned["shearObjectId"]
-        cleaned["id"] = np.arange(len(cleaned))
+        cleaned["id"] = cleaned["shearObjectId"]
         cleaned["shear"] = shear
         cleaned["meta_step"] = np.full(len(cleaned), type_)
         cleaned.to_parquet(
             basefile.replace(".parq", f"_{clean_st}_{tract}_{type_}.parq")
         )
 
+
+def splitDESCMDByTypeAndClean(
+    basefile: str,
+    tract: int,
+    shear: float,
+    *,
+    clean: bool = False,
+) -> None:  # pragma: no cover
+    """Split a parquet file by shear catalog type and tract
+
+    Parameters
+    ----------
+    basefile:
+        Original file name
+
+    tract:
+        Tract to select
+
+    shear:
+        Applied shear, saved to output
+
+    clean:
+        Remove duplicates
+
+    Notes
+    -----
+    This will create 5 files with the pattern:
+    "{basefile}_uncleaned_{tract}_{type}.pq"
+
+    +--------------+-------------------------------------+
+    | Column       | Description                         |
+    +==============+=====================================+
+    | id           | Index of object inside catalog      |
+    +--------------+-------------------------------------+
+    | orig_id      | Original object id                  |
+    +--------------+-------------------------------------+
+    | cell_idx_x   | X-index of Cell                     |
+    +--------------+-------------------------------------+
+    | cell_idx_y   | Y-index of Cell                     |
+    +--------------+-------------------------------------+
+    | x_cell_coadd | X-coordinate in cell frame          |
+    +--------------+-------------------------------------+
+    | y_cell_coadd | Y-coordinate in cell frame          |
+    +--------------+-------------------------------------+
+    | x_pix        | X-coordinate in global WCS frame    |
+    +--------------+-------------------------------------+
+    | y_pix        | Y-coordinate in global WCS frame    |
+    +--------------+-------------------------------------+
+
+    """
+    p = tables_io.read(basefile)
+    clean_st = "cleaned" if clean else "uncleaned"
+    for type_ in SHEAR_NAMES:
+        mask = p["mcal_step"] == type_
+        sub = p[mask]
+
+        # Filter on tract and patch centrality before computing derived columns
+        right_tract = np.ones(len(sub)).astype(bool)
+        central_to_patch = (
+            np.fabs(sub["cell_i"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2)
+        ) & (np.fabs(sub["cell_j"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2))
+        print(f"Centeral to patch {central_to_patch.sum()} {len(central_to_patch)}")
+        sub = sub[right_tract & central_to_patch].copy(deep=True)
+
+        cell_idx_x = (
+            N_CELL_IN_PATCH * sub["patch_x"].values + sub["cell_j"].values
+        ).astype(int)
+        cell_idx_y = (
+            N_CELL_IN_PATCH * sub["patch_y"].values + sub["cell_i"].values
+        ).astype(int)
+
+        # xcell is outer-edge referenced (0 to CELL_OUTER_SIZE); subtract CELL_BUFFER
+        # so that x_cell_coadd = 0 at the left edge of the inner region
+        x_cell_coadd = sub["xcell"].values - CELL_BUFFER
+        y_cell_coadd = sub["ycell"].values - CELL_BUFFER
+
+        buf = 0 if clean else CELL_INNER_BUFFER
+        central_to_cell = (
+            (x_cell_coadd >= -buf)
+            & (x_cell_coadd < CELL_INNER_SIZE + buf)
+            & (y_cell_coadd >= -buf)
+            & (y_cell_coadd < CELL_INNER_SIZE + buf)
+        )
+        print(f"Centeral to cell {central_to_cell.sum()} {len(central_to_cell)}")
+            
+        cleaned = sub[central_to_cell].copy(deep=True)
+        
+        cleaned["x_cell_coadd"] = x_cell_coadd[central_to_cell]
+        cleaned["y_cell_coadd"] = y_cell_coadd[central_to_cell]
+        cleaned["x_pix"] = cleaned["x"]
+        cleaned["y_pix"] = cleaned["y"]
+        cleaned["cell_idx_x"] = cell_idx_x[central_to_cell]
+        cleaned["cell_idx_y"] = cell_idx_y[central_to_cell]
+        cleaned["id"] = np.arange(len(cleaned))
+        cleaned["shear"] = shear
+        cleaned["meta_step"] = np.full(len(cleaned), type_)
+        cleaned.to_parquet(
+            basefile.replace(".parq", f"_{clean_st}_{tract}_{type_}.parq")
+        )
+        
+        
 
 def reduceShearDataForCell(
     cell: CellData, i_cat: int, dataframe: pandas.DataFrame
@@ -388,8 +493,8 @@ def reduceShearDataForCell(
         x_pix = x_pix_orig
         y_pix = y_pix_orig
 
-    x_cell = (x_cell + (CELL_OUTER_SIZE / 2)) / matcher.pixel_match_scale
-    y_cell = (y_cell + (CELL_OUTER_SIZE / 2)) / matcher.pixel_match_scale
+    x_cell = (x_cell + CELL_BUFFER) / matcher.pixel_match_scale
+    y_cell = (y_cell + CELL_BUFFER) / matcher.pixel_match_scale
     filtered_bounds = (
         (x_cell >= 0)
         & (x_cell < cell.n_pix[0])

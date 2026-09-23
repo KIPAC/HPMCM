@@ -13,7 +13,6 @@ __all__ = [
     "wcsMatchCommand",
     "shearGroup",
     "shearMatchCommand",
-    "shearSplitCommand",
     "shearReportCommand",
 ]
 
@@ -129,17 +128,30 @@ def shearMatchCommand(
     print("Success!")
 
 
-@shearGroup.command(name="split")
+@shearGroup.command(name="split-rubin")
 @options.basefile()
 @options.tract()
 @options.shear(required=True)
-def shearSplitCommand(
+def shearSplitRubinCommand(
     basefile: str,
     tract: int,
     shear: float,
 ) -> None:
     """Split input shear catalogs"""
-    hpmcm.shear_utils.splitByTypeAndClean(basefile, tract, shear)
+    hpmcm.shear_utils.splitRubinMDByTypeAndClean(basefile, tract, shear)
+
+
+@shearGroup.command(name="split-desc")
+@options.basefile()
+@options.tract()
+@options.shear(required=True)
+def shearSplitDESCCommand(
+    basefile: str,
+    tract: int,
+    shear: float,
+) -> None:
+    """Split input shear catalogs"""
+    hpmcm.shear_utils.splitDESCMDByTypeAndClean(basefile, tract, shear)
 
 
 @shearGroup.command(name="report")

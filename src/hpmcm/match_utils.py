@@ -52,8 +52,8 @@ def heirarchicalProcessObject(
 
     assert obj_data.data is not None
     if obj_data.mask.sum() == 1:
-        obj_data.x_cent = obj_data.data.x_pix.values[0]
-        obj_data.y_cent = obj_data.data.y_pix.values[0]
+        obj_data.x_cent = obj_data.data.x_cell.values[0]
+        obj_data.y_cent = obj_data.data.y_cell.values[0]
         obj_data.dist_2 = np.zeros((1), float)
         obj_data.rms_dist = 0.0
         obj_data.snr_mean = obj_data.data.snr.values[0]
@@ -61,11 +61,11 @@ def heirarchicalProcessObject(
         return
 
     sum_snr = np.sum(obj_data.data.snr)
-    obj_data.x_cent = np.sum(obj_data.data.x_pix * obj_data.data.snr) / sum_snr
-    obj_data.y_cent = np.sum(obj_data.data.y_pix * obj_data.data.snr) / sum_snr
+    obj_data.x_cent = np.sum(obj_data.data.x_cell * obj_data.data.snr) / sum_snr
+    obj_data.y_cent = np.sum(obj_data.data.y_cell * obj_data.data.snr) / sum_snr
     obj_data.dist_2 = np.array(
-        (obj_data.x_cent - obj_data.data.x_pix) ** 2
-        + (obj_data.y_cent - obj_data.data.y_pix) ** 2
+        (obj_data.x_cent - obj_data.data.x_cell) ** 2
+        + (obj_data.y_cent - obj_data.data.y_cell) ** 2
     )
     obj_data.rms_dist = np.sqrt(np.mean(obj_data.dist_2))
     obj_data.snr_mean = np.mean(obj_data.data.snr.values)
@@ -202,8 +202,8 @@ def heirarchicalProcessCluster(
         return cluster.objects
 
     if cluster.n_src == 1:
-        cluster.x_cent = cluster.data.x_pix.values[0]
-        cluster.y_cent = cluster.data.y_pix.values[0]
+        cluster.x_cent = cluster.data.x_cell.values[0]
+        cluster.y_cent = cluster.data.y_cell.values[0]
         cluster.dist_2 = np.zeros((1))
         cluster.rms_dist = 0.0
         cluster.snr_mean = cluster.data.snr.values[0]
@@ -213,10 +213,10 @@ def heirarchicalProcessCluster(
         return cluster.objects
 
     sum_snr = np.sum(cluster.data.snr)
-    cluster.x_cent = np.sum(cluster.data.x_pix * cluster.data.snr) / sum_snr
-    cluster.y_cent = np.sum(cluster.data.y_pix * cluster.data.snr) / sum_snr
-    cluster.dist_2 = (cluster.x_cent - cluster.data.x_pix) ** 2 + (
-        cluster.y_cent - cluster.data.y_pix
+    cluster.x_cent = np.sum(cluster.data.x_cell * cluster.data.snr) / sum_snr
+    cluster.y_cent = np.sum(cluster.data.y_cell * cluster.data.snr) / sum_snr
+    cluster.dist_2 = (cluster.x_cent - cluster.data.x_cell) ** 2 + (
+        cluster.y_cent - cluster.data.y_cell
     ) ** 2
     cluster.rms_dist = np.sqrt(np.mean(cluster.dist_2))
     cluster.snr_mean = np.mean(cluster.data.snr.values)

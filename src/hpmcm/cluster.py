@@ -43,10 +43,10 @@ class ClusterData:
         Data about the objects in this cluster
 
     x_cent : float
-        X-pixel value of cluster centroid (in WCS used to do matching)
+        X-pixel value of cluster centroid in cell coordinates
 
     y_cent : float
-        Y-pixel value of cluster centroid (in WCS used to do matching)
+        Y-pixel value of cluster centroid in cell coordinates
 
     rms_dist: float
         RMS distance of sources to the centroid
@@ -145,13 +145,13 @@ class ClusterData:
 
     @property
     def x_pix(self) -> np.ndarray:
-        """Return the x-positions of the soures w.r.t. the WCS"""
+        """Return the x-positions of the sources in global WCS pixel coordinates"""
         assert self.data is not None
         return self.data.x_pix
 
     @property
     def y_pix(self) -> np.ndarray:
-        """Return the x-positions of the soures w.r.t. the WCS"""
+        """Return the y-positions of the sources in global WCS pixel coordinates"""
         assert self.data is not None
         return self.data.y_pix
 

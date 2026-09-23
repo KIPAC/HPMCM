@@ -264,8 +264,10 @@ class CellData:
     def getRaDec(
         self, x_cents: np.ndarray, y_cents: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Return the RA, DEC of based from pixel coords"""
-        return self.matcher.pixToWorld(x_cents, y_cents)
+        """Return the RA, DEC from cell-relative pixel coordinates"""
+        return self.matcher.pixToWorld(
+            x_cents + self.min_pix[0], y_cents + self.min_pix[1]
+        )
 
 
 class ShearCellData(CellData):
