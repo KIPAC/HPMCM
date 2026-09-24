@@ -481,6 +481,7 @@ def deshearSourcesForCell(
     deshear: float | None,
     pixel_match_scale: int = 1,
     cell_buffer: int = DEFAULT_GEOMETRY.cell_buffer,
+    cell_inner_size: int = DEFAULT_GEOMETRY.cell_inner_size,
 ) -> pandas.DataFrame:
     """Filter and deshear sources belonging to a specific cell.
 
@@ -508,8 +509,11 @@ def deshearSourcesForCell(
         Pixel binning factor used in the counts map.
 
     cell_buffer:
-        Buffer in pixels around the inner cell region; shifts x_cell_coadd
-        so that x_cell = 0 at the outer edge of the cell.
+        Buffer in pixels around the inner cell region.
+
+    cell_inner_size:
+        Size of the inner cell region in coadd pixels. Used to locate the
+        cell centre, about which the shear transformation is applied.
 
     Returns
     -------
@@ -519,9 +523,14 @@ def deshearSourcesForCell(
 
     Notes
     -----
-    x_cell and y_cell are in the cell frame: x_cell = 0 at the outer edge,
-    x_cell = cell_buffer at the inner edge. No bounds filtering is applied;
-    call reduceShearDataForCell to also filter to the cell footprint.
+    The deshear correction is applied relative to the centre of the inner
+    cell region (x_cell_coadd = cell_inner_size / 2), so sources at the
+    centre receive zero correction and the maximum correction magnitude is
+    |deshear| * cell_inner_size / 2 at the inner edges. The final x_cell
+    values therefore remain close to the undesheared positions.
+    x_cell and y_cell are in counts-map pixel space (x_cell = 0 at the
+    outer edge; x_cell = cell_buffer at the inner left edge).
+    No bounds filtering is applied; call reduceShearDataForCell for that.
     """
     if shear_name not in SHEAR_NAMES:
         raise ValueError(f"shear_name must be one of {SHEAR_NAMES}, got {shear_name!r}")
@@ -536,13 +545,17 @@ def deshearSourcesForCell(
     x_pix_orig = reduced["x_pix"].values
     y_pix_orig = reduced["y_pix"].values
 
+    # Shear is applied relative to the centre of the inner cell region
+    x_centre = x_cell_orig - cell_inner_size / 2
+    y_centre = y_cell_orig - cell_inner_size / 2
+
     coeffs = DESHEAR_COEFFS[SHEAR_NAMES.index(shear_name)]
     if deshear is not None:
         dx_shear: np.ndarray = deshear * (
-            x_cell_orig * coeffs[0] + y_cell_orig * coeffs[2]
+            x_centre * coeffs[0] + y_centre * coeffs[2]
         )
         dy_shear: np.ndarray = deshear * (
-            x_cell_orig * coeffs[1] + y_cell_orig * coeffs[3]
+            x_centre * coeffs[1] + y_centre * coeffs[3]
         )
         x_cell = x_cell_orig + dx_shear
         y_cell = y_cell_orig + dy_shear
@@ -614,15 +627,16 @@ def reduceShearDataForCell(
         deshear=matcher.deshear,
         pixel_match_scale=matcher.pixel_match_scale,
         cell_buffer=geometry.cell_buffer,
+        cell_inner_size=geometry.cell_inner_size,
     )
 
-    filtered_bounds = (
+    in_bounds = (
         (red["x_cell"] >= 0)
         & (red["x_cell"] < cell.n_pix[0])
         & (red["y_cell"] >= 0)
         & (red["y_cell"] < cell.n_pix[1])
     )
-    return red[filtered_bounds]
+    return red[in_bounds]
 
 
 def makeMatchedShearSourceCatalogs(
