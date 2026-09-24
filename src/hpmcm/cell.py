@@ -295,7 +295,9 @@ class ShearCellData(CellData):
         self, i_cat: int, dataframe: pandas.DataFrame
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
-        return shear_utils.reduceShearDataForCell(self, i_cat, dataframe)
+        return shear_utils.reduceShearDataForCell(
+            self, shear_utils.SHEAR_NAMES[i_cat], dataframe
+        )
 
     @classmethod
     def _newObject(

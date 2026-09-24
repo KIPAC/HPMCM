@@ -8,13 +8,7 @@ import pandas
 from . import input_tables, output_tables
 from .cell import CellData, ShearCellData
 from .match import Match
-
-
-# These parameters will have to change if the cells change
-TRACT_SIZE = np.array([30000, 30000])
-PIXEL_SIZE = 0.2 / 3600.0
-CELL_INNER_SIZE = 150
-CELL_BUFFER = 25
+from .shear_utils import DEFAULT_GEOMETRY, ShearCellGeometry
 
 
 class ShearMatch(Match):
@@ -124,6 +118,7 @@ class ShearMatch(Match):
     @classmethod
     def createShearMatch(
         cls,
+        geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
         **kwargs: Any,
     ) -> ShearMatch:
         """Helper function to create a `ShearMatch` object
@@ -133,22 +128,25 @@ class ShearMatch(Match):
 
         Parameters
         ----------
+        geometry:
+            Cell geometry and WCS matching configuration.
         kwargs:
-            Passed directly to `ShearMatch` constructor.
+            Additional keyword arguments passed to the `ShearMatch` constructor,
+            overriding values derived from geometry.
 
         Returns
         -------
         Object to create matches for the requested region
         """
-        n_pix = TRACT_SIZE
         kw = dict(
-            pixel_size=PIXEL_SIZE,
-            n_pixels=n_pix,
-            cell_size=CELL_INNER_SIZE,
-            cell_buffer=CELL_BUFFER,
+            pixel_size=geometry.pixel_size,
+            n_pixels=geometry.tract_size,
+            cell_size=geometry.cell_inner_size,
+            cell_buffer=geometry.match_buffer,
             cell_max_object=1000,
         )
-        return cls(**kw, **kwargs)
+        kw.update(kwargs)
+        return cls(**kw)
 
     def getCellIndices(
         self,
