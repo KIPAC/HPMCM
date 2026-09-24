@@ -96,8 +96,10 @@ class ObjectStatsTable(TableInterface):
         ),
         ra=TableColumnInfo(float, "RA of object centroid"),
         dec=TableColumnInfo(float, "DEC of object centroid"),
-        x_cent=TableColumnInfo(float, "X-value of cluster centroid in WCS pixels"),
-        y_cent=TableColumnInfo(float, "Y-value of cluster centroid in WCS pixels"),
+        x_cent=TableColumnInfo(float, "X-value of object centroid in cell pixels"),
+        y_cent=TableColumnInfo(float, "Y-value of object centroid in cell pixels"),
+        x_pix=TableColumnInfo(float, "X-value of object centroid in global WCS pixels"),
+        y_pix=TableColumnInfo(float, "Y-value of object centroid in global WCS pixels"),
         snr=TableColumnInfo(float, "Mean signal-to-noise ratio"),
         snr_rms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
@@ -147,6 +149,8 @@ class ObjectStatsTable(TableInterface):
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
+        x_pix = x_cents + cell_data.min_pix[0]
+        y_pix = y_cents + cell_data.min_pix[1]
 
         return ObjectStatsTable(
             cluster_id=cluster_ids,
@@ -158,6 +162,8 @@ class ObjectStatsTable(TableInterface):
             dec=dec,
             x_cent=x_cents,
             y_cent=y_cents,
+            x_pix=x_pix,
+            y_pix=y_pix,
             snr=snrs,
             snr_rms=snr_rms,
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
@@ -237,10 +243,12 @@ class ClusterStatsTable(TableInterface):
         dist_rms=TableColumnInfo(
             float, "RMS of distance from sources to object centroid"
         ),
-        ra=TableColumnInfo(float, "RA of object centroid"),
-        dec=TableColumnInfo(float, "DEC of object centroid"),
-        x_cent=TableColumnInfo(float, "X-value of cluster centroid in WCS pixels"),
-        y_cent=TableColumnInfo(float, "Y-value of cluster centroid in WCS pixels"),
+        ra=TableColumnInfo(float, "RA of cluster centroid"),
+        dec=TableColumnInfo(float, "DEC of cluster centroid"),
+        x_cent=TableColumnInfo(float, "X-value of cluster centroid in cell pixels"),
+        y_cent=TableColumnInfo(float, "Y-value of cluster centroid in cell pixels"),
+        x_pix=TableColumnInfo(float, "X-value of cluster centroid in global WCS pixels"),
+        y_pix=TableColumnInfo(float, "Y-value of cluster centroid in global WCS pixels"),
         snr=TableColumnInfo(float, "Mean signal-to-noise ratio"),
         snr_rms=TableColumnInfo(float, "RMS signal-to-noise ratio"),
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
@@ -290,6 +298,8 @@ class ClusterStatsTable(TableInterface):
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
+        x_pix = x_cents + cell_data.min_pix[0]
+        y_pix = y_cents + cell_data.min_pix[1]
 
         return ClusterStatsTable(
             cluster_id=cluster_ids,
@@ -301,6 +311,8 @@ class ClusterStatsTable(TableInterface):
             dec=dec,
             x_cent=x_cents,
             y_cent=y_cents,
+            x_pix=x_pix,
+            y_pix=y_pix,
             snr=snrs,
             snr_rms=snr_rms,
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
