@@ -170,6 +170,7 @@ class WcsMatch(Match):
         )
         df_clean["x_pix"] = x_pix
         df_clean["y_pix"] = y_pix
+
         filtered = (
             (df_clean.x_pix >= 0)
             & (df_clean.x_pix < self.n_pix_side[0])
