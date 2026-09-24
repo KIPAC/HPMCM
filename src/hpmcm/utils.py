@@ -333,7 +333,6 @@ def reduceAnacalTable(
     tout = t[cols].copy(deep=True)
 
     tout["tract"] = tout["tract_id"]
-    tout["patch"] = 20 * tout["patch_x"] + tout["patch_y"]
 
     snr = np.zeros(len(tout["lsst_i_flux_gauss2_err"]))
     for band in "riz":
@@ -392,7 +391,12 @@ def reduceRubinMDTable(
 
     """
     t = tables_io.read(basefile)
-    cols = ["tract", "patch", "ra", "dec", "shearObjectId", "gauss_snr"]
+    cols = [
+        "tract", "ra", "dec", "shearObjectId", "gauss_snr",
+        "patch_x", "patch_y", "x_cell_coadd", "y_cell_coadd",
+        "x_pix", "y_pix", "cell_idx_x", "cell_idx_y",
+        "id", "shear", "meta_step",
+    ]
     cols += [f"{band}_gaussFlux" for band in "griz"]
     cols += [f"{band}_gaussFluxErr" for band in "griz"]
     if extra_cols is not None:
@@ -401,7 +405,6 @@ def reduceRubinMDTable(
     tout = t[cols].copy(deep=True)
 
     tout["snr"] = tout["gauss_snr"]
-    tout["id"] = tout["shearObjectId"]
 
     tout.to_parquet(outfile)
 
@@ -450,7 +453,11 @@ def reduceDESCMDTable(
 
     """
     t = tables_io.read(basefile)
-    cols = ["patch_x", "patch_y", "ra", "dec", "id", "s2n"]
+    cols = [
+        "patch_x", "patch_y", "ra", "dec", "id", "s2n",
+        "x_cell_coadd", "y_cell_coadd", "x_pix", "y_pix",
+        "cell_idx_x", "cell_idx_y", "shear", "meta_step",
+    ]
     cols += [f"flux_{band}" for band in "riz"]
     cols += [f"flux_err_{band}" for band in "riz"]
     if extra_cols is not None:
