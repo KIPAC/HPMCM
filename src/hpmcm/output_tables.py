@@ -8,13 +8,11 @@ import numpy as np
 
 from .cluster import ShearClusterData
 from .object import ShearObjectData
+from .shear_utils import SHEAR_NAMES
 from .table import TableColumnInfo, TableInterface
 
 if TYPE_CHECKING:
     from .cell import CellData
-
-
-SHEAR_NAMES = ["ns", "2p", "2m", "1p", "1m"]
 
 
 class ObjectAssocTable(TableInterface):

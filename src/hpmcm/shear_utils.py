@@ -112,17 +112,25 @@ def innerCellMask(
     )
 
 
-def shearStats(df: pandas.DataFrame) -> dict:
+def shearStats(
+    df: pandas.DataFrame,
+    shear_names: list[str] = SHEAR_NAMES,
+) -> dict:
     """Return the shear statistics
 
-    {st} is the shear catalog name, one of "ns", "2p", "2m", "1p", "1m"
+    {st} is a shear catalog name drawn from shear_names.
 
-    {i}, {j} index the shear parameters 1, 2
+    {i}, {j} index the shear parameters 1, 2.
 
     Parameters
     ----------
     df:
-        Input DataFrame, must have :py:class:`hpmcm.ShearTable` schema
+        Input DataFrame, must have :py:class:`hpmcm.ShearTable` schema.
+
+    shear_names:
+        Ordered list of active catalog names. Defaults to all five
+        (SHEAR_NAMES). Pass ["ns", "1p", "1m"] for 3-catalog mode.
+        i_cat values in df correspond to positions in this list.
 
     Returns
     -------
@@ -130,7 +138,10 @@ def shearStats(df: pandas.DataFrame) -> dict:
 
     Notes
     -----
-    Shear stats include:
+    All keys from the full SHEAR_NAMES schema are always present in the
+    output. Inactive catalogs (not in shear_names) have n=0 and g=nan.
+    delta_g_{i}_1 is computed when "1p" and "1m" are both active;
+    delta_g_{i}_2 when "2p" and "2m" are both active; nan otherwise.
 
     +-----------------+-----------------------------------------------------+
     | Key             | Description                                         |
@@ -141,19 +152,22 @@ def shearStats(df: pandas.DataFrame) -> dict:
     +-----------------+-----------------------------------------------------+
     | delta_g_{i}_{j} | g_{i,j} shear measurement: g_{i}_{j}p - g_{i}_{j}m  |
     +-----------------+-----------------------------------------------------+
-    | good            | True if every catalog has one source in this object |
+    | good            | True if every active catalog has one source         |
     +-----------------+-----------------------------------------------------+
-
-    If the matching is not good, then delta_g_1 = delta_g_2 = np.nan
     """
-    # Extract arrays once to avoid repeated DataFrame indexing
     i_cat_arr = df["i_cat"].values
     g_1_arr = df["g_1"].values
     g_2_arr = df["g_2"].values
 
+    # Pre-fill all schema keys so output is always schema-compatible
     out_dict: dict[str, float | int] = {}
+    for name_ in SHEAR_NAMES:
+        out_dict[f"n_{name_}"] = 0
+        out_dict[f"g_1_{name_}"] = np.nan
+        out_dict[f"g_2_{name_}"] = np.nan
+
     all_good = True
-    for i, name_ in enumerate(SHEAR_NAMES):
+    for i, name_ in enumerate(shear_names):
         mask = i_cat_arr == i
         n_cat = int(mask.sum())
         if n_cat != 1:
@@ -162,19 +176,19 @@ def shearStats(df: pandas.DataFrame) -> dict:
         if n_cat:
             out_dict[f"g_1_{name_}"] = float(g_1_arr[mask].mean())
             out_dict[f"g_2_{name_}"] = float(g_2_arr[mask].mean())
-        else:
-            out_dict[f"g_1_{name_}"] = np.nan
-            out_dict[f"g_2_{name_}"] = np.nan
+
+    has_g1 = "1p" in shear_names and "1m" in shear_names
+    has_g2 = "2p" in shear_names and "2m" in shear_names
     if all_good:
-        out_dict["delta_g_1_1"] = out_dict["g_1_1p"] - out_dict["g_1_1m"]
-        out_dict["delta_g_2_2"] = out_dict["g_2_2p"] - out_dict["g_2_2m"]
-        out_dict["delta_g_1_2"] = out_dict["g_1_2p"] - out_dict["g_1_2m"]
-        out_dict["delta_g_2_1"] = out_dict["g_2_1p"] - out_dict["g_2_1m"]
+        out_dict["delta_g_1_1"] = out_dict["g_1_1p"] - out_dict["g_1_1m"] if has_g1 else np.nan
+        out_dict["delta_g_2_1"] = out_dict["g_2_1p"] - out_dict["g_2_1m"] if has_g1 else np.nan
+        out_dict["delta_g_1_2"] = out_dict["g_1_2p"] - out_dict["g_1_2m"] if has_g2 else np.nan
+        out_dict["delta_g_2_2"] = out_dict["g_2_2p"] - out_dict["g_2_2m"] if has_g2 else np.nan
     else:
         out_dict["delta_g_1_1"] = np.nan
-        out_dict["delta_g_2_2"] = np.nan
-        out_dict["delta_g_1_2"] = np.nan
         out_dict["delta_g_2_1"] = np.nan
+        out_dict["delta_g_1_2"] = np.nan
+        out_dict["delta_g_2_2"] = np.nan
     out_dict["good"] = all_good
     return out_dict
 

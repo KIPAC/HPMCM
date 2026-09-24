@@ -279,6 +279,9 @@ class ShearCellData(CellData):
         Number of pixel merged in the original counts map
     """
 
+    if TYPE_CHECKING:
+        matcher: ShearMatch  # narrows the inherited Match type for type checking
+
     def __init__(
         self,
         matcher: ShearMatch,
@@ -296,7 +299,7 @@ class ShearCellData(CellData):
     ) -> pandas.DataFrame:
         """Filters dataframe to keep only source in the cell"""
         return shear_utils.reduceShearDataForCell(
-            self, shear_utils.SHEAR_NAMES[i_cat], dataframe
+            self, self.matcher.shear_names[i_cat], dataframe
         )
 
     @classmethod
@@ -324,7 +327,11 @@ class ShearCellData(CellData):
         self, i_cluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
         return ShearClusterData(
-            i_cluster, footprint, sources, pixel_match_scale=self.pixel_match_scale
+            i_cluster,
+            footprint,
+            sources,
+            pixel_match_scale=self.pixel_match_scale,
+            shear_names=self.matcher.shear_names,
         )
 
     def _getFootprints(self, counts_map: np.ndarray) -> dict:

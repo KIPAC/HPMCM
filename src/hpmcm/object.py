@@ -138,4 +138,11 @@ class ShearObjectData(ObjectData):
     def shearStats(self) -> dict:
         """Return the shear statistics"""
         assert self.data is not None
-        return shear_utils.shearStats(self.data)
+        from .cluster import ShearClusterData
+
+        shear_names = (
+            self.parent_cluster.shear_names
+            if isinstance(self.parent_cluster, ShearClusterData)
+            else shear_utils.SHEAR_NAMES
+        )
+        return shear_utils.shearStats(self.data, shear_names)
