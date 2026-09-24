@@ -57,7 +57,7 @@ def testShearMatch(setup_data: int) -> None:
 
     assert stats is not None
     assert shear_stats is not None
-    obj_shear = shear_stats[1]
+    obj_shear = shear_stats["object_shear"]
     assert obj_shear is not None
 
     # Test the classification codes
