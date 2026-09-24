@@ -396,6 +396,7 @@ def reduceRubinMDTable(
         "patch_x", "patch_y", "x_cell_coadd", "y_cell_coadd",
         "x_pix", "y_pix", "cell_idx_x", "cell_idx_y",
         "id", "shear", "meta_step",
+        "gauss_g1", "gauss_g2",
     ]
     cols += [f"{band}_gaussFlux" for band in "griz"]
     cols += [f"{band}_gaussFluxErr" for band in "griz"]
@@ -404,6 +405,8 @@ def reduceRubinMDTable(
 
     tout = t[cols].copy(deep=True)
 
+    tout["g_1"] = tout["gauss_g1"]
+    tout["g_2"] = tout["gauss_g2"]
     tout["snr"] = tout["gauss_snr"]
 
     tout.to_parquet(outfile)
@@ -456,6 +459,7 @@ def reduceDESCMDTable(
     cols = [
         "patch_x", "patch_y", "ra", "dec", "id", "s2n",
         "x_cell_coadd", "y_cell_coadd", "x_pix", "y_pix",
+        "g1", "g2",
         "cell_idx_x", "cell_idx_y", "shear", "meta_step",
     ]
     cols += [f"flux_{band}" for band in "riz"]
@@ -466,5 +470,7 @@ def reduceDESCMDTable(
     tout = t[cols].copy(deep=True)
 
     tout["snr"] = tout["s2n"]
+    tout["g_1"] = tout["g1"]
+    tout["g_2"] = tout["g2"]
 
     tout.to_parquet(outfile)
