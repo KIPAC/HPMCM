@@ -123,7 +123,12 @@ class ShearMatch(Match):
         Match.__init__(self, **kwargs)
         geometry: ShearCellGeometry = kwargs.get("geometry", DEFAULT_GEOMETRY)
         if geometry.ref_dir is not None:
-            self._wcs = createGlobalWcs(geometry.ref_dir, geometry.pixel_size, geometry.tract_size)
+            self._wcs = createGlobalWcs(
+                geometry.ref_dir,
+                geometry.pixel_size,
+                geometry.tract_size,
+                ctype=geometry.wcs_ctype,
+            )
         else:
             self._wcs = None
 

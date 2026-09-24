@@ -13,6 +13,7 @@ def createGlobalWcs(
     ref_dir: tuple[float, float],
     pix_size: float,
     n_pix: np.ndarray,
+    ctype: str = "TAN",
 ) -> wcs.WCS:
     """Helper function to create the WCS used to project the
     sources in a skymap
@@ -29,11 +30,16 @@ def createGlobalWcs(
     n_pix:
         Number of pixels in x, y
 
+    ctype:
+        WCS projection type (default "TAN" — gnomonic, matching the Rubin
+        sky map projection). Use "STG" for stereographic.
+
     Returns
     -------
     WCS to create the pixel grid
     """
     w = wcs.WCS(naxis=2)
+    w.wcs.ctype = [f"RA---{ctype}", f"DEC--{ctype}"]
     w.wcs.cdelt = [-pix_size, pix_size]
     w.wcs.crpix = [(n_pix[0] / 2) - 1, (n_pix[1] / 2) - 1]
     w.wcs.crval = [ref_dir[0], ref_dir[1]]

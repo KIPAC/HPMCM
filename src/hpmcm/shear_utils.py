@@ -61,6 +61,9 @@ class ShearCellGeometry:
         When set, ShearMatch builds a WCS from this and pixel_size so that
         pixToWorld returns valid RA/Dec for objects and clusters.
         If None (default), pixToWorld returns NaN.
+    wcs_ctype:
+        WCS projection type used when building the pixel-to-sky transform.
+        Default "TAN" (gnomonic) matches the Rubin sky map projection.
     """
 
     cell_inner_size: int = 150
@@ -73,6 +76,7 @@ class ShearCellGeometry:
     match_buffer: int = 25
     tract_size: np.ndarray = field(default_factory=lambda: np.array([30000, 30000]))
     ref_dir: tuple[float, float] | None = None
+    wcs_ctype: str = "TAN"
 
     @property
     def cell_outer_size(self) -> int:
