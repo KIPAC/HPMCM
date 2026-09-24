@@ -5,11 +5,11 @@ from typing import Any
 import numpy as np
 import pandas
 
-from . import input_tables, output_tables
+from . import input_tables, output_tables, shear_utils
 from .cell import CellData, ShearCellData
 from .match import Match
-from . import shear_utils
 from .shear_utils import DEFAULT_GEOMETRY, ShearCellGeometry
+from .wcs_match import createGlobalWcs
 
 
 class ShearMatch(Match):
@@ -121,6 +121,11 @@ class ShearMatch(Match):
             )
         self.shear_names: list[str] = shear_names
         Match.__init__(self, **kwargs)
+        geometry: ShearCellGeometry = kwargs.get("geometry", DEFAULT_GEOMETRY)
+        if geometry.ref_dir is not None:
+            self._wcs = createGlobalWcs(geometry.ref_dir, geometry.pixel_size, geometry.tract_size)
+        else:
+            self._wcs = None
 
     @classmethod
     def createShearMatch(
@@ -151,9 +156,24 @@ class ShearMatch(Match):
             cell_size=geometry.cell_inner_size,
             cell_buffer=geometry.match_buffer,
             cell_max_object=1000,
+            geometry=geometry,
         )
         kw.update(kwargs)
         return cls(**kw)
+
+    def pixToWorld(
+        self,
+        x_pix: np.ndarray,
+        y_pix: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Convert pixel coordinates to RA/Dec using the geometry WCS.
+
+        Returns NaN arrays if no ref_dir was provided in the geometry.
+        """
+        if self._wcs is None:
+            return np.repeat(np.nan, len(x_pix)), np.repeat(np.nan, len(y_pix))
+        ra, dec = self._wcs.wcs_pix2world(x_pix, y_pix, 0)
+        return ra, dec
 
     def getCellIndices(
         self,

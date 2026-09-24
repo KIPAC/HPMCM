@@ -56,6 +56,11 @@ class ShearCellGeometry:
         Overlap in pixels between adjacent WCS cells used during matching.
     tract_size:
         Tract size in WCS pixels [x, y].
+    ref_dir:
+        Reference direction (RA, DEC) in degrees for the tract centre.
+        When set, ShearMatch builds a WCS from this and pixel_size so that
+        pixToWorld returns valid RA/Dec for objects and clusters.
+        If None (default), pixToWorld returns NaN.
     """
 
     cell_inner_size: int = 150
@@ -67,6 +72,7 @@ class ShearCellGeometry:
     pixel_size: float = 0.2 / 3600.0
     match_buffer: int = 25
     tract_size: np.ndarray = field(default_factory=lambda: np.array([30000, 30000]))
+    ref_dir: tuple[float, float] | None = None
 
     @property
     def cell_outer_size(self) -> int:
@@ -353,8 +359,8 @@ def splitRubinMDByTypeAndClean(
         ).astype(int)
 
         # x_cell_coadd = 0 at the left edge of the inner region (cell_idx * cell_inner_size)
-        x_cell_coadd = sub["x"].values - cell_idx_x * geometry.cell_inner_size
-        y_cell_coadd = sub["y"].values - cell_idx_y * geometry.cell_inner_size
+        x_cell_coadd = sub["x"].values - (cell_idx_x - geometry.n_cell_patch_buffer) * geometry.cell_inner_size
+        y_cell_coadd = sub["y"].values - (cell_idx_y - geometry.n_cell_patch_buffer) * geometry.cell_inner_size
 
         buf = 0 if clean else geometry.cell_inner_buffer
         central_to_cell = (
@@ -364,7 +370,7 @@ def splitRubinMDByTypeAndClean(
             & (y_cell_coadd < geometry.cell_inner_size + buf)
         )
         print(f"Centeral to cell {central_to_cell.sum()} {len(central_to_cell)}")
-
+        
         cleaned = sub[central_to_cell].copy(deep=True)
 
         cleaned["x_cell_coadd"] = x_cell_coadd[central_to_cell]
@@ -625,7 +631,7 @@ def reduceShearDataForCell(
     sources within the cell footprint (0 <= x_cell < cell.n_pix[0]).
     """
     matcher = cell.matcher
-
+    
     if TYPE_CHECKING:
         assert isinstance(matcher, ShearMatch)
 

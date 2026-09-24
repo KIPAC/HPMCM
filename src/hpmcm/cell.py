@@ -350,7 +350,3 @@ class ShearCellData(CellData):
             pixel_match_scale=self.pixel_match_scale,
         )
 
-    def getRaDec(
-        self, x_cents: np.ndarray, y_cents: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
-        return np.repeat(np.nan, len(x_cents)), np.repeat(np.nan, len(y_cents))
