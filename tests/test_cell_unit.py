@@ -6,8 +6,8 @@ import numpy as np
 import pandas
 import pytest
 
-from hpmcm.cell import CellData, ShearCellData
-from hpmcm.shear_utils import DESHEAR_COEFFS, SHEAR_NAMES, reduceShearDataForCell
+from hpmcm.cell import CellData
+from hpmcm.shear_utils import SHEAR_NAMES, reduceShearDataForCell, shearStats
 
 
 class TestCellDataReduceDataframe:
@@ -223,3 +223,68 @@ class TestReduceShearDataForCell:
 
         result = reduceShearDataForCell(cell, "ns", df)
         assert len(result) == 1
+
+
+class TestShearStats:
+    """Tests for shearStats() with 5-catalog and 3-catalog modes."""
+
+    def _make_df(self, shear_names):
+        """Build a minimal DataFrame with one source per active catalog."""
+        i_cats = list(range(len(shear_names)))
+        return pandas.DataFrame({
+            "i_cat": i_cats,
+            "g_1": [0.1 * (i + 1) for i in i_cats],
+            "g_2": [0.2 * (i + 1) for i in i_cats],
+        })
+
+    def test_5catalog_all_keys_present(self):
+        """5-catalog mode produces all expected keys."""
+        df = self._make_df(SHEAR_NAMES)
+        result = shearStats(df, SHEAR_NAMES)
+        for name in SHEAR_NAMES:
+            assert f"n_{name}" in result
+            assert f"g_1_{name}" in result
+        assert "delta_g_1_1" in result
+        assert "delta_g_2_2" in result
+        assert result["good"] is True
+
+    def test_3catalog_ns_1p_1m(self):
+        """3-catalog mode fills g1 deltas and sets g2 deltas to nan."""
+        active = ["ns", "1p", "1m"]
+        df = self._make_df(active)
+        result = shearStats(df, active)
+
+        # Active catalogs have real values
+        assert result["n_ns"] == 1
+        assert result["n_1p"] == 1
+        assert result["n_1m"] == 1
+        assert not np.isnan(result["g_1_1p"])
+
+        # Inactive catalogs have zero count and nan g
+        assert result["n_2p"] == 0
+        assert result["n_2m"] == 0
+        assert np.isnan(result["g_1_2p"])
+        assert np.isnan(result["g_1_2m"])
+
+        # delta_g_1 (from 1p/1m pair) is computable
+        assert not np.isnan(result["delta_g_1_1"])
+        assert not np.isnan(result["delta_g_2_1"])
+
+        # delta_g_2 (from 2p/2m pair) is nan — pair not present
+        assert np.isnan(result["delta_g_1_2"])
+        assert np.isnan(result["delta_g_2_2"])
+
+        assert result["good"] is True
+
+    def test_3catalog_not_good_when_missing(self):
+        """good=False when an active catalog has no sources."""
+        active = ["ns", "1p", "1m"]
+        # Only ns and 1p, not 1m
+        df = pandas.DataFrame({
+            "i_cat": [0, 1],
+            "g_1": [0.1, 0.2],
+            "g_2": [0.3, 0.4],
+        })
+        result = shearStats(df, active)
+        assert result["good"] is False
+        assert np.isnan(result["delta_g_1_1"])

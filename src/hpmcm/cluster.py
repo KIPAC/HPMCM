@@ -180,11 +180,15 @@ class ShearClusterData(ClusterData):
         sources: np.ndarray,
         orig_cluster: int | None = None,
         pixel_match_scale: int = 1,
+        shear_names: list[str] | None = None,
     ):
         ClusterData.__init__(self, i_cluster, footprint, sources, orig_cluster)
         self.pixel_match_scale = pixel_match_scale
+        self.shear_names: list[str] = (
+            shear_names if shear_names is not None else list(shear_utils.SHEAR_NAMES)
+        )
 
     def shearStats(self) -> dict:
         """Return the shear statistics"""
         assert self.data is not None
-        return shear_utils.shearStats(self.data)
+        return shear_utils.shearStats(self.data, self.shear_names)

@@ -8,6 +8,7 @@ import pandas
 from . import input_tables, output_tables
 from .cell import CellData, ShearCellData
 from .match import Match
+from . import shear_utils
 from .shear_utils import DEFAULT_GEOMETRY, ShearCellGeometry
 
 
@@ -113,6 +114,12 @@ class ShearMatch(Match):
         self.pixel_match_scale: int = kwargs.get("pixel_match_scale", 1)
         self.cat_type: str = kwargs.get("catalogType", "wmom")
         self.deshear: float | None = kwargs.get("deshear", None)
+        shear_names = list(kwargs.get("shear_names", shear_utils.SHEAR_NAMES))
+        if not all(n in shear_utils.SHEAR_NAMES for n in shear_names):
+            raise ValueError(
+                f"All shear_names must be in {shear_utils.SHEAR_NAMES}, got {shear_names}"
+            )
+        self.shear_names: list[str] = shear_names
         Match.__init__(self, **kwargs)
 
     @classmethod
