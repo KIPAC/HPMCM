@@ -7,7 +7,7 @@ import pandas
 import pytest
 
 from hpmcm.cell import CellData, ShearCellData
-from hpmcm.shear_utils import DESHEAR_COEFFS, reduceShearDataForCell
+from hpmcm.shear_utils import DESHEAR_COEFFS, SHEAR_NAMES, reduceShearDataForCell
 
 
 class TestCellDataReduceDataframe:
@@ -112,16 +112,28 @@ class TestReduceShearDataForCell:
         })
 
     def test_filters_by_cell_index(self):
-        """Only sources matching cell.idx survive."""
+        """Only sources with matching cell_idx_x / cell_idx_y survive.
+
+        cell.idx=5, n_cell[1]=200 → cell_idx_x=0, cell_idx_y=5.
+        Rows with cell_idx_y=3 or cell_idx_y=7 are filtered out.
+        """
         cell, matcher = self._make_cell_and_matcher()
-        # getCellIndices should return cell.idx for matching rows
-        matcher.getCellIndices.return_value = np.array([5, 5, 3, 5, 7])
 
-        df = self._make_source_df(n=5)
-        result = reduceShearDataForCell(cell, 0, df)
+        df = pandas.DataFrame({
+            "cell_idx_x": [0, 0, 0, 0, 0],
+            "cell_idx_y": [5, 5, 3, 5, 7],
+            "x_cell_coadd": [10.0, 20.0, 30.0, 40.0, 50.0],
+            "y_cell_coadd": [10.0, 20.0, 30.0, 40.0, 50.0],
+            "x_pix": [150.0] * 5,
+            "y_pix": [150.0] * 5,
+            "snr": [15.0] * 5,
+            "g_1": [0.01] * 5,
+            "g_2": [0.02] * 5,
+            "id": range(5),
+        })
+        result = reduceShearDataForCell(cell, "ns", df)
 
-        # 3 sources match idx=5
-        assert len(result) <= 3
+        assert len(result) == 3
         assert "x_cell" in result.columns
         assert "y_cell" in result.columns
 
@@ -144,7 +156,7 @@ class TestReduceShearDataForCell:
         })
 
         # Test with i_cat=1 (DESHEAR_COEFFS[1] = [0, 1, 1, 0])
-        result = reduceShearDataForCell(cell, 1, df)
+        result = reduceShearDataForCell(cell, "2p", df)
 
         if len(result) > 0:
             assert "dx_shear" in result.columns
@@ -156,7 +168,7 @@ class TestReduceShearDataForCell:
         matcher.getCellIndices.return_value = np.array([5] * 5)
 
         df = self._make_source_df(n=5)
-        result = reduceShearDataForCell(cell, 0, df)
+        result = reduceShearDataForCell(cell, "ns", df)
 
         assert "dx_shear" not in result.columns
         assert "dy_shear" not in result.columns
@@ -179,7 +191,7 @@ class TestReduceShearDataForCell:
             "id": [0],
         })
 
-        result = reduceShearDataForCell(cell, 0, df)
+        result = reduceShearDataForCell(cell, "ns", df)
 
         if len(result) > 0:
             # DESHEAR_COEFFS[0] = [0,0,0,0], so dx_shear and dy_shear should be 0
@@ -209,5 +221,5 @@ class TestReduceShearDataForCell:
             "id": [0, 1],
         })
 
-        result = reduceShearDataForCell(cell, 0, df)
+        result = reduceShearDataForCell(cell, "ns", df)
         assert len(result) == 1

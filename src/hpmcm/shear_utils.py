@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -29,39 +30,85 @@ DESHEAR_COEFFS = np.array(
     ]
 )
 
-# These parameters will have to change if the cells change
-PIXEL_OFFSET = 0.5
-CELL_INNER_SIZE = 150
-CELL_BUFFER = 50
-CELL_INNER_BUFFER = 5  # extra pixels beyond inner region retained in uncleaned catalogs
-N_CELL_IN_PATCH = 20
-N_CELL_PATCH_BUFFER = 1
 
-# These are calculated from the above
-CELL_OUTER_SIZE = CELL_INNER_SIZE + (2 * CELL_BUFFER)
-PATCH_OFFSET = (N_CELL_IN_PATCH + N_CELL_PATCH_BUFFER) / 2
+@dataclass
+class ShearCellGeometry:
+    """Geometry and configuration for the shear coadd cell grid and WCS matching.
+
+    Attributes
+    ----------
+    cell_inner_size:
+        Inner cell size in coadd pixels.
+    cell_buffer:
+        Buffer around the inner region in coadd pixels. x_cell = 0 is the
+        outer edge; the inner region starts at x_cell = cell_buffer.
+    cell_inner_buffer:
+        Extra pixels beyond the inner region retained in uncleaned catalogs.
+    pixel_offset:
+        Half-pixel correction applied when computing x_cell_coadd.
+    n_cell_in_patch:
+        Number of inner cells per patch side.
+    n_cell_patch_buffer:
+        Extra cell indices in the patch buffer region.
+    pixel_size:
+        WCS pixel size in degrees.
+    match_buffer:
+        Overlap in pixels between adjacent WCS cells used during matching.
+    tract_size:
+        Tract size in WCS pixels [x, y].
+    """
+
+    cell_inner_size: int = 150
+    cell_buffer: int = 50
+    cell_inner_buffer: int = 5
+    pixel_offset: float = 0.5
+    n_cell_in_patch: int = 20
+    n_cell_patch_buffer: int = 1
+    pixel_size: float = 0.2 / 3600.0
+    match_buffer: int = 25
+    tract_size: np.ndarray = field(default_factory=lambda: np.array([30000, 30000]))
+
+    @property
+    def cell_outer_size(self) -> int:
+        """Total cell size including both buffers."""
+        return self.cell_inner_size + 2 * self.cell_buffer
+
+    @property
+    def patch_offset(self) -> float:
+        """Cell-index offset to the centre of a patch."""
+        return (self.n_cell_in_patch + self.n_cell_patch_buffer) / 2
 
 
-def innerCellMask(df: pandas.DataFrame) -> np.ndarray:
+DEFAULT_GEOMETRY = ShearCellGeometry()
+
+
+def innerCellMask(
+    df: pandas.DataFrame,
+    geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
+) -> np.ndarray:
     """Return a boolean mask selecting sources within the inner cell region.
 
-    The inner region spans [CELL_BUFFER, CELL_BUFFER + CELL_INNER_SIZE) in both
+    The inner region spans [cell_buffer, cell_buffer + cell_inner_size) in both
     x_cell and y_cell, where x_cell = 0 is the outer edge of the cell.
 
     Parameters
     ----------
     df:
-        DataFrame with x_cell and y_cell columns in the cell frame
+        DataFrame with x_cell and y_cell columns in the cell frame.
+    geometry:
+        Cell geometry configuration.
 
     Returns
     -------
-    Boolean array, True for sources within the inner cell region
+    Boolean array, True for sources within the inner cell region.
     """
+    lo = geometry.cell_buffer
+    hi = geometry.cell_buffer + geometry.cell_inner_size
     return (
-        (df["x_cell"].values >= CELL_BUFFER)
-        & (df["x_cell"].values < CELL_BUFFER + CELL_INNER_SIZE)
-        & (df["y_cell"].values >= CELL_BUFFER)
-        & (df["y_cell"].values < CELL_BUFFER + CELL_INNER_SIZE)
+        (df["x_cell"].values >= lo)
+        & (df["x_cell"].values < hi)
+        & (df["y_cell"].values >= lo)
+        & (df["y_cell"].values < hi)
     )
 
 
@@ -216,6 +263,7 @@ def splitRubinMDByTypeAndClean(
     shear: float,
     *,
     clean: bool = False,
+    geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
 ) -> None:  # pragma: no cover
     """Split a parquet file by shear catalog type and tract
 
@@ -269,8 +317,12 @@ def splitRubinMDByTypeAndClean(
         # Filter on tract and patch centrality before computing derived columns
         right_tract = sub["tract"] == tract
         central_to_patch = (
-            np.fabs(sub["cell_x"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2)
-        ) & (np.fabs(sub["cell_y"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2))
+            np.fabs(sub["cell_x"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        ) & (
+            np.fabs(sub["cell_y"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        )
 
         print(f"Centeral to patch {central_to_patch.sum()} {len(central_to_patch)}")
         sub = sub[right_tract & central_to_patch].copy(deep=True)
@@ -280,22 +332,22 @@ def splitRubinMDByTypeAndClean(
             sub["patch_y"] = sub["patch"] // 10
 
         cell_idx_x = (
-            N_CELL_IN_PATCH * sub["patch_x"].values + sub["cell_x"].values
+            geometry.n_cell_in_patch * sub["patch_x"].values + sub["cell_x"].values
         ).astype(int)
         cell_idx_y = (
-            N_CELL_IN_PATCH * sub["patch_y"].values + sub["cell_y"].values
+            geometry.n_cell_in_patch * sub["patch_y"].values + sub["cell_y"].values
         ).astype(int)
 
-        # x_cell_coadd = 0 at the left edge of the inner region (cell_idx * CELL_INNER_SIZE)
-        x_cell_coadd = sub["x"].values - cell_idx_x * CELL_INNER_SIZE
-        y_cell_coadd = sub["y"].values - cell_idx_y * CELL_INNER_SIZE
+        # x_cell_coadd = 0 at the left edge of the inner region (cell_idx * cell_inner_size)
+        x_cell_coadd = sub["x"].values - cell_idx_x * geometry.cell_inner_size
+        y_cell_coadd = sub["y"].values - cell_idx_y * geometry.cell_inner_size
 
-        buf = 0 if clean else CELL_INNER_BUFFER
+        buf = 0 if clean else geometry.cell_inner_buffer
         central_to_cell = (
             (x_cell_coadd >= -buf)
-            & (x_cell_coadd < CELL_INNER_SIZE + buf)
+            & (x_cell_coadd < geometry.cell_inner_size + buf)
             & (y_cell_coadd >= -buf)
-            & (y_cell_coadd < CELL_INNER_SIZE + buf)
+            & (y_cell_coadd < geometry.cell_inner_size + buf)
         )
         print(f"Centeral to cell {central_to_cell.sum()} {len(central_to_cell)}")
 
@@ -321,6 +373,7 @@ def splitDESCMDByTypeAndClean(
     shear: float,
     *,
     clean: bool = False,
+    geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
 ) -> None:  # pragma: no cover
     """Split a parquet file by shear catalog type and tract
 
@@ -373,29 +426,33 @@ def splitDESCMDByTypeAndClean(
         # Filter on tract and patch centrality before computing derived columns
         right_tract = np.ones(len(sub)).astype(bool)
         central_to_patch = (
-            np.fabs(sub["cell_i"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2)
-        ) & (np.fabs(sub["cell_j"].values - PATCH_OFFSET) < (N_CELL_IN_PATCH / 2))
+            np.fabs(sub["cell_i"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        ) & (
+            np.fabs(sub["cell_j"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        )
         print(f"Centeral to patch {central_to_patch.sum()} {len(central_to_patch)}")
         sub = sub[right_tract & central_to_patch].copy(deep=True)
 
         cell_idx_x = (
-            N_CELL_IN_PATCH * sub["patch_x"].values + sub["cell_j"].values
+            geometry.n_cell_in_patch * sub["patch_x"].values + sub["cell_j"].values
         ).astype(int)
         cell_idx_y = (
-            N_CELL_IN_PATCH * sub["patch_y"].values + sub["cell_i"].values
+            geometry.n_cell_in_patch * sub["patch_y"].values + sub["cell_i"].values
         ).astype(int)
 
-        # xcell is outer-edge referenced (0 to CELL_OUTER_SIZE); subtract CELL_BUFFER
+        # xcell is outer-edge referenced (0 to cell_outer_size); subtract cell_buffer
         # so that x_cell_coadd = 0 at the left edge of the inner region
-        x_cell_coadd = sub["xcell"].values - CELL_BUFFER
-        y_cell_coadd = sub["ycell"].values - CELL_BUFFER
+        x_cell_coadd = sub["xcell"].values - geometry.cell_buffer
+        y_cell_coadd = sub["ycell"].values - geometry.cell_buffer
 
-        buf = 0 if clean else CELL_INNER_BUFFER
+        buf = 0 if clean else geometry.cell_inner_buffer
         central_to_cell = (
             (x_cell_coadd >= -buf)
-            & (x_cell_coadd < CELL_INNER_SIZE + buf)
+            & (x_cell_coadd < geometry.cell_inner_size + buf)
             & (y_cell_coadd >= -buf)
-            & (y_cell_coadd < CELL_INNER_SIZE + buf)
+            & (y_cell_coadd < geometry.cell_inner_size + buf)
         )
         print(f"Centeral to cell {central_to_cell.sum()} {len(central_to_cell)}")
             
@@ -416,102 +473,156 @@ def splitDESCMDByTypeAndClean(
         
         
 
-def reduceShearDataForCell(
-    cell: CellData, i_cat: int, dataframe: pandas.DataFrame
+def deshearSourcesForCell(
+    dataframe: pandas.DataFrame,
+    cell_idx_x: int,
+    cell_idx_y: int,
+    shear_name: str,
+    deshear: float | None,
+    pixel_match_scale: int = 1,
+    cell_buffer: int = DEFAULT_GEOMETRY.cell_buffer,
 ) -> pandas.DataFrame:
-    """Filters dataframe to keep only sources in the cell
+    """Filter and deshear sources belonging to a specific cell.
 
     Parameters
     ----------
-    cell:
-        The cell being analyzed
-
-    i_cat:
-        Catalog index
-
     dataframe:
-        Input dataframe
+        Input dataframe with cell_idx_x, cell_idx_y, x_cell_coadd,
+        y_cell_coadd, x_pix, and y_pix columns.
 
+    cell_idx_x:
+        X cell index to select (matched against dataframe["cell_idx_x"]).
+
+    cell_idx_y:
+        Y cell index to select (matched against dataframe["cell_idx_y"]).
+
+    shear_name:
+        Shear catalog name; one of SHEAR_NAMES ("ns", "2p", "2m", "1p", "1m").
+        Selects the deshear coefficients from DESHEAR_COEFFS.
+
+    deshear:
+        Deshear factor (-1 * applied shear). If None no deshearing is applied
+        and dx_shear / dy_shear columns are not added to the output.
+
+    pixel_match_scale:
+        Pixel binning factor used in the counts map.
+
+    cell_buffer:
+        Buffer in pixels around the inner cell region; shifts x_cell_coadd
+        so that x_cell = 0 at the outer edge of the cell.
 
     Returns
     -------
-    Filtered datasets
-
+    DataFrame containing only the sources in the requested cell with
+    x_cell, y_cell, x_pix, y_pix columns set to the desheared positions.
+    If deshear is not None, dx_shear and dy_shear columns are also added.
 
     Notes
     -----
-    This will optionally deshear the source positions if `matcher.deshear`
-    is not None.
-
-    This will add these columns to the output dataframes
-
-    +-----------+-------------------------------------+
-    | Column    | Description                         |
-    +===========+=====================================+
-    | x_cell    | X-coordinate in cell frame          |
-    +-----------+-------------------------------------+
-    | y_cell    | Y-coordinate in cell frame          |
-    +-----------+-------------------------------------+
-    | x_pix     | X-coordinate in global WCS frame    |
-    +-----------+-------------------------------------+
-    | y_pix     | Y-coordinate in global WCS frame    |
-    +-----------+-------------------------------------+
-    | dx_shear  | Change in X position when desheared |
-    +-----------+-------------------------------------+
-    | dy_shear  | Change in Y position when desheared |
-    +-----------+-------------------------------------+
-
+    x_cell and y_cell are in the cell frame: x_cell = 0 at the outer edge,
+    x_cell = cell_buffer at the inner edge. No bounds filtering is applied;
+    call reduceShearDataForCell to also filter to the cell footprint.
     """
+    if shear_name not in SHEAR_NAMES:
+        raise ValueError(f"shear_name must be one of {SHEAR_NAMES}, got {shear_name!r}")
 
-    matcher = cell.matcher
+    mask = (dataframe["cell_idx_x"] == cell_idx_x) & (
+        dataframe["cell_idx_y"] == cell_idx_y
+    )
+    reduced = dataframe[mask]
 
-    if TYPE_CHECKING:
-        assert isinstance(matcher, ShearMatch)
-
-    filtered_idx = matcher.getCellIndices(dataframe) == cell.idx
-    reduced = dataframe[filtered_idx]
-
-    # Work on numpy arrays for vectorized arithmetic
     x_cell_orig = reduced["x_cell_coadd"].values
     y_cell_orig = reduced["y_cell_coadd"].values
     x_pix_orig = reduced["x_pix"].values
     y_pix_orig = reduced["y_pix"].values
 
-    coeffs = DESHEAR_COEFFS[i_cat]
-    if matcher.deshear is not None:
-        dx_shear = matcher.deshear * (x_cell_orig * coeffs[0] + y_cell_orig * coeffs[2])
-        dy_shear = matcher.deshear * (x_cell_orig * coeffs[1] + y_cell_orig * coeffs[3])
+    coeffs = DESHEAR_COEFFS[SHEAR_NAMES.index(shear_name)]
+    if deshear is not None:
+        dx_shear: np.ndarray = deshear * (
+            x_cell_orig * coeffs[0] + y_cell_orig * coeffs[2]
+        )
+        dy_shear: np.ndarray = deshear * (
+            x_cell_orig * coeffs[1] + y_cell_orig * coeffs[3]
+        )
         x_cell = x_cell_orig + dx_shear
         y_cell = y_cell_orig + dy_shear
         x_pix = x_pix_orig + dx_shear
         y_pix = y_pix_orig + dy_shear
-    else:  # pragma: no cover
-        dx_shear = np.zeros(len(reduced))
-        dy_shear = np.zeros(len(reduced))
+    else:
         x_cell = x_cell_orig
         y_cell = y_cell_orig
         x_pix = x_pix_orig
         y_pix = y_pix_orig
 
-    x_cell = (x_cell + CELL_BUFFER) / matcher.pixel_match_scale
-    y_cell = (y_cell + CELL_BUFFER) / matcher.pixel_match_scale
-    filtered_bounds = (
-        (x_cell >= 0)
-        & (x_cell < cell.n_pix[0])
-        & (y_cell >= 0)
-        & (y_cell < cell.n_pix[1])
+    x_cell = (x_cell + cell_buffer) / pixel_match_scale
+    y_cell = (y_cell + cell_buffer) / pixel_match_scale
+
+    red = reduced.copy(deep=True)
+    red["x_cell"] = x_cell
+    red["y_cell"] = y_cell
+    red["x_pix"] = x_pix
+    red["y_pix"] = y_pix
+    if deshear is not None:
+        red["dx_shear"] = dx_shear
+        red["dy_shear"] = dy_shear
+    return red
+
+
+def reduceShearDataForCell(
+    cell: CellData,
+    shear_name: str,
+    dataframe: pandas.DataFrame,
+    geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
+) -> pandas.DataFrame:
+    """Filter and deshear sources for a cell, then clip to the cell footprint.
+
+    Parameters
+    ----------
+    cell:
+        The cell being analyzed.
+
+    shear_name:
+        Shear catalog name; one of SHEAR_NAMES ("ns", "2p", "2m", "1p", "1m").
+
+    dataframe:
+        Input dataframe.
+
+    Returns
+    -------
+    Filtered dataframe with x_cell, y_cell, x_pix, y_pix columns added.
+    If matcher.deshear is not None, dx_shear and dy_shear are also added.
+
+    Notes
+    -----
+    Delegates deshearing to deshearSourcesForCell, then filters to
+    sources within the cell footprint (0 <= x_cell < cell.n_pix[0]).
+    """
+    matcher = cell.matcher
+
+    if TYPE_CHECKING:
+        assert isinstance(matcher, ShearMatch)
+
+    n_cell_y = int(matcher.n_cell[1])
+    cell_idx_x = int(cell.idx // n_cell_y)
+    cell_idx_y = int(cell.idx % n_cell_y)
+
+    red = deshearSourcesForCell(
+        dataframe,
+        cell_idx_x=cell_idx_x,
+        cell_idx_y=cell_idx_y,
+        shear_name=shear_name,
+        deshear=matcher.deshear,
+        pixel_match_scale=matcher.pixel_match_scale,
+        cell_buffer=geometry.cell_buffer,
     )
 
-    # Single copy at the end
-    red = reduced[filtered_bounds].copy(deep=True)
-    red["x_cell"] = x_cell[filtered_bounds]
-    red["y_cell"] = y_cell[filtered_bounds]
-    red["x_pix"] = x_pix[filtered_bounds]
-    red["y_pix"] = y_pix[filtered_bounds]
-    if matcher.deshear is not None:
-        red["dx_shear"] = dx_shear[filtered_bounds]
-        red["dy_shear"] = dy_shear[filtered_bounds]
-    return red
+    filtered_bounds = (
+        (red["x_cell"] >= 0)
+        & (red["x_cell"] < cell.n_pix[0])
+        & (red["y_cell"] >= 0)
+        & (red["y_cell"] < cell.n_pix[1])
+    )
+    return red[filtered_bounds]
 
 
 def makeMatchedShearSourceCatalogs(
