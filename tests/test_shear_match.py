@@ -40,9 +40,9 @@ def testShearMatch(setup_data: int) -> None:
     # Reduce the input data
     matcher.reduceData(source_tablesfiles, catalog_ids)
 
-    # Make sure it got the right number of cells
-    assert matcher.n_cell[0] == 200
-    assert matcher.n_cell[1] == 200
+    # n_cell = ceil(tract_size / cell_size) + 1 to cover the last catalog inner cell
+    assert matcher.n_cell[0] == 201
+    assert matcher.n_cell[1] == 201
 
     # Define the range of cells to run over
     x_range = range(50, 70)
@@ -57,7 +57,7 @@ def testShearMatch(setup_data: int) -> None:
 
     assert stats is not None
     assert shear_stats is not None
-    obj_shear = shear_stats[1]
+    obj_shear = shear_stats["object_shear"]
     assert obj_shear is not None
 
     # Test the classification codes

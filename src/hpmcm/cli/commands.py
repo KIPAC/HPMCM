@@ -65,12 +65,7 @@ def wcsMatchCommand(
     print("Extracting stats.")
     stats = matcher.extractStats()
     print("Writing output.")
-    out_dict = dict(
-        _cluster_assoc=stats[0],
-        _object_assoc=stats[1],
-        _cluster_stats=stats[2],
-        _object_stats=stats[3],
-    )
+    out_dict = {f"_{k}": v for k, v in stats.items()}
     tables_io.write(out_dict, output_file)
     print("Success!")
 
@@ -116,14 +111,7 @@ def shearMatchCommand(
     print("Extracting shear stats.")
     shear_stats = matcher.extractShearStats()
     print("Writing output.")
-    out_dict = dict(
-        _cluster_assoc=stats[0],
-        _object_assoc=stats[1],
-        _cluster_stats=stats[2],
-        _object_stats=stats[3],
-        _cluster_shear=shear_stats[0],
-        _object_shear=shear_stats[1],
-    )
+    out_dict = {f"_{k}": v for k, v in {**stats, **shear_stats}.items()}
     tables_io.write(out_dict, output_file)
     print("Success!")
 

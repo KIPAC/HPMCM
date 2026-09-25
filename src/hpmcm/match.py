@@ -107,7 +107,7 @@ class Match:
         self.max_sub_division: int = kwargs.get("max_sub_division", 3)
         self.pixel_r2_cut: float = kwargs.get("pixel_r2_cut", 1.0)
         self.n_cell_buffer: int =  kwargs.get("n_cell_buffer", 0)
-        self.n_cell: np.ndarray = np.ceil(self.n_pix_side / self.cell_size)
+        self.n_cell: np.ndarray = np.ceil(self.n_pix_side / self.cell_size) + self.n_cell_buffer
 
         self.full_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self.red_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()
@@ -271,16 +271,16 @@ class Match:
         sys.stdout.write(" Done!\n")
         sys.stdout.flush()
 
-    def extractStats(self) -> list[pandas.DataFrame]:
+    def extractStats(self) -> dict[str, pandas.DataFrame]:
         """Extracts cluster statisistics
 
         Returns
         -------
-        DataFrames with matching info,
-        :py:class:`hpmcm.output_tables.ClusterAssocTable`,
-        :py:class:`hpmcm.output_tables.ObjectAssocTable`.
-        :py:class:`hpmcm.output_tables.ClusterStatsTable`.
-        :py:class:`hpmcm.output_tables.ObjectStatsTable`.
+        Dict with keys:
+        ``cluster_assoc`` (:py:class:`hpmcm.output_tables.ClusterAssocTable`),
+        ``object_assoc`` (:py:class:`hpmcm.output_tables.ObjectAssocTable`),
+        ``cluster_stats`` (:py:class:`hpmcm.output_tables.ClusterStatsTable`),
+        ``object_stats`` (:py:class:`hpmcm.output_tables.ObjectStatsTable`).
 
         """
         cluster_assoc_tables = []
@@ -318,12 +318,12 @@ class Match:
         sys.stdout.write(" Done!\n")
         sys.stdout.flush()
 
-        return [
-            pandas.concat(cluster_assoc_tables),
-            pandas.concat(object_assoc_tables),
-            pandas.concat(cluster_stats_tables),
-            pandas.concat(object_stats_tables),
-        ]
+        return {
+            "cluster_assoc": pandas.concat(cluster_assoc_tables),
+            "object_assoc": pandas.concat(object_assoc_tables),
+            "cluster_stats": pandas.concat(cluster_stats_tables),
+            "object_stats": pandas.concat(object_stats_tables),
+        }
 
     def _readDataFrame(
         self,

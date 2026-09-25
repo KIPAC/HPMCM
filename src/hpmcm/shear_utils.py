@@ -61,6 +61,9 @@ class ShearCellGeometry:
         When set, ShearMatch builds a WCS from this and pixel_size so that
         pixToWorld returns valid RA/Dec for objects and clusters.
         If None (default), pixToWorld returns NaN.
+    wcs_ctype:
+        WCS projection type used when building the pixel-to-sky transform.
+        Default "TAN" (gnomonic) matches the Rubin sky map projection.
     """
 
     cell_inner_size: int = 150
@@ -73,6 +76,7 @@ class ShearCellGeometry:
     match_buffer: int = 25
     tract_size: np.ndarray = field(default_factory=lambda: np.array([30000, 30000]))
     ref_dir: tuple[float, float] | None = None
+    wcs_ctype: str = "TAN"
 
     @property
     def cell_outer_size(self) -> int:
@@ -94,8 +98,8 @@ def innerCellMask(
 ) -> np.ndarray:
     """Return a boolean mask selecting sources within the inner cell region.
 
-    The inner region spans [cell_buffer, cell_buffer + cell_inner_size) in both
-    x_cell and y_cell, where x_cell = 0 is the outer edge of the cell.
+    The inner region spans [match_buffer, match_buffer + cell_inner_size) in both
+    x_cell and y_cell, where x_cell = 0 is the outer edge of the matching cell.
 
     Parameters
     ----------
@@ -108,8 +112,8 @@ def innerCellMask(
     -------
     Boolean array, True for sources within the inner cell region.
     """
-    lo = geometry.cell_buffer
-    hi = geometry.cell_buffer + geometry.cell_inner_size
+    lo = geometry.match_buffer
+    hi = geometry.match_buffer + geometry.cell_inner_size
     return (
         (df["x_cell"].values >= lo)
         & (df["x_cell"].values < hi)
@@ -499,8 +503,7 @@ def deshearSourcesForCell(
     cell_idx_y: int,
     shear_name: str,
     deshear: float | None,
-    pixel_match_scale: int = 1,
-    cell_buffer: int = DEFAULT_GEOMETRY.cell_buffer,
+    cell_buffer: int = DEFAULT_GEOMETRY.match_buffer,
     cell_inner_size: int = DEFAULT_GEOMETRY.cell_inner_size,
 ) -> pandas.DataFrame:
     """Filter and deshear sources belonging to a specific cell.
@@ -525,9 +528,6 @@ def deshearSourcesForCell(
         Deshear factor (-1 * applied shear). If None no deshearing is applied
         and dx_shear / dy_shear columns are not added to the output.
 
-    pixel_match_scale:
-        Pixel binning factor used in the counts map.
-
     cell_buffer:
         Buffer in pixels around the inner cell region.
 
@@ -548,8 +548,11 @@ def deshearSourcesForCell(
     centre receive zero correction and the maximum correction magnitude is
     |deshear| * cell_inner_size / 2 at the inner edges. The final x_cell
     values therefore remain close to the undesheared positions.
-    x_cell and y_cell are in counts-map pixel space (x_cell = 0 at the
-    outer edge; x_cell = cell_buffer at the inner left edge).
+    x_cell and y_cell are in regular cell pixel space (same frame as
+    CellData.x_cell: x_cell = 0 at the outer edge of the cell,
+    x_cell = cell_buffer at the inner left edge). pixel_match_scale is
+    NOT applied here; fillCountsMapFromDf handles that conversion, keeping
+    this consistent with the non-shear CellData.reduceDataframe path.
     No bounds filtering is applied; call reduceShearDataForCell for that.
     """
     if shear_name not in SHEAR_NAMES:
@@ -587,8 +590,8 @@ def deshearSourcesForCell(
         x_pix = x_pix_orig
         y_pix = y_pix_orig
 
-    x_cell = (x_cell + cell_buffer) / pixel_match_scale
-    y_cell = (y_cell + cell_buffer) / pixel_match_scale
+    x_cell = x_cell + cell_buffer
+    y_cell = y_cell + cell_buffer
 
     red = reduced.copy(deep=True)
     red["x_cell"] = x_cell
@@ -645,8 +648,7 @@ def reduceShearDataForCell(
         cell_idx_y=cell_idx_y,
         shear_name=shear_name,
         deshear=matcher.deshear,
-        pixel_match_scale=matcher.pixel_match_scale,
-        cell_buffer=geometry.cell_buffer,
+        cell_buffer=geometry.match_buffer,
         cell_inner_size=geometry.cell_inner_size,
     )
 

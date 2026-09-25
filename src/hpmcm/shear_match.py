@@ -123,7 +123,12 @@ class ShearMatch(Match):
         Match.__init__(self, **kwargs)
         geometry: ShearCellGeometry = kwargs.get("geometry", DEFAULT_GEOMETRY)
         if geometry.ref_dir is not None:
-            self._wcs = createGlobalWcs(geometry.ref_dir, geometry.pixel_size, geometry.tract_size)
+            self._wcs = createGlobalWcs(
+                geometry.ref_dir,
+                geometry.pixel_size,
+                geometry.tract_size,
+                ctype=geometry.wcs_ctype,
+            )
         else:
             self._wcs = None
 
@@ -156,6 +161,7 @@ class ShearMatch(Match):
             cell_size=geometry.cell_inner_size,
             cell_buffer=geometry.match_buffer,
             cell_max_object=1000,
+            n_cell_buffer=1,
             geometry=geometry,
         )
         kw.update(kwargs)
@@ -191,11 +197,14 @@ class ShearMatch(Match):
     ) -> CellData:
         return ShearCellData(self, id_offset, corner, size, idx, self.cell_buffer)
 
-    def extractShearStats(self) -> list[pandas.DataFrame]:
+    def extractShearStats(self) -> dict[str, pandas.DataFrame]:
         """Extract shear stats
 
-        Theis will produce two :py:class:`hpmcm.output_tables.ShearTable`,
-        one for the objects, and the other for the clusters.
+        Returns
+        -------
+        Dict with keys:
+        ``cluster_shear`` and ``object_shear``
+        (:py:class:`hpmcm.output_tables.ShearTable`).
         """
         cluster_shear_stats_tables = []
         object_shear_stats_tables = []
@@ -214,10 +223,10 @@ class ShearMatch(Match):
                     output_tables.ShearTable.buildObjectShearStats(cell_data).data
                 )
 
-        return [
-            pandas.concat(cluster_shear_stats_tables),
-            pandas.concat(object_shear_stats_tables),
-        ]
+        return {
+            "cluster_shear": pandas.concat(cluster_shear_stats_tables),
+            "object_shear": pandas.concat(object_shear_stats_tables),
+        }
 
     def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         x_pix, y_pix = (
