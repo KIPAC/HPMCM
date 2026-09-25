@@ -503,7 +503,6 @@ def deshearSourcesForCell(
     cell_idx_y: int,
     shear_name: str,
     deshear: float | None,
-    pixel_match_scale: int = 1,
     cell_buffer: int = DEFAULT_GEOMETRY.cell_buffer,
     cell_inner_size: int = DEFAULT_GEOMETRY.cell_inner_size,
 ) -> pandas.DataFrame:
@@ -529,9 +528,6 @@ def deshearSourcesForCell(
         Deshear factor (-1 * applied shear). If None no deshearing is applied
         and dx_shear / dy_shear columns are not added to the output.
 
-    pixel_match_scale:
-        Pixel binning factor used in the counts map.
-
     cell_buffer:
         Buffer in pixels around the inner cell region.
 
@@ -552,8 +548,11 @@ def deshearSourcesForCell(
     centre receive zero correction and the maximum correction magnitude is
     |deshear| * cell_inner_size / 2 at the inner edges. The final x_cell
     values therefore remain close to the undesheared positions.
-    x_cell and y_cell are in counts-map pixel space (x_cell = 0 at the
-    outer edge; x_cell = cell_buffer at the inner left edge).
+    x_cell and y_cell are in regular cell pixel space (same frame as
+    CellData.x_cell: x_cell = 0 at the outer edge of the cell,
+    x_cell = cell_buffer at the inner left edge). pixel_match_scale is
+    NOT applied here; fillCountsMapFromDf handles that conversion, keeping
+    this consistent with the non-shear CellData.reduceDataframe path.
     No bounds filtering is applied; call reduceShearDataForCell for that.
     """
     if shear_name not in SHEAR_NAMES:
@@ -591,8 +590,8 @@ def deshearSourcesForCell(
         x_pix = x_pix_orig
         y_pix = y_pix_orig
 
-    x_cell = (x_cell + cell_buffer) / pixel_match_scale
-    y_cell = (y_cell + cell_buffer) / pixel_match_scale
+    x_cell = x_cell + cell_buffer
+    y_cell = y_cell + cell_buffer
 
     red = reduced.copy(deep=True)
     red["x_cell"] = x_cell
@@ -649,7 +648,6 @@ def reduceShearDataForCell(
         cell_idx_y=cell_idx_y,
         shear_name=shear_name,
         deshear=matcher.deshear,
-        pixel_match_scale=matcher.pixel_match_scale,
         cell_buffer=geometry.cell_buffer,
         cell_inner_size=geometry.cell_inner_size,
     )

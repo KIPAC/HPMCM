@@ -155,9 +155,14 @@ class ShearMatch(Match):
         -------
         Object to create matches for the requested region
         """
+        # Add one extra cell so the last inner catalog cell (cell_idx = n_cells,
+        # i.e. cell_x=n_cell_in_patch of the last patch) has a matching ShearMatch
+        # cell. Without this, n_cell = ceil(tract/cell_size) and ix runs 0..n_cell-1,
+        # but catalog inner cells span 1..n_cell (off-by-one at the upper edge).
+        n_pix = geometry.tract_size + geometry.cell_inner_size
         kw = dict(
             pixel_size=geometry.pixel_size,
-            n_pixels=geometry.tract_size,
+            n_pixels=n_pix,
             cell_size=geometry.cell_inner_size,
             cell_buffer=geometry.match_buffer,
             cell_max_object=1000,

@@ -205,9 +205,9 @@ class TestReduceShearDataForCell:
         matcher.getCellIndices.return_value = np.array([5, 5])
 
         # x_cell_coadd values that after transform will be out of bounds
-        # x_cell = (x_cell_coadd + CELL_BUFFER) / pixel_match_scale = (x_cell_coadd + 50) / 1
+        # x_cell = x_cell_coadd + CELL_BUFFER = x_cell_coadd + 50
         # For n_pix=[10,10], need x_cell in [0,10)
-        # So x_cell_coadd must be in [-50, -40) for pixel_match_scale=1
+        # So x_cell_coadd must be in [-50, -40)
         df = pandas.DataFrame({
             "cell_idx_x": [0, 0],
             "cell_idx_y": [5, 5],
