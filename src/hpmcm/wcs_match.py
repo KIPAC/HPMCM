@@ -110,6 +110,7 @@ class WcsMatch(Match):
         """
         n_pix = (np.array(region_size) / pixel_size).astype(int)
         match_wcs = createGlobalWcs(ref_dir, pixel_size, n_pix)
+        kwargs.setdefault("n_cell_buffer", 1)
         return cls(match_wcs, n_pixels=n_pix, **kwargs)
 
     def _getPixValues(self, df: pandas.DataFrame) -> tuple[np.ndarray, np.ndarray]:

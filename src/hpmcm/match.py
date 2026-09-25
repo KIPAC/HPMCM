@@ -107,7 +107,7 @@ class Match:
         self.max_sub_division: int = kwargs.get("max_sub_division", 3)
         self.pixel_r2_cut: float = kwargs.get("pixel_r2_cut", 1.0)
         self.n_cell_buffer: int =  kwargs.get("n_cell_buffer", 0)
-        self.n_cell: np.ndarray = np.ceil(self.n_pix_side / self.cell_size)
+        self.n_cell: np.ndarray = np.ceil(self.n_pix_side / self.cell_size) + self.n_cell_buffer
 
         self.full_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()
         self.red_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()

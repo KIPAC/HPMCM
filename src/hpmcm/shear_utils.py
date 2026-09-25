@@ -98,8 +98,8 @@ def innerCellMask(
 ) -> np.ndarray:
     """Return a boolean mask selecting sources within the inner cell region.
 
-    The inner region spans [cell_buffer, cell_buffer + cell_inner_size) in both
-    x_cell and y_cell, where x_cell = 0 is the outer edge of the cell.
+    The inner region spans [match_buffer, match_buffer + cell_inner_size) in both
+    x_cell and y_cell, where x_cell = 0 is the outer edge of the matching cell.
 
     Parameters
     ----------
@@ -112,8 +112,8 @@ def innerCellMask(
     -------
     Boolean array, True for sources within the inner cell region.
     """
-    lo = geometry.cell_buffer
-    hi = geometry.cell_buffer + geometry.cell_inner_size
+    lo = geometry.match_buffer
+    hi = geometry.match_buffer + geometry.cell_inner_size
     return (
         (df["x_cell"].values >= lo)
         & (df["x_cell"].values < hi)
@@ -503,7 +503,7 @@ def deshearSourcesForCell(
     cell_idx_y: int,
     shear_name: str,
     deshear: float | None,
-    cell_buffer: int = DEFAULT_GEOMETRY.cell_buffer,
+    cell_buffer: int = DEFAULT_GEOMETRY.match_buffer,
     cell_inner_size: int = DEFAULT_GEOMETRY.cell_inner_size,
 ) -> pandas.DataFrame:
     """Filter and deshear sources belonging to a specific cell.
@@ -648,7 +648,7 @@ def reduceShearDataForCell(
         cell_idx_y=cell_idx_y,
         shear_name=shear_name,
         deshear=matcher.deshear,
-        cell_buffer=geometry.cell_buffer,
+        cell_buffer=geometry.match_buffer,
         cell_inner_size=geometry.cell_inner_size,
     )
 

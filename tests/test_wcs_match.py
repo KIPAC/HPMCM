@@ -38,8 +38,8 @@ def testWCSMatch(setup_data: int) -> None:
     matcher.reduceData(source_tablesfiles, catalog_ids)
 
     # Make sure it got the right number of cells
-    assert matcher.n_cell[0] == 3
-    assert matcher.n_cell[1] == 3
+    assert matcher.n_cell[0] == 4
+    assert matcher.n_cell[1] == 4
 
     # Define the range of cells to run over
     x_range = range(1, 2)
