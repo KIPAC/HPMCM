@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pandas
 
 from .cluster import ShearClusterData
 from .object import ShearObjectData
@@ -254,6 +255,10 @@ class ClusterStatsTable(TableInterface):
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
         has_ref_cat=TableColumnInfo(bool, "Has source from reference catalog"),
         catalog_mask=TableColumnInfo(int, "Mask of which catalogs are in cluster"),
+        fp_x_min=TableColumnInfo(int, "Footprint min x in cell pixels"),
+        fp_x_max=TableColumnInfo(int, "Footprint max x in cell pixels"),
+        fp_y_min=TableColumnInfo(int, "Footprint min y in cell pixels"),
+        fp_y_max=TableColumnInfo(int, "Footprint max y in cell pixels"),
     )
 
     @staticmethod
@@ -282,6 +287,10 @@ class ClusterStatsTable(TableInterface):
         snr_rms = np.zeros((n_clust), dtype=float)
         has_ref_cat = np.zeros((n_clust), dtype=bool)
         catalog_mask = np.zeros((n_clust), dtype=int)
+        fp_x_mins = np.zeros((n_clust), dtype=int)
+        fp_x_maxs = np.zeros((n_clust), dtype=int)
+        fp_y_mins = np.zeros((n_clust), dtype=int)
+        fp_y_maxs = np.zeros((n_clust), dtype=int)
 
         for idx, cluster in enumerate(cell_data.cluster_dict.values()):
             cluster_ids[idx] = cluster.i_cluster
@@ -295,6 +304,10 @@ class ClusterStatsTable(TableInterface):
             snr_rms[idx] = cluster.snr_rms
             has_ref_cat[idx] = cluster.hasRefCatalog()
             catalog_mask[idx] = cluster.catalogMask(catalog_id_map)
+            fp_x_mins[idx] = cluster.footprint.slice_x.start
+            fp_x_maxs[idx] = cluster.footprint.slice_x.stop
+            fp_y_mins[idx] = cluster.footprint.slice_y.start
+            fp_y_maxs[idx] = cluster.footprint.slice_y.stop
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
@@ -318,6 +331,10 @@ class ClusterStatsTable(TableInterface):
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
             has_ref_cat=has_ref_cat,
             catalog_mask=catalog_mask,
+            fp_x_min=fp_x_mins,
+            fp_x_max=fp_x_maxs,
+            fp_y_min=fp_y_mins,
+            fp_y_max=fp_y_maxs,
         )
 
 
@@ -383,3 +400,149 @@ class ShearTable(TableInterface):
             for key, val in clus_stats.items():
                 out_dict[key][idx] = val
         return ShearTable(**out_dict)
+
+
+SourceColsType = list[str] | dict[int, list[str]] | None
+
+
+def _resolve_cols(
+    source_cols: SourceColsType,
+    cat_id: int,
+    src_df: pandas.DataFrame,
+) -> pandas.DataFrame:
+    """Return src_df filtered to the requested columns for cat_id."""
+    if source_cols is None:
+        return src_df
+    if isinstance(source_cols, dict):
+        if cat_id not in source_cols:
+            return src_df
+        cols = source_cols[cat_id]
+    else:
+        cols = source_cols
+    return src_df[[c for c in cols if c in src_df.columns]]
+
+
+def buildJoinedObjectTable(
+    object_assoc: pandas.DataFrame,
+    input_files: list[str],
+    catalog_ids: list[int],
+    source_cols: SourceColsType = None,
+) -> pandas.DataFrame:
+    """Build a wide joined table from an ObjectAssocTable and source catalogs.
+
+    Produces one row per object with source-level data from each catalog
+    joined in as additional columns, suffixed by ``_{catalog_id}``.
+
+    Parameters
+    ----------
+    object_assoc:
+        Association DataFrame (``ObjectAssocTable.data``) mapping objects to
+        individual sources.
+    input_files:
+        List of input catalog file paths (parquet).
+    catalog_ids:
+        Catalog IDs corresponding to each entry in ``input_files``.
+    source_cols:
+        Columns to pull from source catalogs.
+
+        - ``None``: all columns from every catalog.
+        - ``list[str]``: same column list applied to every catalog (missing
+          columns in a given file are silently skipped).
+        - ``dict[int, list[str]]``: per-catalog column lists, keyed by
+          ``catalog_id``.  Catalogs absent from the dict get no columns
+          (only ``distance`` is added for them).
+
+    Returns
+    -------
+    DataFrame with one row per ``object_id``.  Columns from each catalog are
+    renamed ``{col}_{catalog_id}``.  Objects that have no source in a
+    given catalog will have ``NaN`` for that catalog's columns.
+    """
+    catalog_file_map = dict(zip(catalog_ids, input_files))
+
+    base = (
+        object_assoc[["object_id", "cluster_id", "cell_idx"]]
+        .drop_duplicates("object_id")
+        .set_index("object_id")
+    )
+
+    for cat_id, f_name in catalog_file_map.items():
+        mask = object_assoc["catalog_id"] == cat_id
+        if not mask.any():
+            continue
+
+        assoc_sub = object_assoc.loc[mask, ["object_id", "source_idx", "distance"]]
+
+        src_df = _resolve_cols(source_cols, cat_id, pandas.read_parquet(f_name))
+
+        rows = src_df.iloc[assoc_sub["source_idx"].values].copy()
+        rows.index = assoc_sub["object_id"].values
+        rows["distance"] = assoc_sub["distance"].values
+
+        rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
+        base = base.join(rows, how="left")
+
+    return base.reset_index()
+
+
+def buildJoinedClusterTable(
+    cluster_assoc: pandas.DataFrame,
+    input_files: list[str],
+    catalog_ids: list[int],
+    source_cols: SourceColsType = None,
+) -> pandas.DataFrame:
+    """Build a wide joined table from a ClusterAssocTable and source catalogs.
+
+    Produces one row per cluster with source-level data from each catalog
+    joined in as additional columns, suffixed by ``_{catalog_id}``.
+
+    Parameters
+    ----------
+    cluster_assoc:
+        Association DataFrame (``ClusterAssocTable.data``) mapping clusters to
+        individual sources.
+    input_files:
+        List of input catalog file paths (parquet).
+    catalog_ids:
+        Catalog IDs corresponding to each entry in ``input_files``.
+    source_cols:
+        Columns to pull from source catalogs.
+
+        - ``None``: all columns from every catalog.
+        - ``list[str]``: same column list applied to every catalog (missing
+          columns in a given file are silently skipped).
+        - ``dict[int, list[str]]``: per-catalog column lists, keyed by
+          ``catalog_id``.  Catalogs absent from the dict get no columns
+          (only ``distance`` is added for them).
+
+    Returns
+    -------
+    DataFrame with one row per ``cluster_id``.  Columns from each catalog are
+    renamed ``{col}_{catalog_id}``.  Clusters that have no source in a
+    given catalog will have ``NaN`` for that catalog's columns.
+    """
+    catalog_file_map = dict(zip(catalog_ids, input_files))
+
+    base = (
+        cluster_assoc[["cluster_id", "cell_idx"]]
+        .drop_duplicates("cluster_id")
+        .set_index("cluster_id")
+    )
+
+    for cat_id, f_name in catalog_file_map.items():
+        mask = cluster_assoc["catalog_id"] == cat_id
+        if not mask.any():
+            continue
+
+        assoc_sub = cluster_assoc.loc[mask, ["cluster_id", "source_idx", "distance"]]
+
+        src_df = _resolve_cols(source_cols, cat_id, pandas.read_parquet(f_name))
+
+        rows = src_df.iloc[assoc_sub["source_idx"].values].copy()
+        rows.index = assoc_sub["cluster_id"].values
+        rows["distance"] = assoc_sub["distance"].values
+
+        rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
+        base = base.join(rows, how="left")
+
+    return base.reset_index()

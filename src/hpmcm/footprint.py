@@ -48,6 +48,22 @@ class Footprint:
             self.slice_y.stop,
         )
 
+    @classmethod
+    def from_bounds(
+        cls,
+        x_min: int,
+        x_max: int,
+        y_min: int,
+        y_max: int,
+    ) -> Footprint:
+        """Reconstruct a stub Footprint from saved bounds.
+
+        The image array is a minimal dummy sufficient for extent() and
+        footprint_offset — the full counts-map is not restored.
+        """
+        dummy = np.ones((x_max, y_max), dtype=np.int32)
+        return cls(dummy, (slice(x_min, x_max), slice(y_min, y_max)))
+
 
 class FootprintSet:
     """Wraps Footprints detected by `photutils.segmentation.detect_sources`
