@@ -405,23 +405,6 @@ class ShearTable(TableInterface):
 SourceColsType = list[str] | dict[int, list[str]] | None
 
 
-def _catalog_mask_series(
-    assoc: pandas.DataFrame,
-    id_col: str,
-    catalog_ids: list[int],
-) -> pandas.Series:
-    """Return an integer bitmask series indexed by id_col.
-
-    Bit ``i`` is set when ``catalog_ids[i]`` contributed at least one source
-    to that object or cluster.
-    """
-    bit = {cat_id: 1 << i for i, cat_id in enumerate(catalog_ids)}
-    return (
-        assoc.groupby(id_col)["catalog_id"]
-        .apply(lambda cats: sum(bit.get(c, 0) for c in cats.unique()))
-        .astype(int)
-    )
-
 
 def _resolve_cols(
     source_cols: SourceColsType,
@@ -441,18 +424,25 @@ def _resolve_cols(
 
 
 def buildJoinedObjectTable(
+    object_stats: pandas.DataFrame,
     object_assoc: pandas.DataFrame,
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
 ) -> pandas.DataFrame:
-    """Build a wide joined table from an ObjectAssocTable and source catalogs.
+    """Build a wide joined table from an ObjectStatsTable and source catalogs.
 
-    Produces one row per object with source-level data from each catalog
-    joined in as additional columns, suffixed by ``_{catalog_id}``.
+    Produces one row per object: all stats columns from ``object_stats`` plus
+    source-level data from each catalog joined in as additional columns,
+    suffixed by ``_{catalog_id}``.
+
+    Rows are matched using ``object_assoc.object_id == object_stats.object_id``
+    and ``object_assoc.source_id == input_catalog.id``.
 
     Parameters
     ----------
+    object_stats:
+        Stats DataFrame (``ObjectStatsTable.data``) with one row per object.
     object_assoc:
         Association DataFrame (``ObjectAssocTable.data``) mapping objects to
         individual sources.
@@ -477,46 +467,42 @@ def buildJoinedObjectTable(
     given catalog will have ``NaN`` for that catalog's columns.
     """
     catalog_file_map = dict(zip(catalog_ids, input_files))
-
-    base = (
-        object_assoc[["object_id", "cluster_id", "cell_idx"]]
-        .drop_duplicates("object_id")
-        .set_index("object_id")
-    )
+    base = object_stats.set_index("object_id")
 
     for cat_id, f_name in catalog_file_map.items():
         mask = object_assoc["catalog_id"] == cat_id
         if not mask.any():
             continue
 
-        assoc_sub = object_assoc.loc[mask, ["object_id", "source_idx", "distance"]]
+        assoc_sub = object_assoc.loc[mask, ["object_id", "source_id"]]
 
         src_df = _resolve_cols(source_cols, cat_id, pandas.read_parquet(f_name))
 
-        rows = src_df.iloc[assoc_sub["source_idx"].values].copy()
-        rows.index = assoc_sub["object_id"].values
-        rows["distance"] = assoc_sub["distance"].values
-
+        rows = assoc_sub.merge(src_df, left_on="source_id", right_on="id", how="left")
+        rows = rows.drop(columns=["source_id"]).set_index("object_id")
         rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
         base = base.join(rows, how="left")
 
-    base["catalog_mask"] = _catalog_mask_series(object_assoc, "object_id", catalog_ids)
     return base.reset_index()
 
 
 def buildJoinedClusterTable(
+    cluster_stats: pandas.DataFrame,
     cluster_assoc: pandas.DataFrame,
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
 ) -> pandas.DataFrame:
-    """Build a wide joined table from a ClusterAssocTable and source catalogs.
+    """Build a wide joined table from a ClusterStatsTable and source catalogs.
 
-    Produces one row per cluster with source-level data from each catalog
-    joined in as additional columns, suffixed by ``_{catalog_id}``.
+    Produces one row per cluster: all stats columns from ``cluster_stats`` plus
+    source-level data from each catalog joined in as additional columns,
+    suffixed by ``_{catalog_id}``.
 
     Parameters
     ----------
+    cluster_stats:
+        Stats DataFrame (``ClusterStatsTable.data``) with one row per cluster.
     cluster_assoc:
         Association DataFrame (``ClusterAssocTable.data``) mapping clusters to
         individual sources.
@@ -541,12 +527,7 @@ def buildJoinedClusterTable(
     given catalog will have ``NaN`` for that catalog's columns.
     """
     catalog_file_map = dict(zip(catalog_ids, input_files))
-
-    base = (
-        cluster_assoc[["cluster_id", "cell_idx"]]
-        .drop_duplicates("cluster_id")
-        .set_index("cluster_id")
-    )
+    base = cluster_stats.set_index("cluster_id")
 
     for cat_id, f_name in catalog_file_map.items():
         mask = cluster_assoc["catalog_id"] == cat_id
@@ -564,5 +545,4 @@ def buildJoinedClusterTable(
         rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
         base = base.join(rows, how="left")
 
-    base["catalog_mask"] = _catalog_mask_series(cluster_assoc, "cluster_id", catalog_ids)
     return base.reset_index()
