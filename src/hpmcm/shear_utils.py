@@ -443,6 +443,8 @@ def splitDESCMDByTypeAndClean(
     """
     p = tables_io.read(basefile)
     clean_st = "cleaned" if clean else "uncleaned"
+    if 'id' not in p.columns:
+        p['id'] = np.arange(len(p))
     for type_ in SHEAR_NAMES:
         mask = p["mcal_step"] == type_
         sub = p[mask]
@@ -488,7 +490,6 @@ def splitDESCMDByTypeAndClean(
         cleaned["y_pix"] = cleaned["y"]
         cleaned["cell_idx_x"] = cell_idx_x[central_to_cell]
         cleaned["cell_idx_y"] = cell_idx_y[central_to_cell]
-        cleaned["id"] = np.arange(len(cleaned))
         cleaned["shear"] = shear
         cleaned["meta_step"] = np.full(len(cleaned), type_)
         cleaned.to_parquet(
