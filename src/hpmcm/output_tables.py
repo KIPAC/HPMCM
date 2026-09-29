@@ -405,6 +405,24 @@ class ShearTable(TableInterface):
 SourceColsType = list[str] | dict[int, list[str]] | None
 
 
+def _catalog_mask_series(
+    assoc: pandas.DataFrame,
+    id_col: str,
+    catalog_ids: list[int],
+) -> pandas.Series:
+    """Return an integer bitmask series indexed by id_col.
+
+    Bit ``i`` is set when ``catalog_ids[i]`` contributed at least one source
+    to that object or cluster.
+    """
+    bit = {cat_id: 1 << i for i, cat_id in enumerate(catalog_ids)}
+    return (
+        assoc.groupby(id_col)["catalog_id"]
+        .apply(lambda cats: sum(bit.get(c, 0) for c in cats.unique()))
+        .astype(int)
+    )
+
+
 def _resolve_cols(
     source_cols: SourceColsType,
     cat_id: int,
@@ -482,6 +500,7 @@ def buildJoinedObjectTable(
         rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
         base = base.join(rows, how="left")
 
+    base["catalog_mask"] = _catalog_mask_series(object_assoc, "object_id", catalog_ids)
     return base.reset_index()
 
 
@@ -545,4 +564,5 @@ def buildJoinedClusterTable(
         rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
         base = base.join(rows, how="left")
 
+    base["catalog_mask"] = _catalog_mask_series(cluster_assoc, "cluster_id", catalog_ids)
     return base.reset_index()
