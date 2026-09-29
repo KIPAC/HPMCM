@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -125,6 +127,57 @@ class WcsMatch(Match):
         """Convert local coords in pixels to world coordinates (RA, DEC)"""
         assert self.wcs is not None
         return self.wcs.wcs_pix2world(x_pix, y_pix, 0)
+
+    def _geometryDict(self) -> dict:
+        d = super()._geometryDict()
+        d["ref_dir"] = [float(self.wcs.wcs.crval[0]), float(self.wcs.wcs.crval[1])]
+        ctype = self.wcs.wcs.ctype[0].split("---")[1] if "---" in self.wcs.wcs.ctype[0] else "TAN"
+        d["wcs_ctype"] = ctype
+        return d
+
+    @classmethod
+    def load(cls, save_dir: str | Path) -> WcsMatch:
+        """Restore a WcsMatch from a directory written by save().
+
+        Parameters
+        ----------
+        save_dir:
+            Directory written by ``save()``.
+
+        Returns
+        -------
+        Restored WcsMatch with ``cell_dict`` populated.
+        """
+        save_dir = Path(save_dir)
+        with open(save_dir / "geometry.json") as fh:
+            geo = json.load(fh)
+
+        ref_dir = tuple(geo["ref_dir"])
+        n_pix = np.array(geo["n_pixels"])
+        match_wcs = createGlobalWcs(
+            ref_dir, geo["pixel_size"], n_pix, ctype=geo.get("wcs_ctype", "TAN")
+        )
+        matcher = cls(
+            match_wcs,
+            n_pixels=n_pix,
+            cell_size=geo["cell_size"],
+            cell_buffer=geo["cell_buffer"],
+            cell_max_object=geo["cell_max_object"],
+            max_sub_division=geo["max_sub_division"],
+            pixel_r2_cut=geo["pixel_r2_cut"],
+            n_cell_buffer=geo["n_cell_buffer"],
+        )
+        matcher.catalog_id_map = {int(k): int(v) for k, v in geo["catalog_id_map"].items()}
+
+        cluster_assoc = pandas.read_parquet(save_dir / "cluster_assoc.parquet")
+        object_assoc = pandas.read_parquet(save_dir / "object_assoc.parquet")
+        cluster_stats = pandas.read_parquet(save_dir / "cluster_stats.parquet")
+        object_stats = pandas.read_parquet(save_dir / "object_stats.parquet")
+
+        matcher._loadReducedData(save_dir)
+        per_cell_data = matcher._buildPerCellData(cluster_assoc)
+        matcher._reconstructCells(cluster_assoc, object_assoc, cluster_stats, object_stats, per_cell_data)
+        return matcher
 
     def reduceDataFrame(
         self,

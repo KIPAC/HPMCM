@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
+import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -122,6 +125,7 @@ class ShearMatch(Match):
         self.shear_names: list[str] = shear_names
         Match.__init__(self, **kwargs)
         geometry: ShearCellGeometry = kwargs.get("geometry", DEFAULT_GEOMETRY)
+        self.geometry = geometry
         if geometry.ref_dir is not None:
             self._wcs = createGlobalWcs(
                 geometry.ref_dir,
@@ -180,6 +184,64 @@ class ShearMatch(Match):
             return np.repeat(np.nan, len(x_pix)), np.repeat(np.nan, len(y_pix))
         ra, dec = self._wcs.wcs_pix2world(x_pix, y_pix, 0)
         return ra, dec
+
+    def _geometryDict(self) -> dict:
+        d = super()._geometryDict()
+        d.update(
+            shear_names=list(self.shear_names),
+            deshear=self.deshear,
+            cat_type=self.cat_type,
+            pixel_match_scale=int(self.pixel_match_scale),
+            shear_geometry=dataclasses.asdict(self.geometry),
+        )
+        return d
+
+    @classmethod
+    def load(cls, save_dir: str | Path) -> ShearMatch:
+        """Restore a ShearMatch from a directory written by save().
+
+        Parameters
+        ----------
+        save_dir:
+            Directory written by ``save()``.
+
+        Returns
+        -------
+        Restored ShearMatch with ``cell_dict`` populated.
+        """
+        save_dir = Path(save_dir)
+        with open(save_dir / "geometry.json") as fh:
+            geo = json.load(fh)
+
+        sg = geo["shear_geometry"]
+        geometry = ShearCellGeometry(**sg)
+
+        matcher = cls(
+            pixel_size=geo["pixel_size"],
+            n_pixels=np.array(geo["n_pixels"]),
+            cell_size=geo["cell_size"],
+            cell_buffer=geo["cell_buffer"],
+            cell_max_object=geo["cell_max_object"],
+            max_sub_division=geo["max_sub_division"],
+            pixel_r2_cut=geo["pixel_r2_cut"],
+            n_cell_buffer=geo["n_cell_buffer"],
+            shear_names=geo["shear_names"],
+            deshear=geo["deshear"],
+            catalogType=geo["cat_type"],
+            pixel_match_scale=geo["pixel_match_scale"],
+            geometry=geometry,
+        )
+        matcher.catalog_id_map = {int(k): int(v) for k, v in geo["catalog_id_map"].items()}
+
+        cluster_assoc = pandas.read_parquet(save_dir / "cluster_assoc.parquet")
+        object_assoc = pandas.read_parquet(save_dir / "object_assoc.parquet")
+        cluster_stats = pandas.read_parquet(save_dir / "cluster_stats.parquet")
+        object_stats = pandas.read_parquet(save_dir / "object_stats.parquet")
+
+        matcher._loadReducedData(save_dir)
+        per_cell_data = matcher._buildPerCellData(cluster_assoc)
+        matcher._reconstructCells(cluster_assoc, object_assoc, cluster_stats, object_stats, per_cell_data)
+        return matcher
 
     def getCellIndices(
         self,
