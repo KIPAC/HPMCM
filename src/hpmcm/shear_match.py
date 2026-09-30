@@ -27,8 +27,10 @@ class ShearMatch(Match):
     The pixel_match_scale can we used to allow for matching sources
     that are seperate by more that 1 pixel.
 
-    Expects 5 input catalogs: a reference catalog and 4 counterfactual
-    shear catalogs.
+    By default expects 5 input catalogs (reference catalog ``ns`` and
+    counterfactual shear catalogs ``1p``, ``1m``, ``2p``, ``2m``).  The active
+    set is configurable via the ``shear_names`` constructor parameter, e.g.
+    pass ``shear_names=["ns", "1p", "1m"]`` for 3-catalog mode.
 
     Attributes
     ----------
