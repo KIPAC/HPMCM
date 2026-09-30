@@ -287,6 +287,7 @@ def splitRubinMDByTypeAndClean(
     shear: float,
     *,
     clean: bool = False,
+    deshear: bool = False,
     geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
 ) -> None:  # pragma: no cover
     """Split a parquet file by shear catalog type and tract
@@ -304,6 +305,10 @@ def splitRubinMDByTypeAndClean(
 
     clean:
         Remove duplicates
+
+    deshear:
+        If True, deshear sources using ``-shear`` as the deshear factor before
+        writing.  Adds dx_shear / dy_shear columns to the output.
 
     Notes
     -----
@@ -386,6 +391,8 @@ def splitRubinMDByTypeAndClean(
         cleaned["id"] = cleaned["shearObjectId"]
         cleaned["shear"] = shear
         cleaned["meta_step"] = np.full(len(cleaned), type_)
+        if deshear:
+            cleaned = deshearSources(cleaned, type_, -shear, geometry.match_buffer, geometry.cell_inner_size)
         cleaned.to_parquet(
             basefile.replace(".parq", f"_{clean_st}_{tract}_{type_}.parq")
         )
@@ -397,6 +404,7 @@ def splitDESCMDByTypeAndClean(
     shear: float,
     *,
     clean: bool = False,
+    deshear: bool = False,
     geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
 ) -> None:  # pragma: no cover
     """Split a parquet file by shear catalog type and tract
@@ -414,6 +422,10 @@ def splitDESCMDByTypeAndClean(
 
     clean:
         Remove duplicates
+
+    deshear:
+        If True, deshear sources using ``-shear`` as the deshear factor before
+        writing.  Adds dx_shear / dy_shear columns to the output.
 
     Notes
     -----
@@ -492,34 +504,56 @@ def splitDESCMDByTypeAndClean(
         cleaned["cell_idx_y"] = cell_idx_y[central_to_cell]
         cleaned["shear"] = shear
         cleaned["meta_step"] = np.full(len(cleaned), type_)
+        if deshear:
+            print('deshearing', type_, -shear)
+            cleaned = deshearSources(cleaned, type_, -shear, geometry.match_buffer, geometry.cell_inner_size)
         cleaned.to_parquet(
             basefile.replace(".parq", f"_{clean_st}_{tract}_{type_}.parq")
         )
-        
-        
 
-def deshearSourcesForCell(
+
+def cutSourcesForCell(
     dataframe: pandas.DataFrame,
     cell_idx_x: int,
     cell_idx_y: int,
+) -> pandas.DataFrame:
+    """Return only the rows belonging to a specific cell.
+
+    Parameters
+    ----------
+    dataframe:
+        Input dataframe with ``cell_idx_x`` and ``cell_idx_y`` columns.
+
+    cell_idx_x:
+        X cell index to select.
+
+    cell_idx_y:
+        Y cell index to select.
+
+    Returns
+    -------
+    Subset of ``dataframe`` matching the requested cell (view, not a copy).
+    """
+    mask = (dataframe["cell_idx_x"] == cell_idx_x) & (
+        dataframe["cell_idx_y"] == cell_idx_y
+    )
+    return dataframe[mask]
+
+
+def deshearSources(
+    dataframe: pandas.DataFrame,
     shear_name: str,
     deshear: float | None,
     cell_buffer: int = DEFAULT_GEOMETRY.match_buffer,
     cell_inner_size: int = DEFAULT_GEOMETRY.cell_inner_size,
 ) -> pandas.DataFrame:
-    """Filter and deshear sources belonging to a specific cell.
+    """Apply deshearing to a pre-filtered source dataframe.
 
     Parameters
     ----------
     dataframe:
-        Input dataframe with cell_idx_x, cell_idx_y, x_cell_coadd,
-        y_cell_coadd, x_pix, and y_pix columns.
-
-    cell_idx_x:
-        X cell index to select (matched against dataframe["cell_idx_x"]).
-
-    cell_idx_y:
-        Y cell index to select (matched against dataframe["cell_idx_y"]).
+        Input dataframe with ``x_cell_coadd``, ``y_cell_coadd``, ``x_pix``,
+        and ``y_pix`` columns.  Typically the output of ``cutSourcesForCell``.
 
     shear_name:
         Shear catalog name; one of SHEAR_NAMES ("ns", "2p", "2m", "1p", "1m").
@@ -538,36 +572,29 @@ def deshearSourcesForCell(
 
     Returns
     -------
-    DataFrame containing only the sources in the requested cell with
-    x_cell, y_cell, x_pix, y_pix columns set to the desheared positions.
-    If deshear is not None, dx_shear and dy_shear columns are also added.
+    Copy of ``dataframe`` with x_cell, y_cell, x_pix, y_pix set to the
+    desheared positions (plus dx_shear / dy_shear columns when deshear is
+    not None).
 
     Notes
     -----
     The deshear correction is applied relative to the centre of the inner
     cell region (x_cell_coadd = cell_inner_size / 2), so sources at the
     centre receive zero correction and the maximum correction magnitude is
-    |deshear| * cell_inner_size / 2 at the inner edges. The final x_cell
-    values therefore remain close to the undesheared positions.
+    |deshear| * cell_inner_size / 2 at the inner edges.
     x_cell and y_cell are in regular cell pixel space (same frame as
     CellData.x_cell: x_cell = 0 at the outer edge of the cell,
     x_cell = cell_buffer at the inner left edge). pixel_match_scale is
-    NOT applied here; fillCountsMapFromDf handles that conversion, keeping
-    this consistent with the non-shear CellData.reduceDataframe path.
+    NOT applied here; fillCountsMapFromDf handles that conversion.
     No bounds filtering is applied; call reduceShearDataForCell for that.
     """
     if shear_name not in SHEAR_NAMES:
         raise ValueError(f"shear_name must be one of {SHEAR_NAMES}, got {shear_name!r}")
 
-    mask = (dataframe["cell_idx_x"] == cell_idx_x) & (
-        dataframe["cell_idx_y"] == cell_idx_y
-    )
-    reduced = dataframe[mask]
-
-    x_cell_orig = reduced["x_cell_coadd"].values
-    y_cell_orig = reduced["y_cell_coadd"].values
-    x_pix_orig = reduced["x_pix"].values
-    y_pix_orig = reduced["y_pix"].values
+    x_cell_orig = dataframe["x_cell_coadd"].values
+    y_cell_orig = dataframe["y_cell_coadd"].values
+    x_pix_orig = dataframe["x_pix"].values
+    y_pix_orig = dataframe["y_pix"].values
 
     # Shear is applied relative to the centre of the inner cell region
     x_centre = x_cell_orig - cell_inner_size / 2
@@ -594,7 +621,7 @@ def deshearSourcesForCell(
     x_cell = x_cell + cell_buffer
     y_cell = y_cell + cell_buffer
 
-    red = reduced.copy(deep=True)
+    red = dataframe.copy(deep=True)
     red["x_cell"] = x_cell
     red["y_cell"] = y_cell
     red["x_pix"] = x_pix
@@ -603,6 +630,25 @@ def deshearSourcesForCell(
         red["dx_shear"] = dx_shear
         red["dy_shear"] = dy_shear
     return red
+
+
+def deshearSourcesForCell(
+    dataframe: pandas.DataFrame,
+    cell_idx_x: int,
+    cell_idx_y: int,
+    shear_name: str,
+    deshear: float | None,
+    cell_buffer: int = DEFAULT_GEOMETRY.match_buffer,
+    cell_inner_size: int = DEFAULT_GEOMETRY.cell_inner_size,
+) -> pandas.DataFrame:
+    """Filter to a specific cell and apply deshearing.
+
+    Convenience wrapper around :func:`cutSourcesForCell` and
+    :func:`deshearSources`.  See those functions for parameter and return
+    documentation.
+    """
+    reduced = cutSourcesForCell(dataframe, cell_idx_x, cell_idx_y)
+    return deshearSources(reduced, shear_name, deshear, cell_buffer, cell_inner_size)
 
 
 def reduceShearDataForCell(
@@ -626,7 +672,7 @@ def reduceShearDataForCell(
 
     Returns
     -------
-    Filtered dataframe with x_cell, y_cell, x_pix, y_pix columns added.
+    Filtered dataframe with x_cell_coadd, y_cell_coadd, x_pix, y_pix columns added.
     If matcher.deshear is not None, dx_shear and dy_shear are also added.
 
     Notes

@@ -343,7 +343,7 @@ def reduceAnacalTable(
         )
     tout["snr"] = snr
     tout["id"] = tout["object_id"]
-
+    tout.drop(columns=["object_id"])
     tout.to_parquet(outfile)
 
 
