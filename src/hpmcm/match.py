@@ -398,6 +398,38 @@ class Match:
         for cat_id, i_cat in self.catalog_id_map.items():
             self.red_data[cat_id] = pandas.read_parquet(save_dir / f"cat_{cat_id}.parquet")
 
+    def _filterAssocByRange(
+        self,
+        cluster_assoc: pandas.DataFrame,
+        object_assoc: pandas.DataFrame,
+        x_range: tuple[int, int] | None,
+        y_range: tuple[int, int] | None,
+    ) -> tuple[pandas.DataFrame, pandas.DataFrame]:
+        """Filter assoc tables to only cells whose (ix, iy) fall in the given ranges.
+
+        Parameters
+        ----------
+        x_range:
+            ``(x_min, x_max)`` inclusive bounds on the cell x-index.
+            ``None`` means no filtering on x.
+        y_range:
+            ``(y_min, y_max)`` inclusive bounds on the cell y-index.
+            ``None`` means no filtering on y.
+        """
+        if x_range is None and y_range is None:
+            return cluster_assoc, object_assoc
+        keep = []
+        for cell_idx_raw in cluster_assoc["cell_idx"].unique():
+            ix, iy = self.getCellXY(int(cell_idx_raw))
+            if x_range is not None and not (x_range[0] <= ix <= x_range[1]):
+                continue
+            if y_range is not None and not (y_range[0] <= iy <= y_range[1]):
+                continue
+            keep.append(int(cell_idx_raw))
+        cluster_assoc = cluster_assoc[cluster_assoc["cell_idx"].isin(keep)]
+        object_assoc = object_assoc[object_assoc["cell_idx"].isin(keep)]
+        return cluster_assoc, object_assoc
+
     def _buildPerCellData(
         self, cluster_assoc: pandas.DataFrame
     ) -> dict[int, list[pandas.DataFrame]]:

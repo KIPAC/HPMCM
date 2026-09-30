@@ -478,6 +478,12 @@ def buildJoinedObjectTable(
 
         src_df = _resolve_cols(source_cols, cat_id, pandas.read_parquet(f_name))
 
+        # This is needed b/c if we want to include the output of shear matches
+        # as inputs here, as they use object_id instead of id
+        if 'id' not in src_df.columns:
+            src_df['id'] = src_df.object_id
+            src_df = src_df.drop(columns=["object_id"])
+
         rows = assoc_sub.merge(src_df, left_on="source_id", right_on="id", how="left")
         rows = rows.drop(columns=["source_id"]).set_index("object_id")
         rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})

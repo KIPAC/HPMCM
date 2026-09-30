@@ -197,13 +197,24 @@ class ShearMatch(Match):
         return d
 
     @classmethod
-    def load(cls, save_dir: str | Path) -> ShearMatch:
+    def load(
+        cls,
+        save_dir: str | Path,
+        x_range: tuple[int, int] | None = None,
+        y_range: tuple[int, int] | None = None,
+    ) -> ShearMatch:
         """Restore a ShearMatch from a directory written by save().
 
         Parameters
         ----------
         save_dir:
             Directory written by ``save()``.
+        x_range:
+            Optional ``(x_min, x_max)`` inclusive bounds on the cell x-index.
+            Cells outside this range are skipped.
+        y_range:
+            Optional ``(y_min, y_max)`` inclusive bounds on the cell y-index.
+            Cells outside this range are skipped.
 
         Returns
         -------
@@ -237,6 +248,10 @@ class ShearMatch(Match):
         object_assoc = pandas.read_parquet(save_dir / "object_assoc.parquet")
         cluster_stats = pandas.read_parquet(save_dir / "cluster_stats.parquet")
         object_stats = pandas.read_parquet(save_dir / "object_stats.parquet")
+
+        cluster_assoc, object_assoc = matcher._filterAssocByRange(
+            cluster_assoc, object_assoc, x_range, y_range
+        )
 
         matcher._loadReducedData(save_dir)
         per_cell_data = matcher._buildPerCellData(cluster_assoc)
