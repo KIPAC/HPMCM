@@ -49,7 +49,7 @@ While developing in a branch, don't forget to pull from ``main`` regularly (at
 least daily) to make sure your work is compatible with other recent changes.
 
 When you're ready to merge your branch into the ``main`` branch, create a pull request
-("PR") in the rail repository you cloned from. GitHub has instructions 
+("PR") in the HPMCM repository you cloned from. GitHub has instructions
 `here <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_.
 
 Several continuous integration checks will be performed for new pull requests. 
@@ -58,9 +58,9 @@ them in the branch before sending for review. These include unit tests (does the
 code function correctly), pylint (code style), or coverage (how much code is 
 exercised in unit tests).
 
-Once you are satisfied with your PR, request that other team members review and 
-approve it. You could send the request to someone whom you've worked with on the 
-topic, or one of the core maintainers of rail.
+Once you are satisfied with your PR, request that other team members review and
+approve it. You could send the request to someone whom you've worked with on the
+topic, or one of the core maintainers of HPMCM.
 
 
 Merge

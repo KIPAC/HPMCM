@@ -13,7 +13,10 @@ __all__ = [
     "wcsMatchCommand",
     "shearGroup",
     "shearMatchCommand",
+    "shearSplitRubinCommand",
+    "shearSplitDESCCommand",
     "shearReportCommand",
+    "shearMergeReportsCommand",
 ]
 
 

@@ -18,7 +18,7 @@ cross matching using the following strategy.
    create a set of :py:class:`clusters <hpmcm.cluster.ClusterData>`
 
 5. Each cluster in then refined into
-   :py:class:`objects <hpmcm.cluster.ObjectData>`, by repeating the
+   :py:class:`objects <hpmcm.object.ObjectData>`, by repeating the
    counts map and footprint detection using progressive smaller pixels
    until each objects consists only of sources within the requested
    match radius.  At each iteration the pixel scale is halved.
@@ -35,9 +35,27 @@ The two sub-classes of `Match` are:
    catalogs.
 
 2. :py:class:`ShearMatch <hpmcm.shear_match.ShearMatch>` uses a predefined
-   WCS that was used to create the meta-detection ShearObject catalogs, and
-   expects exactly 5 input catalogs: a reference catalog and 4 counterfactual
-   shear catalogs.
+   WCS that was used to create the meta-detection ShearObject catalogs.
+   By default it expects 5 input catalogs (a reference catalog ``ns`` and
+   4 counterfactual shear catalogs ``1p``, ``1m``, ``2p``, ``2m``), but the
+   active set is configurable via the ``shear_names`` parameter, allowing
+   e.g. 3-catalog mode (``["ns", "1p", "1m"]``).
+
+
+Additional features
+-------------------
+
+* **Serialization** — both matchers support :py:meth:`save()
+  <hpmcm.match.Match.save>` and :py:meth:`load()
+  <hpmcm.wcs_match.WcsMatch.load>` to persist a completed match to disk and
+  reload it, optionally filtering by cell range (``x_range`` / ``y_range``)
+  for parallelised workflows.
+
+* **Joined tables** — :py:func:`buildJoinedObjectTable
+  <hpmcm.output_tables.buildJoinedObjectTable>` and
+  :py:func:`buildJoinedClusterTable
+  <hpmcm.output_tables.buildJoinedClusterTable>` combine the association and
+  statistics tables into a single flat table for downstream analysis.
 """
 
 from . import classify, match_utils, package_utils, shear_utils, utils, viz_utils
