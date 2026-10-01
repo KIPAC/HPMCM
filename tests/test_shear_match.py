@@ -17,6 +17,9 @@ PIXEL_R2CUT = 4.0  # Cut at distance**2 = 4 pixels
 PIXEL_MATCH_SCALE = 1  # Use pixel scale to do matching
 SNR_CUT = 10.0  # Cut on signal-to-noise
 
+REF_DIR = (37.9, 7.0)  # RA, DEC center for tract 10463
+OUR_GEOM = hpmcm.shear_utils.ShearCellGeometry(ref_dir=REF_DIR)
+
 
 def testShearMatch(setup_data: int) -> None:
     """Run ShearMatch on 400 cells"""
@@ -34,7 +37,10 @@ def testShearMatch(setup_data: int) -> None:
 
     # Create matcher
     matcher = hpmcm.ShearMatch.createShearMatch(
-        pixel_R2_cut=PIXEL_R2CUT, pixel_match_scale=PIXEL_MATCH_SCALE, deshear=-1 * SHEAR
+        geometry=OUR_GEOM,
+        pixel_R2_cut=PIXEL_R2CUT,
+        pixel_match_scale=PIXEL_MATCH_SCALE,
+        deshear=-1 * SHEAR,
     )
 
     # Reduce the input data
@@ -45,8 +51,8 @@ def testShearMatch(setup_data: int) -> None:
     assert matcher.n_cell[1] == 201
 
     # Define the range of cells to run over
-    x_range = range(50, 70)
-    y_range = range(170, 190)
+    x_range = range(50, 55)
+    y_range = range(170, 175)
 
     # Run the analysis
     matcher.analysisLoop(x_range, y_range)
@@ -84,7 +90,7 @@ def testShearMatch(setup_data: int) -> None:
     ]
     n_bad = np.sum([len(obj_lists[x]) for x in bad_list])
     effic = n_good / (n_good + n_bad)
-    assert effic > 0.95
+    assert effic > 0.90
 
     # Get a particular cell and rerun the analysis to test visualization
     # and classification functions

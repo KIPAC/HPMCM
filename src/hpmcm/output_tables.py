@@ -476,16 +476,22 @@ def buildJoinedObjectTable(
 
         assoc_sub = object_assoc.loc[mask, ["object_id", "source_id"]]
 
-        src_df = _resolve_cols(source_cols, cat_id, pandas.read_parquet(f_name))
+        full_src = pandas.read_parquet(f_name)
+        # Normalize: catalogs written from shear matches use object_id instead of id
+        if "id" not in full_src.columns and "object_id" in full_src.columns:
+            full_src = full_src.rename(columns={"object_id": "id"})
 
-        # This is needed b/c if we want to include the output of shear matches
-        # as inputs here, as they use object_id instead of id
-        if 'id' not in src_df.columns:
-            src_df['id'] = src_df.object_id
-            src_df = src_df.drop(columns=["object_id"])
+        src_df = _resolve_cols(source_cols, cat_id, full_src)
+
+        # Re-inject the join key when column filtering stripped it
+        id_injected = "id" not in src_df.columns
+        if id_injected:
+            src_df = src_df.copy()
+            src_df["id"] = full_src["id"]
 
         rows = assoc_sub.merge(src_df, left_on="source_id", right_on="id", how="left")
-        rows = rows.drop(columns=["source_id"]).set_index("object_id")
+        drop_cols = ["source_id", "id"] if id_injected else ["source_id"]
+        rows = rows.drop(columns=drop_cols).set_index("object_id")
         rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
         base = base.join(rows, how="left")
 
