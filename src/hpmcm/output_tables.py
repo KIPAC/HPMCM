@@ -704,7 +704,8 @@ def reduceJoinedTable(
     stats_cols:
         Column-name prefixes whose per-catalog variants should be replaced by
         aggregated statistics.  Each prefix ``p`` causes ``p_0``, ``p_1``, …
-        to be dropped and ``p_mean``, ``p_std``, ``p_n`` to be added.
+        **and any column named exactly** ``p`` to be dropped, and ``p_mean``,
+        ``p_std``, ``p_n`` to be added.
 
     Returns
     -------
@@ -719,10 +720,11 @@ def reduceJoinedTable(
             excluded = set(drop_cols)
             base_cols = [c for c in base_cols if c not in excluded]
 
-    # 2. Remove per-catalog columns that will be replaced by stats
+    # 2. Remove columns that will be replaced by stats:
+    #    both the bare prefix names and all per-catalog variants {prefix}_{cat_id}
     if stats_cols:
-        per_cat = {f"{p}_{cid}" for p in stats_cols for cid in catalog_ids}
-        base_cols = [c for c in base_cols if c not in per_cat]
+        to_drop = set(stats_cols) | {f"{p}_{cid}" for p in stats_cols for cid in catalog_ids}
+        base_cols = [c for c in base_cols if c not in to_drop]
 
     result = df[base_cols].copy()
 

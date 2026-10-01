@@ -467,6 +467,15 @@ def test_reduceJoinedTable_keep_and_stats(wide_df):
     assert "object_id" in result.columns
 
 
+def test_reduceJoinedTable_bare_prefix_col_dropped(wide_df):
+    """A column named exactly after a stats prefix is also dropped."""
+    df_with_bare = wide_df.copy()
+    df_with_bare["flux"] = 99.0  # bare column with the same name as the prefix
+    result = reduceJoinedTable(df_with_bare, [0, 1, 2], stats_cols=["flux"])
+    assert "flux" not in result.columns
+    assert "flux_mean" in result.columns
+
+
 def test_reduceJoinedTable_no_reduction(wide_df):
     """With no stats_cols and no drops, the DataFrame is returned unchanged."""
     result = reduceJoinedTable(wide_df, [0, 1, 2])
