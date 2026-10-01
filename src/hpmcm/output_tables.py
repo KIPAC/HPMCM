@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -106,6 +107,8 @@ class ObjectStatsTable(TableInterface):
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
         has_ref_cat=TableColumnInfo(bool, "Has source from the reference catalog"),
         catalog_mask=TableColumnInfo(int, "Mask of which catalogs are in object"),
+        n_sib_objects=TableColumnInfo(int, "Number of objects in parent cluster"),
+        n_sib_srcs=TableColumnInfo(int, "Total sources across all objects in parent cluster"),
     )
 
     @staticmethod
@@ -134,6 +137,8 @@ class ObjectStatsTable(TableInterface):
         snr_rms = np.zeros((n_obj), dtype=float)
         has_ref_cat = np.zeros((n_obj), dtype=bool)
         catalog_mask = np.zeros((n_obj), dtype=int)
+        n_sib_objects = np.zeros((n_obj), dtype=int)
+        n_sib_srcs = np.zeros((n_obj), dtype=int)
 
         for idx, obj in enumerate(cell_data.object_dict.values()):
             cluster_ids[idx] = obj.parent_cluster.i_cluster
@@ -147,6 +152,9 @@ class ObjectStatsTable(TableInterface):
             snr_rms[idx] = obj.snr_rms
             has_ref_cat[idx] = obj.hasRefCatalog()
             catalog_mask[idx] = obj.catalogMask(catalog_id_map)
+            sibs = obj.parent_cluster.objects
+            n_sib_objects[idx] = len(sibs)
+            n_sib_srcs[idx] = sum(o.n_src for o in sibs)
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
@@ -170,6 +178,8 @@ class ObjectStatsTable(TableInterface):
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
             has_ref_cat=has_ref_cat,
             catalog_mask=catalog_mask,
+            n_sib_objects=n_sib_objects,
+            n_sib_srcs=n_sib_srcs,
         )
 
 
@@ -339,7 +349,7 @@ class ClusterStatsTable(TableInterface):
 
 
 class ShearTable(TableInterface):
-    """Interface of table with shear information"""
+    """Base interface of table with shear information (no id columns)."""
 
     _schema = TableInterface._schema.copy()
     _schema["good"] = TableColumnInfo(bool, "Has unique match")
@@ -358,7 +368,7 @@ class ShearTable(TableInterface):
             )
 
     @classmethod
-    def buildObjectShearStats(cls, cell_data: CellData) -> ShearTable:
+    def buildObjectShearStats(cls, cell_data: CellData) -> ObjectShearTable:
         """Create shear stats table for objects in a cell
 
         Parameters
@@ -368,19 +378,20 @@ class ShearTable(TableInterface):
 
         Returns
         -------
-        Shear stats table
+        Object shear stats table (includes ``object_id`` and ``cluster_id``)
         """
         n_obj = cell_data.n_objects
-        out_dict = ShearTable.emtpyNumpyDict(n_obj)
+        out_dict = ObjectShearTable.emtpyNumpyDict(n_obj)
         for idx, obj in enumerate(cell_data.object_dict.values()):
             assert isinstance(obj, ShearObjectData)
-            obj_stats = obj.shearStats()
-            for key, val in obj_stats.items():
+            out_dict["object_id"][idx] = obj.object_id
+            out_dict["cluster_id"][idx] = obj.parent_cluster.i_cluster
+            for key, val in obj.shearStats().items():
                 out_dict[key][idx] = val
-        return ShearTable(**out_dict)
+        return ObjectShearTable(**out_dict)
 
     @classmethod
-    def buildClusterShearStats(cls, cell_data: CellData) -> ShearTable:
+    def buildClusterShearStats(cls, cell_data: CellData) -> ClusterShearTable:
         """Create shear stats table for clusters in a cell
 
         Parameters
@@ -390,16 +401,35 @@ class ShearTable(TableInterface):
 
         Returns
         -------
-        Shear stats table
+        Cluster shear stats table (includes ``cluster_id``)
         """
         n_clusters = cell_data.n_clusters
-        out_dict = ShearTable.emtpyNumpyDict(n_clusters)
+        out_dict = ClusterShearTable.emtpyNumpyDict(n_clusters)
         for idx, clus in enumerate(cell_data.cluster_dict.values()):
             assert isinstance(clus, ShearClusterData)
-            clus_stats = clus.shearStats()
-            for key, val in clus_stats.items():
+            out_dict["cluster_id"][idx] = clus.i_cluster
+            for key, val in clus.shearStats().items():
                 out_dict[key][idx] = val
-        return ShearTable(**out_dict)
+        return ClusterShearTable(**out_dict)
+
+
+class ObjectShearTable(ShearTable):
+    """Shear stats table for objects — adds ``object_id`` and ``cluster_id``."""
+
+    _schema = {
+        "object_id": TableColumnInfo(int, "Unique Object ID"),
+        "cluster_id": TableColumnInfo(int, "Parent Cluster Unique ID"),
+        **ShearTable._schema,
+    }
+
+
+class ClusterShearTable(ShearTable):
+    """Shear stats table for clusters — adds ``cluster_id``."""
+
+    _schema = {
+        "cluster_id": TableColumnInfo(int, "Unique Cluster ID"),
+        **ShearTable._schema,
+    }
 
 
 SourceColsType = list[str] | dict[int, list[str]] | None
@@ -429,12 +459,14 @@ def buildJoinedObjectTable(
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
+    object_shear: str | Path | None = None,
 ) -> pandas.DataFrame:
     """Build a wide joined table from an ObjectStatsTable and source catalogs.
 
     Produces one row per object: all stats columns from ``object_stats`` plus
     source-level data from each catalog joined in as additional columns,
-    suffixed by ``_{catalog_id}``.
+    suffixed by ``_{catalog_id}``.  Optionally joins shear statistics from an
+    ``ObjectShearTable`` parquet file.
 
     Rows are matched using ``object_assoc.object_id == object_stats.object_id``
     and ``object_assoc.source_id == input_catalog.id``.
@@ -459,6 +491,11 @@ def buildJoinedObjectTable(
         - ``dict[int, list[str]]``: per-catalog column lists, keyed by
           ``catalog_id``.  Catalogs absent from the dict get no columns
           (only ``distance`` is added for them).
+    object_shear:
+        Optional path to an ``ObjectShearTable`` parquet file.  When provided,
+        shear statistics are joined on ``object_id``.  The ``cluster_id``
+        column is dropped before joining because it is already present in
+        ``object_stats``.
 
     Returns
     -------
@@ -468,6 +505,10 @@ def buildJoinedObjectTable(
     """
     catalog_file_map = dict(zip(catalog_ids, input_files))
     base = object_stats.set_index("object_id")
+
+    if object_shear is not None:
+        shear_df = pandas.read_parquet(object_shear).drop(columns=["cluster_id"], errors="ignore")
+        base = base.join(shear_df.set_index("object_id"), how="left")
 
     for cat_id, f_name in catalog_file_map.items():
         mask = object_assoc["catalog_id"] == cat_id
@@ -499,17 +540,20 @@ def buildJoinedObjectTable(
 
 
 def buildJoinedClusterTable(
+
     cluster_stats: pandas.DataFrame,
     cluster_assoc: pandas.DataFrame,
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
+    cluster_shear: str | Path | None = None,
 ) -> pandas.DataFrame:
     """Build a wide joined table from a ClusterStatsTable and source catalogs.
 
     Produces one row per cluster: all stats columns from ``cluster_stats`` plus
     source-level data from each catalog joined in as additional columns,
-    suffixed by ``_{catalog_id}``.
+    suffixed by ``_{catalog_id}``.  Optionally joins shear statistics from a
+    ``ClusterShearTable`` parquet file.
 
     Parameters
     ----------
@@ -531,6 +575,9 @@ def buildJoinedClusterTable(
         - ``dict[int, list[str]]``: per-catalog column lists, keyed by
           ``catalog_id``.  Catalogs absent from the dict get no columns
           (only ``distance`` is added for them).
+    cluster_shear:
+        Optional path to a ``ClusterShearTable`` parquet file.  When provided,
+        shear statistics are joined on ``cluster_id``.
 
     Returns
     -------
@@ -540,6 +587,10 @@ def buildJoinedClusterTable(
     """
     catalog_file_map = dict(zip(catalog_ids, input_files))
     base = cluster_stats.set_index("cluster_id")
+
+    if cluster_shear is not None:
+        shear_df = pandas.read_parquet(cluster_shear)
+        base = base.join(shear_df.set_index("cluster_id"), how="left")
 
     for cat_id, f_name in catalog_file_map.items():
         mask = cluster_assoc["catalog_id"] == cat_id
@@ -558,3 +609,142 @@ def buildJoinedClusterTable(
         base = base.join(rows, how="left")
 
     return base.reset_index()
+
+
+def computeColumnStats(
+    df: pandas.DataFrame,
+    col_prefix: str,
+    catalog_ids: list[int],
+) -> pandas.DataFrame:
+    """Compute per-row mean and std across per-catalog columns.
+
+    For each row in ``df``, collects the values of all columns named
+    ``{col_prefix}_{cat_id}`` for each ``cat_id`` in ``catalog_ids`` that
+    exists in ``df``, then computes the mean and sample standard deviation
+    while ignoring NaN values (missing matches).
+
+    Parameters
+    ----------
+    df:
+        DataFrame produced by :func:`buildJoinedObjectTable` or
+        :func:`buildJoinedClusterTable`.
+    col_prefix:
+        Prefix shared by the per-catalog columns to aggregate, e.g. ``"flux"``
+        to operate on ``flux_0``, ``flux_1``, ...
+    catalog_ids:
+        Catalog IDs whose columns to include.  Any catalog ID whose column
+        ``{col_prefix}_{cat_id}`` is absent from ``df`` is silently skipped.
+
+    Returns
+    -------
+    DataFrame with the same index as ``df`` and two columns:
+
+    * ``{col_prefix}_mean`` -- row-wise mean of non-NaN values.
+    * ``{col_prefix}_std``  -- row-wise sample std (ddof=1); NaN when fewer
+      than two non-NaN values are available.
+    """
+    cols = [
+        f"{col_prefix}_{cat_id}"
+        for cat_id in catalog_ids
+        if f"{col_prefix}_{cat_id}" in df.columns
+    ]
+    if not cols:
+        return pandas.DataFrame(
+            {
+                f"{col_prefix}_mean": np.full(len(df), np.nan),
+                f"{col_prefix}_std": np.full(len(df), np.nan),
+            },
+            index=df.index,
+        )
+
+    arr = df[cols].to_numpy(dtype=float)
+    n = np.sum(~np.isnan(arr), axis=1)
+
+    mean = np.full(len(df), np.nan)
+    std = np.full(len(df), np.nan)
+
+    has_any = n >= 1
+    has_two = n >= 2
+    if has_any.any():
+        mean[has_any] = np.nanmean(arr[has_any], axis=1)
+    if has_two.any():
+        std[has_two] = np.nanstd(arr[has_two], axis=1, ddof=1)
+
+    return pandas.DataFrame(
+        {
+            f"{col_prefix}_mean": mean,
+            f"{col_prefix}_std": std,
+        },
+        index=df.index,
+    )
+
+
+def reduceJoinedTable(
+    df: pandas.DataFrame,
+    catalog_ids: list[int],
+    keep_cols: list[str] | None = None,
+    drop_cols: list[str] | None = None,
+    stats_cols: list[str] | None = None,
+) -> pandas.DataFrame:
+    """Reduce a joined table by selecting columns and aggregating per-catalog ones.
+
+    Applies three independent operations in sequence:
+
+    1. **Column selection** — keep only the columns in ``keep_cols``; or, if
+       ``keep_cols`` is ``None``, start with all columns and remove any in
+       ``drop_cols``.  (``drop_cols`` is ignored when ``keep_cols`` is given.)
+    2. **Per-catalog column removal** — for each prefix in ``stats_cols``,
+       the individual per-catalog columns ``{prefix}_{cat_id}`` are removed
+       from the selected set.
+    3. **Stats aggregation** — for each prefix in ``stats_cols``,
+       :func:`computeColumnStats` is called on the *original* ``df`` and the
+       three summary columns (``{prefix}_mean``, ``{prefix}_std``,
+       ``{prefix}_n``) are appended to the result.
+
+    Parameters
+    ----------
+    df:
+        DataFrame produced by :func:`buildJoinedObjectTable` or
+        :func:`buildJoinedClusterTable`.
+    catalog_ids:
+        Catalog IDs used to identify per-catalog columns and to pass to
+        :func:`computeColumnStats`.
+    keep_cols:
+        Columns to retain as-is.  ``None`` keeps all columns (subject to
+        ``drop_cols``).
+    drop_cols:
+        Columns to remove.  Only used when ``keep_cols`` is ``None``; silently
+        ignored otherwise.
+    stats_cols:
+        Column-name prefixes whose per-catalog variants should be replaced by
+        aggregated statistics.  Each prefix ``p`` causes ``p_0``, ``p_1``, …
+        **and any column named exactly** ``p`` to be dropped, and ``p_mean``,
+        ``p_std``, ``p_n`` to be added.
+
+    Returns
+    -------
+    Reduced DataFrame with the same row order as ``df``.
+    """
+    # 1. Build the base column list
+    if keep_cols is not None:
+        base_cols = [c for c in keep_cols if c in df.columns]
+    else:
+        base_cols = list(df.columns)
+        if drop_cols:
+            excluded = set(drop_cols)
+            base_cols = [c for c in base_cols if c not in excluded]
+
+    # 2. Remove columns that will be replaced by stats:
+    #    both the bare prefix names and all per-catalog variants {prefix}_{cat_id}
+    if stats_cols:
+        to_drop = set(stats_cols) | {f"{p}_{cid}" for p in stats_cols for cid in catalog_ids}
+        base_cols = [c for c in base_cols if c not in to_drop]
+
+    result = df[base_cols].copy()
+
+    # 3. Append aggregated stats columns
+    if stats_cols:
+        stats_frames = [computeColumnStats(df, p, catalog_ids) for p in stats_cols]
+        result = pandas.concat([result, *stats_frames], axis=1)
+
+    return result
