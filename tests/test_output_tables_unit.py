@@ -37,6 +37,7 @@ def object_tables():
     object_stats = pd.DataFrame(
         {
             "object_id": [100, 101, 102],
+            "cluster_id": [200, 200, 201],
             "ra": [0.1, 0.2, 0.3],
             "dec": [0.1, 0.2, 0.3],
             "catalog_mask": [3, 1, 2],
@@ -228,3 +229,73 @@ def test_buildJoinedClusterTable_preserves_all_stats_rows(source_parquets, clust
     result = buildJoinedClusterTable(cluster_stats, cluster_assoc, input_files, catalog_ids)
 
     assert set(result.cluster_id) == set(cluster_stats.cluster_id)
+
+
+# ---------------------------------------------------------------------------
+# object_shear / cluster_shear optional join
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def shear_parquets(tmp_path):
+    """Write minimal shear parquets matching the object/cluster fixtures."""
+    object_shear = pd.DataFrame(
+        {
+            "object_id": [100, 101, 102],
+            "cluster_id": [200, 200, 201],  # should be dropped before join
+            "good": [True, True, False],
+            "g_1_ns": [0.01, 0.02, 0.03],
+        }
+    )
+    cluster_shear = pd.DataFrame(
+        {
+            "cluster_id": [200, 201],
+            "good": [True, False],
+            "g_1_ns": [0.015, 0.025],
+        }
+    )
+    obj_f = str(tmp_path / "object_shear.parquet")
+    clust_f = str(tmp_path / "cluster_shear.parquet")
+    object_shear.to_parquet(obj_f)
+    cluster_shear.to_parquet(clust_f)
+    return obj_f, clust_f, object_shear, cluster_shear
+
+
+def test_buildJoinedObjectTable_with_shear(source_parquets, object_tables, shear_parquets):
+    input_files, catalog_ids, _, _ = source_parquets
+    object_stats, object_assoc = object_tables
+    obj_shear_f, _, object_shear, _ = shear_parquets
+
+    result = buildJoinedObjectTable(
+        object_stats, object_assoc, input_files, catalog_ids,
+        object_shear=obj_shear_f,
+    )
+
+    assert "g_1_ns" in result.columns
+    assert "good" in result.columns
+    # cluster_id from shear table is dropped; only one copy (from object_stats) remains
+    assert result.columns.tolist().count("cluster_id") == 1
+    assert result.loc[result.object_id == 100, "cluster_id"].iloc[0] == 200
+    # values match the shear fixture
+    row100 = result.loc[result.object_id == 100].iloc[0]
+    assert row100["g_1_ns"] == pytest.approx(0.01)
+    row102 = result.loc[result.object_id == 102].iloc[0]
+    assert row102["good"] is False or row102["good"] == False  # noqa: E712
+
+
+def test_buildJoinedClusterTable_with_shear(source_parquets, cluster_tables, shear_parquets):
+    input_files, catalog_ids, _, _ = source_parquets
+    cluster_stats, cluster_assoc = cluster_tables
+    _, clust_shear_f, _, cluster_shear = shear_parquets
+
+    result = buildJoinedClusterTable(
+        cluster_stats, cluster_assoc, input_files, catalog_ids,
+        cluster_shear=clust_shear_f,
+    )
+
+    assert "g_1_ns" in result.columns
+    assert "good" in result.columns
+    row200 = result.loc[result.cluster_id == 200].iloc[0]
+    assert row200["g_1_ns"] == pytest.approx(0.015)
+    row201 = result.loc[result.cluster_id == 201].iloc[0]
+    assert row201["good"] is False or row201["good"] == False  # noqa: E712

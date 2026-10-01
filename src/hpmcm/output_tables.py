@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -449,12 +450,14 @@ def buildJoinedObjectTable(
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
+    object_shear: str | Path | None = None,
 ) -> pandas.DataFrame:
     """Build a wide joined table from an ObjectStatsTable and source catalogs.
 
     Produces one row per object: all stats columns from ``object_stats`` plus
     source-level data from each catalog joined in as additional columns,
-    suffixed by ``_{catalog_id}``.
+    suffixed by ``_{catalog_id}``.  Optionally joins shear statistics from an
+    ``ObjectShearTable`` parquet file.
 
     Rows are matched using ``object_assoc.object_id == object_stats.object_id``
     and ``object_assoc.source_id == input_catalog.id``.
@@ -479,6 +482,11 @@ def buildJoinedObjectTable(
         - ``dict[int, list[str]]``: per-catalog column lists, keyed by
           ``catalog_id``.  Catalogs absent from the dict get no columns
           (only ``distance`` is added for them).
+    object_shear:
+        Optional path to an ``ObjectShearTable`` parquet file.  When provided,
+        shear statistics are joined on ``object_id``.  The ``cluster_id``
+        column is dropped before joining because it is already present in
+        ``object_stats``.
 
     Returns
     -------
@@ -488,6 +496,10 @@ def buildJoinedObjectTable(
     """
     catalog_file_map = dict(zip(catalog_ids, input_files))
     base = object_stats.set_index("object_id")
+
+    if object_shear is not None:
+        shear_df = pandas.read_parquet(object_shear).drop(columns=["cluster_id"], errors="ignore")
+        base = base.join(shear_df.set_index("object_id"), how="left")
 
     for cat_id, f_name in catalog_file_map.items():
         mask = object_assoc["catalog_id"] == cat_id
@@ -524,12 +536,14 @@ def buildJoinedClusterTable(
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
+    cluster_shear: str | Path | None = None,
 ) -> pandas.DataFrame:
     """Build a wide joined table from a ClusterStatsTable and source catalogs.
 
     Produces one row per cluster: all stats columns from ``cluster_stats`` plus
     source-level data from each catalog joined in as additional columns,
-    suffixed by ``_{catalog_id}``.
+    suffixed by ``_{catalog_id}``.  Optionally joins shear statistics from a
+    ``ClusterShearTable`` parquet file.
 
     Parameters
     ----------
@@ -551,6 +565,9 @@ def buildJoinedClusterTable(
         - ``dict[int, list[str]]``: per-catalog column lists, keyed by
           ``catalog_id``.  Catalogs absent from the dict get no columns
           (only ``distance`` is added for them).
+    cluster_shear:
+        Optional path to a ``ClusterShearTable`` parquet file.  When provided,
+        shear statistics are joined on ``cluster_id``.
 
     Returns
     -------
@@ -560,6 +577,10 @@ def buildJoinedClusterTable(
     """
     catalog_file_map = dict(zip(catalog_ids, input_files))
     base = cluster_stats.set_index("cluster_id")
+
+    if cluster_shear is not None:
+        shear_df = pandas.read_parquet(cluster_shear)
+        base = base.join(shear_df.set_index("cluster_id"), how="left")
 
     for cat_id, f_name in catalog_file_map.items():
         mask = cluster_assoc["catalog_id"] == cat_id
