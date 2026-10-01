@@ -649,8 +649,17 @@ def computeColumnStats(
         )
 
     arr = df[cols].to_numpy(dtype=float)
-    mean = np.nanmean(arr, axis=1)
-    std = np.nanstd(arr, axis=1, ddof=1)
+    n = np.sum(~np.isnan(arr), axis=1)
+
+    mean = np.full(len(df), np.nan)
+    std = np.full(len(df), np.nan)
+
+    has_any = n >= 1
+    has_two = n >= 2
+    if has_any.any():
+        mean[has_any] = np.nanmean(arr[has_any], axis=1)
+    if has_two.any():
+        std[has_two] = np.nanstd(arr[has_two], axis=1, ddof=1)
 
     return pandas.DataFrame(
         {
