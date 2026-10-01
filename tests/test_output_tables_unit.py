@@ -13,6 +13,7 @@ from hpmcm.output_tables import (
     buildJoinedClusterTable,
     buildJoinedObjectTable,
     computeColumnStats,
+    reduceJoinedTable,
 )
 
 
@@ -371,3 +372,102 @@ def test_computeColumnStats_no_matching_columns(joined_df):
     assert len(result) == len(joined_df)
     assert result["nonexistent_n"].sum() == 0
     assert np.all(np.isnan(result["nonexistent_mean"]))
+
+
+# ---------------------------------------------------------------------------
+# reduceJoinedTable
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def wide_df():
+    """Joined DataFrame with several per-catalog columns and metadata columns."""
+    return pd.DataFrame(
+        {
+            "object_id": [1, 2, 3],
+            "ra": [0.1, 0.2, 0.3],
+            "dec": [0.1, 0.2, 0.3],
+            "cluster_id": [10, 10, 20],
+            "flux_0": [1.0, 2.0, np.nan],
+            "flux_1": [3.0, np.nan, 5.0],
+            "flux_2": [5.0, 4.0, 7.0],
+            "size_0": [0.5, 0.6, 0.7],
+            "size_1": [0.4, np.nan, 0.8],
+            "size_2": [0.6, 0.5, np.nan],
+        }
+    )
+
+
+def test_reduceJoinedTable_keep_cols(wide_df):
+    """keep_cols selects only the named columns."""
+    result = reduceJoinedTable(wide_df, [0, 1, 2], keep_cols=["object_id", "ra"])
+    assert list(result.columns) == ["object_id", "ra"]
+    assert len(result) == len(wide_df)
+
+
+def test_reduceJoinedTable_drop_cols(wide_df):
+    """drop_cols removes columns when keep_cols is None."""
+    result = reduceJoinedTable(wide_df, [0, 1, 2], drop_cols=["cluster_id", "dec"])
+    assert "cluster_id" not in result.columns
+    assert "dec" not in result.columns
+    assert "object_id" in result.columns
+
+
+def test_reduceJoinedTable_drop_cols_ignored_with_keep(wide_df):
+    """drop_cols is ignored when keep_cols is provided."""
+    result = reduceJoinedTable(
+        wide_df, [0, 1, 2],
+        keep_cols=["object_id", "cluster_id"],
+        drop_cols=["cluster_id"],
+    )
+    assert "cluster_id" in result.columns
+
+
+def test_reduceJoinedTable_stats_cols(wide_df):
+    """stats_cols replaces per-catalog columns with mean/std/n."""
+    result = reduceJoinedTable(wide_df, [0, 1, 2], stats_cols=["flux"])
+    assert "flux_mean" in result.columns
+    assert "flux_std" in result.columns
+    assert "flux_n" in result.columns
+    # raw per-catalog columns are gone
+    for cid in [0, 1, 2]:
+        assert f"flux_{cid}" not in result.columns
+    # other columns untouched
+    assert "size_0" in result.columns
+    assert "object_id" in result.columns
+
+
+def test_reduceJoinedTable_stats_values(wide_df):
+    """Stats in the reduced table match direct computeColumnStats output."""
+    result = reduceJoinedTable(wide_df, [0, 1, 2], stats_cols=["flux"])
+    expected = computeColumnStats(wide_df, "flux", [0, 1, 2])
+    np.testing.assert_array_almost_equal(result["flux_mean"], expected["flux_mean"])
+    np.testing.assert_array_almost_equal(result["flux_n"], expected["flux_n"])
+
+
+def test_reduceJoinedTable_multiple_stats_cols(wide_df):
+    """Multiple stats_cols are all aggregated."""
+    result = reduceJoinedTable(wide_df, [0, 1, 2], stats_cols=["flux", "size"])
+    for prefix in ["flux", "size"]:
+        assert f"{prefix}_mean" in result.columns
+        for cid in [0, 1, 2]:
+            assert f"{prefix}_{cid}" not in result.columns
+
+
+def test_reduceJoinedTable_keep_and_stats(wide_df):
+    """keep_cols combined with stats_cols: raw per-catalog cols are still removed."""
+    result = reduceJoinedTable(
+        wide_df, [0, 1, 2],
+        keep_cols=["object_id", "flux_0", "flux_1", "flux_2"],
+        stats_cols=["flux"],
+    )
+    assert "flux_mean" in result.columns
+    for cid in [0, 1, 2]:
+        assert f"flux_{cid}" not in result.columns
+    assert "object_id" in result.columns
+
+
+def test_reduceJoinedTable_no_reduction(wide_df):
+    """With no stats_cols and no drops, the DataFrame is returned unchanged."""
+    result = reduceJoinedTable(wide_df, [0, 1, 2])
+    assert list(result.columns) == list(wide_df.columns)

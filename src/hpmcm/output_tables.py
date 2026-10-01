@@ -663,3 +663,72 @@ def computeColumnStats(
         },
         index=df.index,
     )
+
+
+def reduceJoinedTable(
+    df: pandas.DataFrame,
+    catalog_ids: list[int],
+    keep_cols: list[str] | None = None,
+    drop_cols: list[str] | None = None,
+    stats_cols: list[str] | None = None,
+) -> pandas.DataFrame:
+    """Reduce a joined table by selecting columns and aggregating per-catalog ones.
+
+    Applies three independent operations in sequence:
+
+    1. **Column selection** — keep only the columns in ``keep_cols``; or, if
+       ``keep_cols`` is ``None``, start with all columns and remove any in
+       ``drop_cols``.  (``drop_cols`` is ignored when ``keep_cols`` is given.)
+    2. **Per-catalog column removal** — for each prefix in ``stats_cols``,
+       the individual per-catalog columns ``{prefix}_{cat_id}`` are removed
+       from the selected set.
+    3. **Stats aggregation** — for each prefix in ``stats_cols``,
+       :func:`computeColumnStats` is called on the *original* ``df`` and the
+       three summary columns (``{prefix}_mean``, ``{prefix}_std``,
+       ``{prefix}_n``) are appended to the result.
+
+    Parameters
+    ----------
+    df:
+        DataFrame produced by :func:`buildJoinedObjectTable` or
+        :func:`buildJoinedClusterTable`.
+    catalog_ids:
+        Catalog IDs used to identify per-catalog columns and to pass to
+        :func:`computeColumnStats`.
+    keep_cols:
+        Columns to retain as-is.  ``None`` keeps all columns (subject to
+        ``drop_cols``).
+    drop_cols:
+        Columns to remove.  Only used when ``keep_cols`` is ``None``; silently
+        ignored otherwise.
+    stats_cols:
+        Column-name prefixes whose per-catalog variants should be replaced by
+        aggregated statistics.  Each prefix ``p`` causes ``p_0``, ``p_1``, …
+        to be dropped and ``p_mean``, ``p_std``, ``p_n`` to be added.
+
+    Returns
+    -------
+    Reduced DataFrame with the same row order as ``df``.
+    """
+    # 1. Build the base column list
+    if keep_cols is not None:
+        base_cols = [c for c in keep_cols if c in df.columns]
+    else:
+        base_cols = list(df.columns)
+        if drop_cols:
+            excluded = set(drop_cols)
+            base_cols = [c for c in base_cols if c not in excluded]
+
+    # 2. Remove per-catalog columns that will be replaced by stats
+    if stats_cols:
+        per_cat = {f"{p}_{cid}" for p in stats_cols for cid in catalog_ids}
+        base_cols = [c for c in base_cols if c not in per_cat]
+
+    result = df[base_cols].copy()
+
+    # 3. Append aggregated stats columns
+    if stats_cols:
+        stats_frames = [computeColumnStats(df, p, catalog_ids) for p in stats_cols]
+        result = pandas.concat([result, *stats_frames], axis=1)
+
+    return result
