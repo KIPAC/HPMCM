@@ -67,8 +67,10 @@ from .match import Match
 from .object import ObjectData, ShearObjectData
 from .output_tables import (
     ClusterAssocTable,
+    ClusterShearTable,
     ClusterStatsTable,
     ObjectAssocTable,
+    ObjectShearTable,
     ObjectStatsTable,
     ShearTable,
     buildJoinedClusterTable,
@@ -83,6 +85,7 @@ __all__ = [
     "CellData",
     "ClusterAssocTable",
     "ClusterData",
+    "ClusterShearTable",
     "ClusterStatsTable",
     "buildJoinedClusterTable",
     "buildJoinedObjectTable",
@@ -91,6 +94,7 @@ __all__ = [
     "Match",
     "ObjectAssocTable",
     "ObjectData",
+    "ObjectShearTable",
     "ObjectStatsTable",
     "ShearCellData",
     "ShearClusterData",

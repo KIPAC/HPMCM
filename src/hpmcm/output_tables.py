@@ -339,7 +339,7 @@ class ClusterStatsTable(TableInterface):
 
 
 class ShearTable(TableInterface):
-    """Interface of table with shear information"""
+    """Base interface of table with shear information (no id columns)."""
 
     _schema = TableInterface._schema.copy()
     _schema["good"] = TableColumnInfo(bool, "Has unique match")
@@ -358,7 +358,7 @@ class ShearTable(TableInterface):
             )
 
     @classmethod
-    def buildObjectShearStats(cls, cell_data: CellData) -> ShearTable:
+    def buildObjectShearStats(cls, cell_data: CellData) -> ObjectShearTable:
         """Create shear stats table for objects in a cell
 
         Parameters
@@ -368,19 +368,20 @@ class ShearTable(TableInterface):
 
         Returns
         -------
-        Shear stats table
+        Object shear stats table (includes ``object_id`` and ``cluster_id``)
         """
         n_obj = cell_data.n_objects
-        out_dict = ShearTable.emtpyNumpyDict(n_obj)
+        out_dict = ObjectShearTable.emtpyNumpyDict(n_obj)
         for idx, obj in enumerate(cell_data.object_dict.values()):
             assert isinstance(obj, ShearObjectData)
-            obj_stats = obj.shearStats()
-            for key, val in obj_stats.items():
+            out_dict["object_id"][idx] = obj.object_id
+            out_dict["cluster_id"][idx] = obj.parent_cluster.i_cluster
+            for key, val in obj.shearStats().items():
                 out_dict[key][idx] = val
-        return ShearTable(**out_dict)
+        return ObjectShearTable(**out_dict)
 
     @classmethod
-    def buildClusterShearStats(cls, cell_data: CellData) -> ShearTable:
+    def buildClusterShearStats(cls, cell_data: CellData) -> ClusterShearTable:
         """Create shear stats table for clusters in a cell
 
         Parameters
@@ -390,16 +391,35 @@ class ShearTable(TableInterface):
 
         Returns
         -------
-        Shear stats table
+        Cluster shear stats table (includes ``cluster_id``)
         """
         n_clusters = cell_data.n_clusters
-        out_dict = ShearTable.emtpyNumpyDict(n_clusters)
+        out_dict = ClusterShearTable.emtpyNumpyDict(n_clusters)
         for idx, clus in enumerate(cell_data.cluster_dict.values()):
             assert isinstance(clus, ShearClusterData)
-            clus_stats = clus.shearStats()
-            for key, val in clus_stats.items():
+            out_dict["cluster_id"][idx] = clus.i_cluster
+            for key, val in clus.shearStats().items():
                 out_dict[key][idx] = val
-        return ShearTable(**out_dict)
+        return ClusterShearTable(**out_dict)
+
+
+class ObjectShearTable(ShearTable):
+    """Shear stats table for objects — adds ``object_id`` and ``cluster_id``."""
+
+    _schema = {
+        "object_id": TableColumnInfo(int, "Unique Object ID"),
+        "cluster_id": TableColumnInfo(int, "Parent Cluster Unique ID"),
+        **ShearTable._schema,
+    }
+
+
+class ClusterShearTable(ShearTable):
+    """Shear stats table for clusters — adds ``cluster_id``."""
+
+    _schema = {
+        "cluster_id": TableColumnInfo(int, "Unique Cluster ID"),
+        **ShearTable._schema,
+    }
 
 
 SourceColsType = list[str] | dict[int, list[str]] | None
