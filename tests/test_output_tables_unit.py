@@ -324,36 +324,30 @@ def joined_df():
 def test_computeColumnStats_basic(joined_df):
     result = computeColumnStats(joined_df, "flux", [0, 1, 2])
 
-    assert list(result.columns) == ["flux_mean", "flux_std", "flux_n"]
+    assert list(result.columns) == ["flux_mean", "flux_std"]
     assert len(result) == len(joined_df)
 
-    # row 0: values [1, 3, 5] → mean=3, std=2, n=3
+    # row 0: values [1, 3, 5] → mean=3, std=2
     assert result["flux_mean"].iloc[0] == pytest.approx(3.0)
     assert result["flux_std"].iloc[0] == pytest.approx(2.0)
-    assert result["flux_n"].iloc[0] == 3
 
-    # row 1: values [2, NaN, 4] → mean=3, std≈1.414, n=2
+    # row 1: values [2, NaN, 4] → mean=3, std≈1.414
     assert result["flux_mean"].iloc[1] == pytest.approx(3.0)
     assert result["flux_std"].iloc[1] == pytest.approx(np.sqrt(2))
-    assert result["flux_n"].iloc[1] == 2
 
-    # row 2: values [NaN, 5, 7] → mean=6, std≈1.414, n=2
+    # row 2: values [NaN, 5, 7] → mean=6
     assert result["flux_mean"].iloc[2] == pytest.approx(6.0)
-    assert result["flux_n"].iloc[2] == 2
 
 
 def test_computeColumnStats_single_value_has_nan_std(joined_df):
     """With only one non-NaN value, sample std (ddof=1) is NaN."""
-    # row 1 col 1 only: flux_1 only
     result = computeColumnStats(joined_df, "flux", [1])
-    assert result["flux_n"].iloc[2] == 1
     assert np.isnan(result["flux_std"].iloc[2])
 
 
 def test_computeColumnStats_all_nan_row(joined_df):
-    """Row with all-NaN values gets NaN mean/std and n=0."""
+    """Row with all-NaN values gets NaN mean and std."""
     result = computeColumnStats(joined_df, "flux", [0, 1, 2])
-    assert result["flux_n"].iloc[3] == 0
     assert np.isnan(result["flux_mean"].iloc[3])
     assert np.isnan(result["flux_std"].iloc[3])
 
@@ -361,16 +355,13 @@ def test_computeColumnStats_all_nan_row(joined_df):
 def test_computeColumnStats_missing_catalog_skipped(joined_df):
     """Catalog IDs with no matching column are silently skipped."""
     result = computeColumnStats(joined_df, "flux", [0, 99])  # 99 doesn't exist
-    # Only flux_0 contributes
-    assert result["flux_n"].iloc[0] == 1
     assert result["flux_mean"].iloc[0] == pytest.approx(1.0)
 
 
 def test_computeColumnStats_no_matching_columns(joined_df):
-    """When no column matches the prefix, returns NaN/0 columns of correct length."""
+    """When no column matches the prefix, returns NaN columns of correct length."""
     result = computeColumnStats(joined_df, "nonexistent", [0, 1, 2])
     assert len(result) == len(joined_df)
-    assert result["nonexistent_n"].sum() == 0
     assert np.all(np.isnan(result["nonexistent_mean"]))
 
 
@@ -424,11 +415,11 @@ def test_reduceJoinedTable_drop_cols_ignored_with_keep(wide_df):
 
 
 def test_reduceJoinedTable_stats_cols(wide_df):
-    """stats_cols replaces per-catalog columns with mean/std/n."""
+    """stats_cols replaces per-catalog columns with mean and std (no _n)."""
     result = reduceJoinedTable(wide_df, [0, 1, 2], stats_cols=["flux"])
     assert "flux_mean" in result.columns
     assert "flux_std" in result.columns
-    assert "flux_n" in result.columns
+    assert "flux_n" not in result.columns
     # raw per-catalog columns are gone
     for cid in [0, 1, 2]:
         assert f"flux_{cid}" not in result.columns
@@ -442,7 +433,8 @@ def test_reduceJoinedTable_stats_values(wide_df):
     result = reduceJoinedTable(wide_df, [0, 1, 2], stats_cols=["flux"])
     expected = computeColumnStats(wide_df, "flux", [0, 1, 2])
     np.testing.assert_array_almost_equal(result["flux_mean"], expected["flux_mean"])
-    np.testing.assert_array_almost_equal(result["flux_n"], expected["flux_n"])
+    np.testing.assert_array_almost_equal(result["flux_std"], expected["flux_std"])
+    assert "flux_n" not in result.columns
 
 
 def test_reduceJoinedTable_multiple_stats_cols(wide_df):

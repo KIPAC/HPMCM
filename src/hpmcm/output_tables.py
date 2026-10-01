@@ -607,12 +607,12 @@ def computeColumnStats(
     col_prefix: str,
     catalog_ids: list[int],
 ) -> pandas.DataFrame:
-    """Compute per-row mean, std and count across per-catalog columns.
+    """Compute per-row mean and std across per-catalog columns.
 
     For each row in ``df``, collects the values of all columns named
     ``{col_prefix}_{cat_id}`` for each ``cat_id`` in ``catalog_ids`` that
-    exists in ``df``, then computes the mean, sample standard deviation and
-    count while ignoring NaN values (missing matches).
+    exists in ``df``, then computes the mean and sample standard deviation
+    while ignoring NaN values (missing matches).
 
     Parameters
     ----------
@@ -628,12 +628,11 @@ def computeColumnStats(
 
     Returns
     -------
-    DataFrame with the same index as ``df`` and three columns:
+    DataFrame with the same index as ``df`` and two columns:
 
     * ``{col_prefix}_mean`` -- row-wise mean of non-NaN values.
     * ``{col_prefix}_std``  -- row-wise sample std (ddof=1); NaN when fewer
       than two non-NaN values are available.
-    * ``{col_prefix}_n``    -- number of non-NaN values contributing to each row.
     """
     cols = [
         f"{col_prefix}_{cat_id}"
@@ -645,13 +644,11 @@ def computeColumnStats(
             {
                 f"{col_prefix}_mean": np.full(len(df), np.nan),
                 f"{col_prefix}_std": np.full(len(df), np.nan),
-                f"{col_prefix}_n": np.zeros(len(df), dtype=int),
             },
             index=df.index,
         )
 
     arr = df[cols].to_numpy(dtype=float)
-    n = np.sum(~np.isnan(arr), axis=1).astype(int)
     mean = np.nanmean(arr, axis=1)
     std = np.nanstd(arr, axis=1, ddof=1)
 
@@ -659,7 +656,6 @@ def computeColumnStats(
         {
             f"{col_prefix}_mean": mean,
             f"{col_prefix}_std": std,
-            f"{col_prefix}_n": n,
         },
         index=df.index,
     )
