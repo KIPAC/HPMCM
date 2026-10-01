@@ -7,12 +7,16 @@ __pycache__/
 *.so
 
 # stuff in nb
-nb/*.py
-nb/*.parq
-nb/shear_tract
-nb/match_data
-nb/plots
-nb/do_*
+nb/
+
+# docs/examples
+docs/examples
+
+# data tarballs
+*.tgz
+
+# to_resume
+to_resume
 
 # Distribution / packaging
 .Python
