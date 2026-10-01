@@ -107,6 +107,8 @@ class ObjectStatsTable(TableInterface):
         cell_idx=TableColumnInfo(int, "Index of associated cell"),
         has_ref_cat=TableColumnInfo(bool, "Has source from the reference catalog"),
         catalog_mask=TableColumnInfo(int, "Mask of which catalogs are in object"),
+        n_sib_objects=TableColumnInfo(int, "Number of objects in parent cluster"),
+        n_sib_srcs=TableColumnInfo(int, "Total sources across all objects in parent cluster"),
     )
 
     @staticmethod
@@ -135,6 +137,8 @@ class ObjectStatsTable(TableInterface):
         snr_rms = np.zeros((n_obj), dtype=float)
         has_ref_cat = np.zeros((n_obj), dtype=bool)
         catalog_mask = np.zeros((n_obj), dtype=int)
+        n_sib_objects = np.zeros((n_obj), dtype=int)
+        n_sib_srcs = np.zeros((n_obj), dtype=int)
 
         for idx, obj in enumerate(cell_data.object_dict.values()):
             cluster_ids[idx] = obj.parent_cluster.i_cluster
@@ -148,6 +152,9 @@ class ObjectStatsTable(TableInterface):
             snr_rms[idx] = obj.snr_rms
             has_ref_cat[idx] = obj.hasRefCatalog()
             catalog_mask[idx] = obj.catalogMask(catalog_id_map)
+            sibs = obj.parent_cluster.objects
+            n_sib_objects[idx] = len(sibs)
+            n_sib_srcs[idx] = sum(o.n_src for o in sibs)
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
@@ -171,6 +178,8 @@ class ObjectStatsTable(TableInterface):
             cell_idx=np.repeat(cell_data.idx, len(dist_rms)).astype(int),
             has_ref_cat=has_ref_cat,
             catalog_mask=catalog_mask,
+            n_sib_objects=n_sib_objects,
+            n_sib_srcs=n_sib_srcs,
         )
 
 
