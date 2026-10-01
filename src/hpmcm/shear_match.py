@@ -128,15 +128,14 @@ class ShearMatch(Match):
         Match.__init__(self, **kwargs)
         geometry: ShearCellGeometry = kwargs.get("geometry", DEFAULT_GEOMETRY)
         self.geometry = geometry
-        if geometry.ref_dir is not None:
-            self._wcs = createGlobalWcs(
-                geometry.ref_dir,
-                geometry.pixel_size,
-                geometry.tract_size,
-                ctype=geometry.wcs_ctype,
-            )
-        else:
-            self._wcs = None
+        if geometry.ref_dir is None:
+            raise RuntimeError("ShearMatch requires geometry.ref_dir to be set")
+        self._wcs = createGlobalWcs(
+            geometry.ref_dir,
+            geometry.pixel_size,
+            geometry.tract_size,
+            ctype=geometry.wcs_ctype,
+        )
 
     @classmethod
     def createShearMatch(
@@ -180,10 +179,7 @@ class ShearMatch(Match):
     ) -> tuple[np.ndarray, np.ndarray]:
         """Convert pixel coordinates to RA/Dec using the geometry WCS.
 
-        Returns NaN arrays if no ref_dir was provided in the geometry.
         """
-        if self._wcs is None:
-            return np.repeat(np.nan, len(x_pix)), np.repeat(np.nan, len(y_pix))
         ra, dec = self._wcs.wcs_pix2world(x_pix, y_pix, 0)
         return ra, dec
 
