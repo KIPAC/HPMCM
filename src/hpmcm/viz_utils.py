@@ -26,7 +26,7 @@ def showShearObjs(matcher: Match, i_k: tuple[int, int]) -> Figure | SubFigure:
     """
     cell_data = matcher.cell_dict[i_k[0]]
     cluster = cell_data.cluster_dict[i_k[1]]
-    extent = cluster.footprint.extent()
+    extent = cluster.footprint.extent(cluster.pixel_match_scale)
     cluster.extract(cell_data)
     assert cluster.data is not None
     x_off = cluster.data.x_cell
@@ -65,7 +65,7 @@ def showShearObj(matcher: Match, i_k: tuple[int, int]) -> Figure | SubFigure:
     cell_data = matcher.cell_dict[i_k[0]]
     the_obj = cell_data.object_dict[i_k[1]]
     cluster = the_obj.parent_cluster
-    extent = cluster.footprint.extent()
+    extent = cluster.footprint.extent(cluster.pixel_match_scale)
     cluster.extract(cell_data)
     assert cluster.data is not None
     x_off = cluster.data.x_cell
@@ -117,7 +117,7 @@ def showCluster(
     -------
     Figure showing the cluster in question
     """
-    extent = cluster.footprint.extent()
+    extent = cluster.footprint.extent(cluster.pixel_match_scale)
     cluster.extract(cell_data)
     assert cluster.data is not None
     x_off = cluster.data.x_cell
@@ -182,7 +182,7 @@ def showObjects(
     -------
     Figure showing the cluster in question
     """
-    extent = cluster.footprint.extent()
+    extent = cluster.footprint.extent(cluster.pixel_match_scale)
     cluster.extract(cell_data)
     assert cluster.data is not None
     x_off = cluster.data.x_cell
@@ -232,7 +232,7 @@ def showObjectsV2(
     -------
     Figure showing the cluster in question
     """
-    extent = cluster.footprint.extent()
+    extent = cluster.footprint.extent(cluster.pixel_match_scale)
     cluster.extract(cell_data)
     assert cluster.data is not None
     x_off = cluster.data.x_cell

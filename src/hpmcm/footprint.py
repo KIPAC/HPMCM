@@ -39,13 +39,21 @@ class Footprint:
         self.slice_y = slices[1]
         self.cutout = self.image[self.slice_x, self.slice_y]
 
-    def extent(self) -> tuple[int, int, int, int]:
-        """Return the extent of the Footprint, for use by `matplotlib`"""
+    def extent(self, pixel_match_scale: int = 1) -> tuple[int, int, int, int]:
+        """Return the extent of the Footprint in cell pixel coordinates.
+
+        Parameters
+        ----------
+        pixel_match_scale:
+            Factor by which the counts map was downscaled relative to the cell
+            pixel grid.  Pass ``cluster.pixel_match_scale`` so that the returned
+            extent is in cell pixels and aligns with source x_cell/y_cell coords.
+        """
         return (
-            self.slice_x.start,
-            self.slice_x.stop,
-            self.slice_y.start,
-            self.slice_y.stop,
+            self.slice_x.start * pixel_match_scale,
+            self.slice_x.stop * pixel_match_scale,
+            self.slice_y.start * pixel_match_scale,
+            self.slice_y.stop * pixel_match_scale,
         )
 
     @classmethod
