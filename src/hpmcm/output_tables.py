@@ -109,6 +109,7 @@ class ObjectStatsTable(TableInterface):
         catalog_mask=TableColumnInfo(int, "Mask of which catalogs are in object"),
         n_sib_objects=TableColumnInfo(int, "Number of objects in parent cluster"),
         n_sib_srcs=TableColumnInfo(int, "Total sources across all objects in parent cluster"),
+        recurse=TableColumnInfo(int, "Recursion level needed to resolve this object"),
     )
 
     @staticmethod
@@ -139,6 +140,7 @@ class ObjectStatsTable(TableInterface):
         catalog_mask = np.zeros((n_obj), dtype=int)
         n_sib_objects = np.zeros((n_obj), dtype=int)
         n_sib_srcs = np.zeros((n_obj), dtype=int)
+        recurse_levels = np.zeros((n_obj), dtype=int)
 
         for idx, obj in enumerate(cell_data.object_dict.values()):
             cluster_ids[idx] = obj.parent_cluster.i_cluster
@@ -155,6 +157,7 @@ class ObjectStatsTable(TableInterface):
             sibs = obj.parent_cluster.objects
             n_sib_objects[idx] = len(sibs)
             n_sib_srcs[idx] = sum(o.n_src for o in sibs)
+            recurse_levels[idx] = obj.recurse
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
@@ -180,6 +183,7 @@ class ObjectStatsTable(TableInterface):
             catalog_mask=catalog_mask,
             n_sib_objects=n_sib_objects,
             n_sib_srcs=n_sib_srcs,
+            recurse=recurse_levels,
         )
 
 

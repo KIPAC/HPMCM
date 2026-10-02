@@ -125,7 +125,8 @@ class Match:
         self.cell_max_object: int = kwargs.get("cell_max_object", 100000)
         self.max_sub_division: int = kwargs.get("max_sub_division", 3)
         self.pixel_r2_cut: float = kwargs.get("pixel_r2_cut", 1.0)
-        self.n_cell_buffer: int =  kwargs.get("n_cell_buffer", 0)
+        self.n_cell_buffer: int = kwargs.get("n_cell_buffer", 0)
+        self.pixel_match_scale: int = kwargs.get("pixel_match_scale", 1)
         self.n_cell: np.ndarray = np.ceil(self.n_pix_side / self.cell_size) + self.n_cell_buffer
 
         self.full_data: OrderedDict[int, pandas.DataFrame] = OrderedDict()
@@ -365,6 +366,7 @@ class Match:
             "max_sub_division": int(self.max_sub_division),
             "pixel_r2_cut": float(self.pixel_r2_cut),
             "n_cell_buffer": int(self.n_cell_buffer),
+            "pixel_match_scale": int(self.pixel_match_scale),
             "catalog_id_map": {str(k): int(v) for k, v in self.catalog_id_map.items()},
         }
 
@@ -578,6 +580,7 @@ class Match:
                     obj.rms_dist = float(or_["dist_rms"]) / pix_to_arcsec
                     obj.snr_mean = float(or_["snr"])
                     obj.snr_rms = float(or_["snr_rms"])
+                    obj.recurse = int(or_["recurse"])
                     cell.object_dict[obj_id] = obj
                     cluster.objects.append(obj)
 

@@ -103,6 +103,7 @@ class CellData:
         self.max_pix: np.ndarray = corner + size + buf
         self.n_pix: np.ndarray = self.max_pix - self.min_pix
 
+        self.pixel_match_scale: int = matcher.pixel_match_scale
         self.data: list[pandas.DataFrame] = []
         self.n_src: int = 0
         self.footprint_ids: list[np.ndarray] = []
@@ -246,7 +247,7 @@ class CellData:
     def _buildClusterData(
         self, i_cluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
-        return ClusterData(i_cluster, footprint, sources)
+        return ClusterData(i_cluster, footprint, sources, pixel_match_scale=self.pixel_match_scale)
 
     def _getFootprints(self, counts_map: np.ndarray) -> dict:
         return utils.getFootprints(counts_map, buf=self.buf)
@@ -292,7 +293,6 @@ class ShearCellData(CellData):
         buf: int = 10,
     ):
         CellData.__init__(self, matcher, id_offset, corner, size, idx, buf)
-        self.pixel_match_scale = matcher.pixel_match_scale
 
     def reduceDataframe(
         self, i_cat: int, dataframe: pandas.DataFrame

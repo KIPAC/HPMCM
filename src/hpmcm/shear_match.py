@@ -116,7 +116,6 @@ class ShearMatch(Match):
         self,
         **kwargs: Any,
     ):
-        self.pixel_match_scale: int = kwargs.get("pixel_match_scale", 1)
         self.cat_type: str = kwargs.get("catalogType", "wmom")
         self.deshear: float | None = kwargs.get("deshear", None)
         shear_names = list(kwargs.get("shear_names", shear_utils.SHEAR_NAMES))
@@ -189,7 +188,6 @@ class ShearMatch(Match):
             shear_names=list(self.shear_names),
             deshear=self.deshear,
             cat_type=self.cat_type,
-            pixel_match_scale=int(self.pixel_match_scale),
             shear_geometry=dataclasses.asdict(self.geometry),
         )
         return d

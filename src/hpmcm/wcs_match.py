@@ -177,6 +177,7 @@ class WcsMatch(Match):
             max_sub_division=geo["max_sub_division"],
             pixel_r2_cut=geo["pixel_r2_cut"],
             n_cell_buffer=geo["n_cell_buffer"],
+            pixel_match_scale=geo.get("pixel_match_scale", 1),
         )
         matcher.catalog_id_map = {int(k): int(v) for k, v in geo["catalog_id_map"].items()}
 

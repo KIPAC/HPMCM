@@ -67,6 +67,7 @@ class ClusterData:
         footprint: Footprint,
         sources: np.ndarray,
         orig_cluster: int | None = None,
+        pixel_match_scale: int = 1,
     ):
         """Build from a Footprint and data about the
         sources in that Footprint"""
@@ -88,7 +89,7 @@ class ClusterData:
         self.snr_mean: float = np.nan
         self.snr_rms: float = np.nan
         self.dist_2: np.ndarray = np.array([])
-        self.pixel_match_scale: int = 1
+        self.pixel_match_scale: int = pixel_match_scale
 
     def extract(self, cell_data: CellData) -> None:
         """Extract the x_pix, y_pix and snr data from
@@ -165,13 +166,7 @@ class ClusterData:
 
 
 class ShearClusterData(ClusterData):
-    """Subclass of ClusterData that can compute shear statistics
-
-    Attributes
-    ----------
-    pixel_match_scale: int
-        Number of pixel merged in the original counts map
-    """
+    """Subclass of ClusterData that can compute shear statistics"""
 
     def __init__(
         self,
@@ -182,8 +177,7 @@ class ShearClusterData(ClusterData):
         pixel_match_scale: int = 1,
         shear_names: list[str] | None = None,
     ):
-        ClusterData.__init__(self, i_cluster, footprint, sources, orig_cluster)
-        self.pixel_match_scale = pixel_match_scale
+        ClusterData.__init__(self, i_cluster, footprint, sources, orig_cluster, pixel_match_scale)
         self.shear_names: list[str] = (
             shear_names if shear_names is not None else list(shear_utils.SHEAR_NAMES)
         )
