@@ -98,8 +98,8 @@ class ObjectStatsTable(TableInterface):
         ),
         ra=TableColumnInfo(float, "RA of object centroid"),
         dec=TableColumnInfo(float, "DEC of object centroid"),
-        x_cent=TableColumnInfo(float, "X-value of object centroid in cell pixels"),
-        y_cent=TableColumnInfo(float, "Y-value of object centroid in cell pixels"),
+        x_cent=TableColumnInfo(float, "X-value of object centroid in x_cell_coadd coords (0 at inner left edge)"),
+        y_cent=TableColumnInfo(float, "Y-value of object centroid in x_cell_coadd coords (0 at inner left edge)"),
         x_pix=TableColumnInfo(float, "X-value of object centroid in global WCS pixels"),
         y_pix=TableColumnInfo(float, "Y-value of object centroid in global WCS pixels"),
         snr=TableColumnInfo(float, "Mean signal-to-noise ratio"),
@@ -163,6 +163,9 @@ class ObjectStatsTable(TableInterface):
         dist_rms *= cell_data.matcher.pixToArcsec()
         x_pix = x_cents + cell_data.min_pix[0]
         y_pix = y_cents + cell_data.min_pix[1]
+        # Convert centroids from x_cell (0 at outer edge) to x_cell_coadd (0 at inner edge)
+        x_cents_coadd = x_cents - cell_data.buf
+        y_cents_coadd = y_cents - cell_data.buf
 
         return ObjectStatsTable(
             cluster_id=cluster_ids,
@@ -172,8 +175,8 @@ class ObjectStatsTable(TableInterface):
             dist_rms=dist_rms,
             ra=ra,
             dec=dec,
-            x_cent=x_cents,
-            y_cent=y_cents,
+            x_cent=x_cents_coadd,
+            y_cent=y_cents_coadd,
             x_pix=x_pix,
             y_pix=y_pix,
             snr=snrs,
@@ -260,8 +263,8 @@ class ClusterStatsTable(TableInterface):
         ),
         ra=TableColumnInfo(float, "RA of cluster centroid"),
         dec=TableColumnInfo(float, "DEC of cluster centroid"),
-        x_cent=TableColumnInfo(float, "X-value of cluster centroid in cell pixels"),
-        y_cent=TableColumnInfo(float, "Y-value of cluster centroid in cell pixels"),
+        x_cent=TableColumnInfo(float, "X-value of cluster centroid in x_cell_coadd coords (0 at inner left edge)"),
+        y_cent=TableColumnInfo(float, "Y-value of cluster centroid in x_cell_coadd coords (0 at inner left edge)"),
         x_pix=TableColumnInfo(float, "X-value of cluster centroid in global WCS pixels"),
         y_pix=TableColumnInfo(float, "Y-value of cluster centroid in global WCS pixels"),
         snr=TableColumnInfo(float, "Mean signal-to-noise ratio"),
@@ -327,6 +330,9 @@ class ClusterStatsTable(TableInterface):
         dist_rms *= cell_data.matcher.pixToArcsec()
         x_pix = x_cents + cell_data.min_pix[0]
         y_pix = y_cents + cell_data.min_pix[1]
+        # Convert centroids from x_cell (0 at outer edge) to x_cell_coadd (0 at inner edge)
+        x_cents_coadd = x_cents - cell_data.buf
+        y_cents_coadd = y_cents - cell_data.buf
 
         return ClusterStatsTable(
             cluster_id=cluster_ids,
@@ -336,8 +342,8 @@ class ClusterStatsTable(TableInterface):
             dist_rms=dist_rms,
             ra=ra,
             dec=dec,
-            x_cent=x_cents,
-            y_cent=y_cents,
+            x_cent=x_cents_coadd,
+            y_cent=y_cents_coadd,
             x_pix=x_pix,
             y_pix=y_pix,
             snr=snrs,
@@ -464,6 +470,8 @@ def buildJoinedObjectTable(
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
     object_shear: str | Path | None = None,
+    central_only: bool = True,
+    cell_size: float | None = None,
 ) -> pandas.DataFrame:
     """Build a wide joined table from an ObjectStatsTable and source catalogs.
 
@@ -500,6 +508,19 @@ def buildJoinedObjectTable(
         shear statistics are joined on ``object_id``.  The ``cluster_id``
         column is dropped before joining because it is already present in
         ``object_stats``.
+    central_only:
+        When ``True`` (default), rows whose centroid (``x_cent``, ``y_cent``
+        in x_cell_coadd coordinates) has a negative x or y component are
+        dropped before joining.  When ``cell_size`` is also given, objects
+        whose centroid is >= ``cell_size`` in either axis are also removed.
+        This mirrors the filtering applied by
+        :meth:`~hpmcm.match.Match.extractStats` and is a no-op when the
+        input already comes from that method with ``central_only=True``.
+    cell_size:
+        Inner cell size in pixels.  When provided together with
+        ``central_only=True``, objects with ``x_cent >= cell_size`` or
+        ``y_cent >= cell_size`` are also removed.  Pass ``matcher.cell_size``
+        when calling with unfiltered stats.
 
     Returns
     -------
@@ -507,6 +528,13 @@ def buildJoinedObjectTable(
     renamed ``{col}_{catalog_id}``.  Objects that have no source in a
     given catalog will have ``NaN`` for that catalog's columns.
     """
+    if central_only:
+        mask = (object_stats["x_cent"] >= 0) & (object_stats["y_cent"] >= 0)
+        if cell_size is not None:
+            mask &= (object_stats["x_cent"] < cell_size) & (object_stats["y_cent"] < cell_size)
+        object_stats = object_stats[mask]
+        object_assoc = object_assoc[object_assoc["object_id"].isin(object_stats["object_id"])]
+
     catalog_file_map = dict(zip(catalog_ids, input_files))
     base = object_stats.set_index("object_id")
 
@@ -544,13 +572,14 @@ def buildJoinedObjectTable(
 
 
 def buildJoinedClusterTable(
-
     cluster_stats: pandas.DataFrame,
     cluster_assoc: pandas.DataFrame,
     input_files: list[str],
     catalog_ids: list[int],
     source_cols: SourceColsType = None,
     cluster_shear: str | Path | None = None,
+    central_only: bool = True,
+    cell_size: float | None = None,
 ) -> pandas.DataFrame:
     """Build a wide joined table from a ClusterStatsTable and source catalogs.
 
@@ -582,6 +611,16 @@ def buildJoinedClusterTable(
     cluster_shear:
         Optional path to a ``ClusterShearTable`` parquet file.  When provided,
         shear statistics are joined on ``cluster_id``.
+    central_only:
+        When ``True`` (default), clusters whose centroid (``x_cent``,
+        ``y_cent`` in x_cell_coadd coordinates) has a negative component are
+        dropped before joining.  When ``cell_size`` is also given, clusters
+        with centroid >= ``cell_size`` are also removed.
+    cell_size:
+        Inner cell size in pixels.  When provided together with
+        ``central_only=True``, clusters with ``x_cent >= cell_size`` or
+        ``y_cent >= cell_size`` are also removed.  Pass ``matcher.cell_size``
+        when calling with unfiltered stats.
 
     Returns
     -------
@@ -589,6 +628,13 @@ def buildJoinedClusterTable(
     renamed ``{col}_{catalog_id}``.  Clusters that have no source in a
     given catalog will have ``NaN`` for that catalog's columns.
     """
+    if central_only:
+        mask = (cluster_stats["x_cent"] >= 0) & (cluster_stats["y_cent"] >= 0)
+        if cell_size is not None:
+            mask &= (cluster_stats["x_cent"] < cell_size) & (cluster_stats["y_cent"] < cell_size)
+        cluster_stats = cluster_stats[mask]
+        cluster_assoc = cluster_assoc[cluster_assoc["cluster_id"].isin(cluster_stats["cluster_id"])]
+
     catalog_file_map = dict(zip(catalog_ids, input_files))
     base = cluster_stats.set_index("cluster_id")
 

@@ -270,8 +270,15 @@ class ShearMatch(Match):
     ) -> CellData:
         return ShearCellData(self, id_offset, corner, size, idx, self.cell_buffer)
 
-    def extractShearStats(self) -> dict[str, pandas.DataFrame]:
+    def extractShearStats(self, central_only: bool = True) -> dict[str, pandas.DataFrame]:
         """Extract shear stats
+
+        Parameters
+        ----------
+        central_only:
+            When ``True`` (default), exclude objects and clusters whose centroid
+            falls outside the inner cell region.  Mirrors the behaviour of
+            :meth:`~hpmcm.match.Match.extractStats`.
 
         Returns
         -------
@@ -289,12 +296,17 @@ class ShearMatch(Match):
                     continue
                 cell_data = self.cell_dict[i_cell]
                 assert isinstance(cell_data, ShearCellData)
-                cluster_shear_stats_tables.append(
-                    output_tables.ShearTable.buildClusterShearStats(cell_data).data
-                )
-                object_shear_stats_tables.append(
-                    output_tables.ShearTable.buildObjectShearStats(cell_data).data
-                )
+
+                cs = output_tables.ShearTable.buildClusterShearStats(cell_data).data
+                os_ = output_tables.ShearTable.buildObjectShearStats(cell_data).data
+
+                if central_only:
+                    c_obj, c_clust = self._getCentralIds(cell_data)
+                    cs = cs[cs["cluster_id"].isin(c_clust)]
+                    os_ = os_[os_["object_id"].isin(c_obj)]
+
+                cluster_shear_stats_tables.append(cs)
+                object_shear_stats_tables.append(os_)
 
         return {
             "cluster_shear": pandas.concat(cluster_shear_stats_tables),

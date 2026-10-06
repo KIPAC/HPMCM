@@ -43,6 +43,8 @@ def object_tables():
             "ra": [0.1, 0.2, 0.3],
             "dec": [0.1, 0.2, 0.3],
             "catalog_mask": [3, 1, 2],
+            "x_cent": [50.0, 60.0, 70.0],
+            "y_cent": [50.0, 60.0, 70.0],
         }
     )
     # object 100 matches sources in both catalogs; 101 only cat 0; 102 only cat 1
@@ -176,7 +178,13 @@ def test_buildJoinedObjectTable_no_assoc_for_catalog(source_parquets, object_tab
 @pytest.fixture
 def cluster_tables():
     cluster_stats = pd.DataFrame(
-        {"cluster_id": [200, 201], "ra": [0.1, 0.2], "dec": [0.1, 0.2]}
+        {
+            "cluster_id": [200, 201],
+            "ra": [0.1, 0.2],
+            "dec": [0.1, 0.2],
+            "x_cent": [50.0, 60.0],
+            "y_cent": [50.0, 60.0],
+        }
     )
     # cluster 200 has one source from cat 0 (source_idx=0) and one from cat 1 (source_idx=0)
     # cluster 201 has one source from cat 0 (source_idx=1)
@@ -231,6 +239,79 @@ def test_buildJoinedClusterTable_preserves_all_stats_rows(source_parquets, clust
     result = buildJoinedClusterTable(cluster_stats, cluster_assoc, input_files, catalog_ids)
 
     assert set(result.cluster_id) == set(cluster_stats.cluster_id)
+
+
+def test_buildJoinedObjectTable_central_only(source_parquets, object_tables):
+    """central_only drops objects with negative x_cent or y_cent."""
+    input_files, catalog_ids, _, _ = source_parquets
+    object_stats, object_assoc = object_tables
+
+    # Add a buffer-zone object (x_cent < 0) that should be removed
+    buf_stats = pd.concat([
+        object_stats,
+        pd.DataFrame({"object_id": [999], "cluster_id": [299],
+                      "ra": [0.9], "dec": [0.9], "catalog_mask": [1],
+                      "x_cent": [-5.0], "y_cent": [50.0]}),
+    ], ignore_index=True)
+    buf_assoc = pd.concat([
+        object_assoc,
+        pd.DataFrame({"object_id": [999], "source_id": [10], "catalog_id": [0],
+                      "distance": [0.0], "cell_idx": [0]}),
+    ], ignore_index=True)
+
+    result_filtered = buildJoinedObjectTable(
+        buf_stats, buf_assoc, input_files, catalog_ids, central_only=True
+    )
+    result_all = buildJoinedObjectTable(
+        buf_stats, buf_assoc, input_files, catalog_ids, central_only=False
+    )
+
+    assert 999 not in result_filtered["object_id"].values
+    assert 999 in result_all["object_id"].values
+    # Original objects are unaffected
+    assert set([100, 101, 102]).issubset(result_filtered["object_id"].values)
+
+
+def test_buildJoinedObjectTable_central_only_with_cell_size(source_parquets, object_tables):
+    """When cell_size is given, objects with x_cent >= cell_size are also removed."""
+    input_files, catalog_ids, _, _ = source_parquets
+    object_stats, object_assoc = object_tables
+
+    # object 102 has x_cent=70; with cell_size=65 it should be dropped
+    result = buildJoinedObjectTable(
+        object_stats, object_assoc, input_files, catalog_ids,
+        central_only=True, cell_size=65,
+    )
+    assert 102 not in result["object_id"].values
+    assert 100 in result["object_id"].values
+    assert 101 in result["object_id"].values
+
+
+def test_buildJoinedClusterTable_central_only(source_parquets, cluster_tables):
+    """central_only drops clusters with negative centroid coordinates."""
+    input_files, catalog_ids, _, _ = source_parquets
+    cluster_stats, cluster_assoc = cluster_tables
+
+    buf_stats = pd.concat([
+        cluster_stats,
+        pd.DataFrame({"cluster_id": [299], "ra": [0.9], "dec": [0.9],
+                      "x_cent": [-5.0], "y_cent": [50.0]}),
+    ], ignore_index=True)
+    buf_assoc = pd.concat([
+        cluster_assoc,
+        pd.DataFrame({"cluster_id": [299], "source_idx": [0], "catalog_id": [0],
+                      "distance": [0.0], "cell_idx": [0]}),
+    ], ignore_index=True)
+
+    result_filtered = buildJoinedClusterTable(
+        buf_stats, buf_assoc, input_files, catalog_ids, central_only=True
+    )
+    result_all = buildJoinedClusterTable(
+        buf_stats, buf_assoc, input_files, catalog_ids, central_only=False
+    )
+
+    assert 299 not in result_filtered["cluster_id"].values
+    assert 299 in result_all["cluster_id"].values
 
 
 # ---------------------------------------------------------------------------

@@ -291,8 +291,39 @@ class Match:
         sys.stdout.write(" Done!\n")
         sys.stdout.flush()
 
-    def extractStats(self) -> dict[str, pandas.DataFrame]:
+    def _getCentralIds(
+        self, cell_data: CellData
+    ) -> tuple[frozenset[int], frozenset[int]]:
+        """Return (object_ids, cluster_ids) whose centroids lie in the inner cell region.
+
+        The inner region is ``[0, cell_data.size[i])`` in x_cell_coadd coordinates,
+        which corresponds to ``[cell_data.buf, cell_data.buf + cell_data.size[i])``
+        in the internal x_cell convention stored on each object/cluster.
+        """
+        lo_x, hi_x = float(cell_data.buf), float(cell_data.buf + cell_data.size[0])
+        lo_y, hi_y = float(cell_data.buf), float(cell_data.buf + cell_data.size[1])
+        obj_ids = frozenset(
+            oid
+            for oid, obj in cell_data.object_dict.items()
+            if lo_x <= obj.x_cent < hi_x and lo_y <= obj.y_cent < hi_y
+        )
+        clust_ids = frozenset(
+            cid
+            for cid, cl in cell_data.cluster_dict.items()
+            if lo_x <= cl.x_cent < hi_x and lo_y <= cl.y_cent < hi_y
+        )
+        return obj_ids, clust_ids
+
+    def extractStats(self, central_only: bool = True) -> dict[str, pandas.DataFrame]:
         """Extracts cluster statisistics
+
+        Parameters
+        ----------
+        central_only:
+            When ``True`` (default), exclude objects and clusters whose centroid
+            (in x_cell_coadd coordinates) falls outside the inner cell region
+            ``[0, cell_size)``.  This avoids double-counting edge objects that
+            are also captured by adjacent cells.
 
         Returns
         -------
@@ -314,18 +345,23 @@ class Match:
                 if i_cell not in self.cell_dict:
                     continue
                 cell_data = self.cell_dict[i_cell]
-                cluster_assoc_tables.append(
-                    output_tables.ClusterAssocTable.buildFromCellData(cell_data).data,
-                )
-                object_assoc_tables.append(
-                    output_tables.ObjectAssocTable.buildFromCellData(cell_data).data,
-                )
-                cluster_stats_tables.append(
-                    output_tables.ClusterStatsTable.buildFromCellData(cell_data).data,
-                )
-                object_stats_tables.append(
-                    output_tables.ObjectStatsTable.buildFromCellData(cell_data).data,
-                )
+
+                ca = output_tables.ClusterAssocTable.buildFromCellData(cell_data).data
+                oa = output_tables.ObjectAssocTable.buildFromCellData(cell_data).data
+                cs = output_tables.ClusterStatsTable.buildFromCellData(cell_data).data
+                os_ = output_tables.ObjectStatsTable.buildFromCellData(cell_data).data
+
+                if central_only:
+                    c_obj, c_clust = self._getCentralIds(cell_data)
+                    ca = ca[ca["cluster_id"].isin(c_clust)]
+                    oa = oa[oa["object_id"].isin(c_obj)]
+                    cs = cs[cs["cluster_id"].isin(c_clust)]
+                    os_ = os_[os_["object_id"].isin(c_obj)]
+
+                cluster_assoc_tables.append(ca)
+                object_assoc_tables.append(oa)
+                cluster_stats_tables.append(cs)
+                object_stats_tables.append(os_)
             if ix == 0:
                 pass
             elif ix % 10 == 0:
@@ -370,7 +406,7 @@ class Match:
             "catalog_id_map": {str(k): int(v) for k, v in self.catalog_id_map.items()},
         }
 
-    def save(self, save_dir: str | Path) -> None:
+    def save(self, save_dir: str | Path, central_only: bool = True) -> None:
         """Persist the full match state to a directory.
 
         Saves geometry, association/stats tables, and one parquet per catalog
@@ -381,6 +417,10 @@ class Match:
         ----------
         save_dir:
             Directory to write into (created if absent).
+        central_only:
+            Passed through to :meth:`extractStats`; when ``True`` (default),
+            only objects and clusters whose centroid lies in the inner cell
+            region are written.
         """
         save_dir = Path(save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -388,7 +428,7 @@ class Match:
         with open(save_dir / "geometry.json", "w") as fh:
             json.dump(_to_json_safe(self._geometryDict()), fh, indent=2)
 
-        stats = self.extractStats()
+        stats = self.extractStats(central_only=central_only)
         for name, df in stats.items():
             df.to_parquet(save_dir / f"{name}.parquet")
 
@@ -560,8 +600,10 @@ class Match:
                 cluster = cell._buildClusterData(cluster_id, fp, sources)
                 cluster.extract(cell)
 
-                cluster.x_cent = float(sr["x_cent"])
-                cluster.y_cent = float(sr["y_cent"])
+                # x_cent saved in x_cell_coadd convention (0 at inner edge);
+                # restore to x_cell convention (0 at outer edge) for internal use
+                cluster.x_cent = float(sr["x_cent"]) + cell.buf
+                cluster.y_cent = float(sr["y_cent"]) + cell.buf
                 cluster.dist_2 = (ca_rows["distance"].values / pix_to_arcsec) ** 2
                 cluster.rms_dist = float(sr["dist_rms"]) / pix_to_arcsec
                 cluster.snr_mean = float(sr["snr"])
@@ -575,8 +617,9 @@ class Match:
                     obj = cell._newObject(cluster, obj_id, mask)
                     or_ = os_idx.loc[obj_id]
                     obj.dist_2 = (obj_rows["distance"].values / pix_to_arcsec) ** 2
-                    obj.x_cent = float(or_["x_cent"])
-                    obj.y_cent = float(or_["y_cent"])
+                    # x_cent saved in x_cell_coadd convention; restore to x_cell
+                    obj.x_cent = float(or_["x_cent"]) + cell.buf
+                    obj.y_cent = float(or_["y_cent"]) + cell.buf
                     obj.rms_dist = float(or_["dist_rms"]) / pix_to_arcsec
                     obj.snr_mean = float(or_["snr"])
                     obj.snr_rms = float(or_["snr_rms"])
