@@ -232,7 +232,7 @@ class CellData:
         return ObjectData(cluster, object_id, mask)
 
     def _emptyCountsMaps(self) -> np.ndarray:
-        to_fill = np.zeros(np.ceil(self.n_pix).astype(int))
+        to_fill = np.zeros(np.ceil(self.n_pix / self.pixel_match_scale).astype(int))
         return to_fill
 
     def _singleCatalogCountsMap(
@@ -242,6 +242,7 @@ class CellData:
             df,
             n_pix=self.n_pix,
             weight_name=weight_name,
+            pixel_match_scale=self.pixel_match_scale,
         )
 
     def _buildClusterData(
@@ -250,7 +251,7 @@ class CellData:
         return ClusterData(i_cluster, footprint, sources, pixel_match_scale=self.pixel_match_scale)
 
     def _getFootprints(self, counts_map: np.ndarray) -> dict:
-        return utils.getFootprints(counts_map, buf=self.buf)
+        return utils.getFootprints(counts_map, buf=self.buf, pixel_match_scale=self.pixel_match_scale)
 
     def _associateSourcesToFootprints(
         self,
@@ -260,6 +261,7 @@ class CellData:
         return utils.associateSourcesToFootprints(
             data,
             cluster_key,
+            pixel_match_scale=self.pixel_match_scale,
         )
 
     def getRaDec(
@@ -308,21 +310,6 @@ class ShearCellData(CellData):
     ) -> ObjectData:
         return ShearObjectData(cluster, object_id, mask)
 
-    def _emptyCountsMaps(self) -> np.ndarray:
-        pixel_match_scale = self.pixel_match_scale
-        to_fill = np.zeros(np.ceil(self.n_pix / pixel_match_scale).astype(int))
-        return to_fill
-
-    def _singleCatalogCountsMap(
-        self, df: pandas.DataFrame, weight_name: str | None = None
-    ) -> np.ndarray:
-        return utils.fillCountsMapFromDf(
-            df,
-            n_pix=self.n_pix,
-            weight_name=weight_name,
-            pixel_match_scale=self.pixel_match_scale,
-        )
-
     def _buildClusterData(
         self, i_cluster: int, footprint: Footprint, sources: np.ndarray
     ) -> ClusterData:
@@ -337,16 +324,5 @@ class ShearCellData(CellData):
     def _getFootprints(self, counts_map: np.ndarray) -> dict:
         return utils.getFootprints(
             counts_map, buf=0, pixel_match_scale=self.pixel_match_scale
-        )
-
-    def _associateSourcesToFootprints(
-        self,
-        data: list[pandas.DataFrame],
-        cluster_key: np.ndarray,
-    ) -> list[np.ndarray]:
-        return utils.associateSourcesToFootprints(
-            data,
-            cluster_key,
-            pixel_match_scale=self.pixel_match_scale,
         )
 

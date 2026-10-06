@@ -560,8 +560,10 @@ class Match:
                 cluster = cell._buildClusterData(cluster_id, fp, sources)
                 cluster.extract(cell)
 
-                cluster.x_cent = float(sr["x_cent"])
-                cluster.y_cent = float(sr["y_cent"])
+                # x_cent saved in x_cell_coadd convention (0 at inner edge);
+                # restore to x_cell convention (0 at outer edge) for internal use
+                cluster.x_cent = float(sr["x_cent"]) + cell.buf
+                cluster.y_cent = float(sr["y_cent"]) + cell.buf
                 cluster.dist_2 = (ca_rows["distance"].values / pix_to_arcsec) ** 2
                 cluster.rms_dist = float(sr["dist_rms"]) / pix_to_arcsec
                 cluster.snr_mean = float(sr["snr"])
@@ -575,8 +577,9 @@ class Match:
                     obj = cell._newObject(cluster, obj_id, mask)
                     or_ = os_idx.loc[obj_id]
                     obj.dist_2 = (obj_rows["distance"].values / pix_to_arcsec) ** 2
-                    obj.x_cent = float(or_["x_cent"])
-                    obj.y_cent = float(or_["y_cent"])
+                    # x_cent saved in x_cell_coadd convention; restore to x_cell
+                    obj.x_cent = float(or_["x_cent"]) + cell.buf
+                    obj.y_cent = float(or_["y_cent"]) + cell.buf
                     obj.rms_dist = float(or_["dist_rms"]) / pix_to_arcsec
                     obj.snr_mean = float(or_["snr"])
                     obj.snr_rms = float(or_["snr_rms"])
