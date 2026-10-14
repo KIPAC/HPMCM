@@ -9,6 +9,7 @@ __all__: list[str] = [
     "catalog_type",
     "deshear",
     "inputs",
+    "joined_input",
     "output_file",
     "cell_size",
     "ra_ref",
@@ -19,6 +20,7 @@ __all__: list[str] = [
     "pixel_match_scale",
     "pixel_r2_cut",
     "shear",
+    "shear_type_col",
     "snr_cut",
     "tract",
 ]
@@ -169,3 +171,22 @@ shear = PartialOption(
 tract = PartialOption("--tract", help="Tract to select", type=int, required=True)
 
 inputs = PartialArgument("inputs", nargs=-1)
+
+joined_input = PartialOption(
+    "--joined-input",
+    type=click.Path(),
+    default=None,
+    help=(
+        "Path to a single joined shear catalog (all shear types concatenated). "
+        "Use instead of positional INPUTS to invoke splitAndReduce without "
+        "pre-splitting by type."
+    ),
+)
+
+shear_type_col = PartialOption(
+    "--shear-type-col",
+    type=str,
+    default="meta_step",
+    show_default=True,
+    help="Column in --joined-input that identifies the shear catalog type.",
+)

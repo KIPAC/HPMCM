@@ -270,6 +270,44 @@ class ShearMatch(Match):
     ) -> CellData:
         return ShearCellData(self, id_offset, corner, size, idx, self.cell_buffer)
 
+    def splitAndReduce(
+        self,
+        joined_df: pandas.DataFrame,
+        shear_type_col: str = "meta_step",
+    ) -> None:
+        """Split a joined shear catalog by type and populate red_data.
+
+        Splits ``joined_df`` by shear catalog type, runs each subset through
+        :meth:`reduceDataFrame`, and stores the results via
+        :meth:`~hpmcm.match.Match.setReducedData`.  No files are read or
+        written.
+
+        The joined DataFrame must already contain all columns expected by
+        :meth:`reduceDataFrame`: ``x_cell_coadd``, ``y_cell_coadd``,
+        ``cell_idx_x``, ``cell_idx_y``, ``x_pix``, ``y_pix``, ``snr``,
+        ``g_1``, ``g_2``, ``id``.  This is the schema produced by
+        :func:`~hpmcm.shear_utils.splitDESCMDByTypeAndClean` and
+        :func:`~hpmcm.shear_utils.splitRubinMDByTypeAndClean`.
+
+        Parameters
+        ----------
+        joined_df:
+            Single DataFrame with all shear types concatenated; must have a
+            column whose values are drawn from
+            :py:data:`~hpmcm.shear_utils.SHEAR_NAMES`.
+        shear_type_col:
+            Name of the column that identifies the shear catalog type.
+            Defaults to ``'meta_step'`` (the column written by the split
+            functions in :mod:`hpmcm.shear_utils`).
+        """
+        dfs = []
+        cids = []
+        for cid, name in enumerate(self.shear_names):
+            sub = joined_df[joined_df[shear_type_col] == name]
+            dfs.append(self.reduceDataFrame(sub))
+            cids.append(cid)
+        self.setReducedData(dfs, cids)
+
     def extractShearStats(self, central_only: bool = True) -> dict[str, pandas.DataFrame]:
         """Extract shear stats
 

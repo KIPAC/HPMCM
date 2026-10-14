@@ -144,3 +144,44 @@ def testWCSMatchPixelMatchScale(setup_data: int) -> None:
     n_bad = np.sum([len(obj_lists[x]) for x in bad_list])
     effic = n_good / (n_good + n_bad)
     assert effic > 0.75
+
+
+def testWCSMatchSetReducedData(setup_data: int) -> None:
+    """Verify setReducedData produces the same result as reduceData."""
+    assert setup_data == 0
+
+    source_tablesfiles = sorted(
+        glob.glob(os.path.join(DATADIR, f"shear_*_{SHEAR_ST}_cleaned_{TRACT}_ns.pq"))
+    )
+    source_tablesfiles.append(os.path.join(DATADIR, f"object_{TRACT}.pq"))
+    source_tablesfiles.reverse()
+    source_tablesfiles = [source_tablesfiles[0], source_tablesfiles[1]]
+    catalog_ids: list[int] = list(np.arange(len(source_tablesfiles)))
+
+    # Reduce via the normal file path to capture the reduced DataFrames.
+    ref_matcher = hpmcm.WcsMatch.create(
+        REF_DIR, REGION_SIZE, pixel_size=PIXEL_SIZE, pixel_R2_cut=PIXEL_R2CUT
+    )
+    ref_matcher.reduceData(source_tablesfiles, catalog_ids)
+
+    # Build a fresh matcher and supply the already-reduced frames directly.
+    matcher = hpmcm.WcsMatch.create(
+        REF_DIR, REGION_SIZE, pixel_size=PIXEL_SIZE, pixel_R2_cut=PIXEL_R2CUT
+    )
+    matcher.setReducedData(
+        list(ref_matcher.red_data.values()),
+        list(ref_matcher.red_data.keys()),
+    )
+
+    matcher.analysisLoop(range(1, 2), range(1, 2))
+    stats = matcher.extractStats()
+    assert stats is not None
+
+    obj_lists = hpmcm.classify.classifyObjects(matcher, SNRCut=10.0)
+    n_good = len(obj_lists["ideal"])
+    bad_list = [
+        "edge_mixed", "edge_missing", "edge_extra", "orphan",
+        "missing", "two_missing", "many_missing", "extra", "caught",
+    ]
+    n_bad = np.sum([len(obj_lists[x]) for x in bad_list])
+    assert n_good / (n_good + n_bad) > 0.85

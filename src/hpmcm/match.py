@@ -164,6 +164,30 @@ class Match:
         cell_idx = self.getCellIdx(ix, iy)
         return int(self.cell_max_object * cell_idx)
 
+    def setReducedData(
+        self,
+        dataframes: list[pandas.DataFrame],
+        catalog_ids: list[int],
+    ) -> None:
+        """Populate red_data directly from in-memory DataFrames.
+
+        Use instead of :meth:`reduceData` when the DataFrames are already
+        available in memory and need not be read from disk or passed through
+        :meth:`reduceDataFrame`.  Each DataFrame must already have the
+        columns expected by the matcher (same schema as
+        :meth:`reduceDataFrame` output).
+
+        Parameters
+        ----------
+        dataframes:
+            One already-reduced DataFrame per catalog.
+        catalog_ids:
+            Catalog IDs corresponding to each entry in ``dataframes``.
+        """
+        for idx, (df, cid) in enumerate(zip(dataframes, catalog_ids)):
+            self.catalog_id_map[cid] = idx
+            self.red_data[cid] = df
+
     def reduceData(
         self,
         input_files: list[str],
