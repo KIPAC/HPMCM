@@ -6,6 +6,7 @@ import click
 
 __all__: list[str] = [
     "basefile",
+    "catalog_format",
     "catalog_type",
     "deshear",
     "inputs",
@@ -171,6 +172,20 @@ shear = PartialOption(
 tract = PartialOption("--tract", help="Tract to select", type=int, required=True)
 
 inputs = PartialArgument("inputs", nargs=-1)
+
+catalog_format = PartialOption(
+    "--catalog-format",
+    type=click.Choice(["pre-processed", "rubin-md", "desc-md"]),
+    default="pre-processed",
+    show_default=True,
+    help=(
+        "Format of the --joined-input catalog. "
+        "'pre-processed': coordinates already computed; expects x_cell_coadd, "
+        "cell_idx_x/y, and --shear-type-col. "
+        "'rubin-md': raw joined Rubin MD catalog (requires --tract). "
+        "'desc-md': raw joined DESC MD catalog."
+    ),
+)
 
 joined_input = PartialOption(
     "--joined-input",
