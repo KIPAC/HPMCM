@@ -571,6 +571,101 @@ def buildJoinedObjectTable(
     return base.reset_index()
 
 
+def buildJoinedObjectTableFromDataFrames(
+    object_stats: pandas.DataFrame,
+    object_assoc: pandas.DataFrame,
+    dataframes: list[pandas.DataFrame],
+    catalog_ids: list[int],
+    source_cols: SourceColsType = None,
+    object_shear: pandas.DataFrame | None = None,
+    central_only: bool = True,
+    cell_size: float | None = None,
+) -> pandas.DataFrame:
+    """Build a wide joined table from an ObjectStatsTable and in-memory source catalogs.
+
+    Identical to :func:`buildJoinedObjectTable` but accepts DataFrames directly
+    instead of file paths.
+
+    Parameters
+    ----------
+    object_stats:
+        Stats DataFrame (``ObjectStatsTable.data``) with one row per object.
+    object_assoc:
+        Association DataFrame (``ObjectAssocTable.data``) mapping objects to
+        individual sources.
+    dataframes:
+        List of source catalog DataFrames, one per catalog.
+    catalog_ids:
+        Catalog IDs corresponding to each entry in ``dataframes``.
+    source_cols:
+        Columns to pull from source catalogs.
+
+        - ``None``: all columns from every catalog.
+        - ``list[str]``: same column list applied to every catalog (missing
+          columns in a given file are silently skipped).
+        - ``dict[int, list[str]]``: per-catalog column lists, keyed by
+          ``catalog_id``.  Catalogs absent from the dict get no columns
+          (only ``distance`` is added for them).
+    object_shear:
+        Optional ``ObjectShearTable`` DataFrame.  When provided, shear
+        statistics are joined on ``object_id``.  The ``cluster_id`` column
+        is dropped before joining because it is already present in
+        ``object_stats``.
+    central_only:
+        When ``True`` (default), rows whose centroid (``x_cent``, ``y_cent``
+        in x_cell_coadd coordinates) has a negative x or y component are
+        dropped before joining.
+    cell_size:
+        Inner cell size in pixels.  When provided together with
+        ``central_only=True``, objects with ``x_cent >= cell_size`` or
+        ``y_cent >= cell_size`` are also removed.
+
+    Returns
+    -------
+    DataFrame with one row per ``object_id``.  Columns from each catalog are
+    renamed ``{col}_{catalog_id}``.  Objects that have no source in a
+    given catalog will have ``NaN`` for that catalog's columns.
+    """
+    if central_only:
+        mask = (object_stats["x_cent"] >= 0) & (object_stats["y_cent"] >= 0)
+        if cell_size is not None:
+            mask &= (object_stats["x_cent"] < cell_size) & (object_stats["y_cent"] < cell_size)
+        object_stats = object_stats[mask]
+        object_assoc = object_assoc[object_assoc["object_id"].isin(object_stats["object_id"])]
+
+    catalog_df_map = dict(zip(catalog_ids, dataframes))
+    base = object_stats.set_index("object_id")
+
+    if object_shear is not None:
+        shear_df = object_shear.drop(columns=["cluster_id"], errors="ignore")
+        base = base.join(shear_df.set_index("object_id"), how="left")
+
+    for cat_id, full_src in catalog_df_map.items():
+        mask = object_assoc["catalog_id"] == cat_id
+        if not mask.any():
+            continue
+
+        assoc_sub = object_assoc.loc[mask, ["object_id", "source_id"]]
+
+        if "id" not in full_src.columns and "object_id" in full_src.columns:
+            full_src = full_src.rename(columns={"object_id": "id"})
+
+        src_df = _resolve_cols(source_cols, cat_id, full_src)
+
+        id_injected = "id" not in src_df.columns
+        if id_injected:
+            src_df = src_df.copy()
+            src_df["id"] = full_src["id"]
+
+        rows = assoc_sub.merge(src_df, left_on="source_id", right_on="id", how="left")
+        drop_cols = ["source_id", "id"] if id_injected else ["source_id"]
+        rows = rows.drop(columns=drop_cols).set_index("object_id")
+        rows = rows.rename(columns={c: f"{c}_{cat_id}" for c in rows.columns})
+        base = base.join(rows, how="left")
+
+    return base.reset_index()
+
+
 def buildJoinedClusterTable(
     cluster_stats: pandas.DataFrame,
     cluster_assoc: pandas.DataFrame,
