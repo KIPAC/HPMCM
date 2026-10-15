@@ -56,6 +56,22 @@ Additional features
   :py:func:`buildJoinedClusterTable
   <hpmcm.output_tables.buildJoinedClusterTable>` combine the association and
   statistics tables into a single flat table for downstream analysis.
+
+* **In-memory catalog loading** — :py:meth:`Match.setReducedData()
+  <hpmcm.match.Match.setReducedData>` lets you pass already-reduced
+  DataFrames directly to any matcher, bypassing file I/O.
+  :py:meth:`ShearMatch.splitAndReduce()
+  <hpmcm.shear_match.ShearMatch.splitAndReduce>` accepts a single joined
+  DataFrame (all shear types concatenated with a type column), splits it by
+  type, and loads the result — no intermediate per-type files needed.
+
+* **Raw catalog preparation** — :py:func:`shear_utils.prepareRubinMDForMatch
+  <hpmcm.shear_utils.prepareRubinMDForMatch>` and
+  :py:func:`shear_utils.prepareDESCMDForMatch
+  <hpmcm.shear_utils.prepareDESCMDForMatch>` apply the same spatial
+  filtering and coordinate computation as the ``split-rubin`` / ``split-desc``
+  CLI commands but return an in-memory joined DataFrame instead of writing
+  files.  Pass the result directly to ``splitAndReduce``.
 """
 
 from . import classify, match_utils, package_utils, shear_utils, utils, viz_utils

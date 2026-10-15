@@ -211,23 +211,11 @@ def associateSourcesToFootprints(
     return [findClusterIds(df, cluster_key, pixel_match_scale) for df in data]
 
 
-def reduceObjectTable(
-    basefile: str,
-    outfile: str,
+def reduceObjectDF(
+    t: pandas.DataFrame,
     extra_cols: list[str] | None = None,
-) -> None:  # pragma: no cover
-    """Reduce an object table to just the colums needed for matching
-
-    Parameters
-    ----------
-    basefile:
-        Original file name
-
-    outfile:
-        Output file name
-
-    extra_cols:
-        Extra columns to copy
+) -> pandas.DataFrame:
+    """Reduce an object DataFrame to just the columns needed for matching.
 
     Notes
     -----
@@ -254,16 +242,13 @@ def reduceObjectTable(
     +-----------------------+---------------------------------------------------------------+
 
     """
-    t = tables_io.read(basefile)
     cols = ["tract", "patch", "coord_ra", "coord_dec", "objectId"]
     cols += [f"{band}_gaapPsfFlux" for band in "ugrizy"]
     cols += [f"{band}_gaapPsfFluxErr" for band in "ugrizy"]
-
     if extra_cols is not None:
         cols += extra_cols
 
     tout = t[cols].copy(deep=True)
-
     tout["ra"] = tout["coord_ra"]
     tout["dec"] = tout["coord_dec"]
 
@@ -276,16 +261,15 @@ def reduceObjectTable(
         )
     tout["snr"] = snr
     tout["id"] = tout["objectId"]
+    return tout
 
-    tout.to_parquet(outfile)
 
-
-def reduceAnacalTable(
+def reduceObjectTable(
     basefile: str,
     outfile: str,
     extra_cols: list[str] | None = None,
 ) -> None:  # pragma: no cover
-    """Reduce an object table to just the colums needed for matching
+    """Read an object catalog, reduce it, and write the result.
 
     Parameters
     ----------
@@ -297,6 +281,17 @@ def reduceAnacalTable(
 
     extra_cols:
         Extra columns to copy
+    """
+    t = tables_io.read(basefile)
+    tout = reduceObjectDF(t, extra_cols)
+    tout.to_parquet(outfile)
+
+
+def reduceAnacalDF(
+    t: pandas.DataFrame,
+    extra_cols: list[str] | None = None,
+) -> pandas.DataFrame:
+    """Reduce an anacal DataFrame to just the columns needed for matching.
 
     Notes
     -----
@@ -323,7 +318,6 @@ def reduceAnacalTable(
     +-----------------------------+---------------------------------------------------------------+
 
     """
-    t = tables_io.read(basefile)
     cols = ["tract_id", "patch_x", "patch_y", "ra", "dec", "object_id"]
     cols += [f"lsst_{band}_flux_gauss2" for band in "riz"]
     cols += [f"lsst_{band}_flux_gauss2_err" for band in "riz"]
@@ -331,7 +325,6 @@ def reduceAnacalTable(
         cols += extra_cols
 
     tout = t[cols].copy(deep=True)
-
     tout["tract"] = tout["tract_id"]
 
     snr = np.zeros(len(tout["lsst_i_flux_gauss2_err"]))
@@ -344,6 +337,29 @@ def reduceAnacalTable(
     tout["snr"] = snr
     tout["id"] = tout["object_id"]
     tout.drop(columns=["object_id"])
+    return tout
+
+
+def reduceAnacalTable(
+    basefile: str,
+    outfile: str,
+    extra_cols: list[str] | None = None,
+) -> None:  # pragma: no cover
+    """Read an anacal catalog, reduce it, and write the result.
+
+    Parameters
+    ----------
+    basefile:
+        Original file name
+
+    outfile:
+        Output file name
+
+    extra_cols:
+        Extra columns to copy
+    """
+    t = tables_io.read(basefile)
+    tout = reduceAnacalDF(t, extra_cols)
     tout.to_parquet(outfile)
 
 

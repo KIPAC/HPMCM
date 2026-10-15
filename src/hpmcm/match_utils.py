@@ -72,7 +72,7 @@ def heirarchicalProcessObject(
     obj_data.snr_rms = np.std(obj_data.data.snr.values)
 
     sub_mask = obj_data.dist_2 < pixel_r2_cut
-    if sub_mask.all():
+    if (obj_data.n_unique == obj_data.n_src) and sub_mask.all():
         return
 
     if recurse >= cell_data.matcher.max_sub_division:

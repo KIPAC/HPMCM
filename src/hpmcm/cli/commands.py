@@ -1,5 +1,6 @@
 import click
 import numpy as np
+import pandas
 import tables_io
 
 import hpmcm
@@ -85,6 +86,10 @@ def shearGroup() -> None:
 @options.pixel_r2_cut()
 @options.pixel_match_scale()
 @options.deshear()
+@options.joined_input()
+@options.catalog_format()
+@options.shear_type_col()
+@options.tract(required=False, default=None)
 def shearMatchCommand(
     inputs: list[str],
     output_file: click.Path,
@@ -92,21 +97,78 @@ def shearMatchCommand(
     pixel_r2_cut: float | None,
     pixel_match_scale: int,
     deshear: bool,
+    joined_input: str | None,
+    catalog_format: str,
+    shear_type_col: str,
+    tract: int | None,
 ) -> None:
-    """Match shear catalogs"""
+    """Match shear catalogs.
+
+    Input catalogs can be supplied in two ways:
+
+    \b
+    1. As multiple positional INPUTS (one file per shear type, pre-split):
+         hpmcm shear match ns.pq 1p.pq 1m.pq 2p.pq 2m.pq --output-file out.pq
+
+    \b
+    2. As a single joined catalog via --joined-input (all types in one file).
+       Use --catalog-format to specify the input format:
+
+    \b
+         # already-processed catalog (x_cell_coadd etc. present):
+         hpmcm shear match --joined-input all.pq --output-file out.pq
+
+    \b
+         # raw joined Rubin MD catalog (requires --tract):
+         hpmcm shear match --joined-input raw.pq --catalog-format rubin-md \\
+             --tract 10463 --output-file out.pq
+
+    \b
+         # raw joined DESC MD catalog:
+         hpmcm shear match --joined-input raw.pq --catalog-format desc-md \\
+             --output-file out.pq
+    """
+    if inputs and joined_input is not None:
+        raise click.UsageError(
+            "Cannot use both positional INPUTS and --joined-input. Choose one."
+        )
+    if not inputs and joined_input is None:
+        raise click.UsageError(
+            "Must provide either positional INPUTS or --joined-input."
+        )
+    if catalog_format == "rubin-md" and tract is None:
+        raise click.UsageError(
+            "--tract is required when --catalog-format is 'rubin-md'."
+        )
+
     deshear_value: float | None = None
     if deshear:
-        assert shear is not None
+        if shear is None:
+            raise click.UsageError("--shear is required when --deshear is set.")
         deshear_value = -1 * shear
     matcher = hpmcm.ShearMatch.createShearMatch(
         pixelR2Cut=pixel_r2_cut,
         pixelMatchScale=pixel_match_scale,
         deshear=deshear_value,
     )
-    input_files = list(inputs)
-    input_files.reverse()
-    visit_ids: list[int] = list(np.arange(len(input_files)))
-    matcher.reduceData(input_files, visit_ids)
+
+    if joined_input is not None:
+        df = pandas.read_parquet(joined_input)
+        if catalog_format == "rubin-md":
+            assert tract is not None  # validated above
+            df = hpmcm.shear_utils.prepareRubinMDForMatch(df, tract)
+            matcher.splitAndReduce(df)
+        elif catalog_format == "desc-md":
+            df = hpmcm.shear_utils.prepareDESCMDForMatch(df)
+            matcher.splitAndReduce(df)
+        else:
+            matcher.splitAndReduce(df, shear_type_col)
+    else:
+        input_files = list(inputs)
+        input_files.reverse()
+        visit_ids: list[int] = list(np.arange(len(input_files)))
+        matcher.reduceData(input_files, visit_ids)
+
     print("Matching catalogs:")
     matcher.analysisLoop()
     print("Extracting stats.")

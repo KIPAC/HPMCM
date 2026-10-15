@@ -32,3 +32,53 @@ def testCliShearMatch() -> None:
 
     result = runner.invoke(cli, "shear match --help")
     checkResult(result)
+    assert "--joined-input" in result.output
+    assert "--catalog-format" in result.output
+    assert "--shear-type-col" in result.output
+    assert "--tract" in result.output
+
+
+def testCliShearMatchMutualExclusion() -> None:
+    """Both positional inputs and --joined-input should be rejected."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "shear", "match",
+            "file1.pq",
+            "--joined-input", "joined.pq",
+            "--output-file", "out.pq",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Cannot use both" in result.output
+
+
+def testCliShearMatchNoInput() -> None:
+    """No inputs at all should be rejected."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        ["shear", "match", "--output-file", "out.pq"],
+    )
+    assert result.exit_code != 0
+    assert "Must provide" in result.output
+
+
+def testCliShearMatchRubinMDRequiresTract() -> None:
+    """--catalog-format rubin-md without --tract should be rejected."""
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "shear", "match",
+            "--joined-input", "raw.pq",
+            "--catalog-format", "rubin-md",
+            "--output-file", "out.pq",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "--tract" in result.output

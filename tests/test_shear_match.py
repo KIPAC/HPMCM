@@ -2,6 +2,7 @@ import glob
 import os
 
 import numpy as np
+import pandas
 
 import hpmcm
 
@@ -132,3 +133,48 @@ def testShearReport(setup_data: int) -> None:
         tract=TRACT,
         snr_cut=SNR_CUT,
     )
+
+
+def testShearMatchSplitAndReduce(setup_data: int) -> None:
+    """Verify splitAndReduce on a joined catalog produces valid results."""
+    assert setup_data == 0
+
+    # Build a joined catalog by reading the per-type files and tagging each row.
+    per_type_files = sorted(
+        glob.glob(
+            os.path.join(DATADIR, f"shear_{CATALOG_TYPE}_{SHEAR_ST}_uncleaned_{TRACT}_*.pq")
+        )
+    )
+    dfs = []
+    for f in per_type_files:
+        # Infer type name from file suffix (e.g., "_ns.pq" → "ns").
+        type_ = os.path.splitext(f)[0].rsplit("_", 1)[-1]
+        df = pandas.read_parquet(f)
+        df = df.copy()
+        df["meta_step"] = type_
+        dfs.append(df)
+    joined_df = pandas.concat(dfs, ignore_index=True)
+
+    matcher = hpmcm.ShearMatch.createShearMatch(
+        geometry=OUR_GEOM,
+        pixel_R2_cut=PIXEL_R2CUT,
+        pixel_match_scale=PIXEL_MATCH_SCALE,
+        deshear=-1 * SHEAR,
+    )
+    matcher.splitAndReduce(joined_df)
+
+    x_range = range(50, 55)
+    y_range = range(170, 175)
+    matcher.analysisLoop(x_range, y_range)
+
+    stats = matcher.extractStats()
+    assert stats is not None
+
+    obj_lists = hpmcm.classify.classifyObjects(matcher, SNRCut=SNR_CUT)
+    n_good = len(obj_lists["ideal"])
+    bad_list = [
+        "edge_mixed", "edge_missing", "edge_extra", "orphan",
+        "missing", "two_missing", "many_missing", "extra", "caught",
+    ]
+    n_bad = np.sum([len(obj_lists[x]) for x in bad_list])
+    assert n_good / (n_good + n_bad) > 0.90

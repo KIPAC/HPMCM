@@ -281,6 +281,190 @@ def mergeShearReports(
     out_df.to_parquet(output_file)
 
 
+def prepareRubinMDForMatch(
+    df: pandas.DataFrame,
+    tract: int,
+    *,
+    clean: bool = False,
+    geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
+    shear_names: list[str] | None = None,
+) -> pandas.DataFrame:  # pragma: no cover
+    """Process a raw joined Rubin MD DataFrame for in-memory matching.
+
+    Applies the same spatial filtering and coordinate computation as
+    :func:`splitRubinMDByTypeAndClean` but returns a single joined
+    DataFrame instead of writing per-type files.  Pass the result
+    directly to :meth:`~hpmcm.shear_match.ShearMatch.splitAndReduce`.
+
+    Parameters
+    ----------
+    df:
+        Raw joined Rubin MD catalog with all shear types concatenated.
+        Required columns: ``metaStep``, ``cell_x``, ``cell_y``,
+        ``patch`` (or ``patch_x`` / ``patch_y``), ``x``, ``y``,
+        ``tract``, ``shearObjectId``, ``snr``, ``g_1``, ``g_2``,
+        ``ra``, ``dec``.
+    tract:
+        Tract to select.
+    clean:
+        When ``True``, apply strict cell bounds (no ``cell_inner_buffer``
+        padding around the inner cell).
+    geometry:
+        Cell geometry configuration.
+    shear_names:
+        Subset of :py:data:`SHEAR_NAMES` to process.  ``None`` → all five.
+
+    Returns
+    -------
+    Joined DataFrame with a ``meta_step`` column and the columns expected
+    by :meth:`~hpmcm.shear_match.ShearMatch.reduceDataFrame`:
+    ``id``, ``x_cell_coadd``, ``y_cell_coadd``, ``cell_idx_x``,
+    ``cell_idx_y``, ``x_pix``, ``y_pix``, ``snr``, ``g_1``, ``g_2``,
+    ``ra``, ``dec``.
+    """
+    if shear_names is None:
+        shear_names = SHEAR_NAMES
+    buf = 0 if clean else geometry.cell_inner_buffer
+
+    frames: list[pandas.DataFrame] = []
+    for type_ in shear_names:
+        sub = df[df["metaStep"] == type_]
+
+        right_tract = sub["tract"] == tract
+        central_to_patch = (
+            np.fabs(sub["cell_x"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        ) & (
+            np.fabs(sub["cell_y"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        )
+        sub = sub[right_tract & central_to_patch].copy(deep=True)
+
+        if "patch_x" not in sub.columns:
+            sub["patch_x"] = sub["patch"] % 10
+            sub["patch_y"] = sub["patch"] // 10
+
+        cell_idx_x = (
+            geometry.n_cell_in_patch * sub["patch_x"].values + sub["cell_x"].values
+        ).astype(int)
+        cell_idx_y = (
+            geometry.n_cell_in_patch * sub["patch_y"].values + sub["cell_y"].values
+        ).astype(int)
+
+        x_cell_coadd = (
+            sub["x"].values
+            - (cell_idx_x - geometry.n_cell_patch_buffer) * geometry.cell_inner_size
+        )
+        y_cell_coadd = (
+            sub["y"].values
+            - (cell_idx_y - geometry.n_cell_patch_buffer) * geometry.cell_inner_size
+        )
+
+        central_to_cell = (
+            (x_cell_coadd >= -buf)
+            & (x_cell_coadd < geometry.cell_inner_size + buf)
+            & (y_cell_coadd >= -buf)
+            & (y_cell_coadd < geometry.cell_inner_size + buf)
+        )
+        out = sub[central_to_cell].copy(deep=True)
+        out["x_cell_coadd"] = x_cell_coadd[central_to_cell]
+        out["y_cell_coadd"] = y_cell_coadd[central_to_cell]
+        out["x_pix"] = out["x"]
+        out["y_pix"] = out["y"]
+        out["cell_idx_x"] = cell_idx_x[central_to_cell]
+        out["cell_idx_y"] = cell_idx_y[central_to_cell]
+        out["id"] = out["shearObjectId"]
+        out["meta_step"] = type_
+        frames.append(out)
+
+    return pandas.concat(frames, ignore_index=True)
+
+
+def prepareDESCMDForMatch(
+    df: pandas.DataFrame,
+    *,
+    clean: bool = False,
+    geometry: ShearCellGeometry = DEFAULT_GEOMETRY,
+    shear_names: list[str] | None = None,
+) -> pandas.DataFrame:  # pragma: no cover
+    """Process a raw joined DESC MD DataFrame for in-memory matching.
+
+    Applies the same spatial filtering and coordinate computation as
+    :func:`splitDESCMDByTypeAndClean` but returns a single joined
+    DataFrame instead of writing per-type files.  Pass the result
+    directly to :meth:`~hpmcm.shear_match.ShearMatch.splitAndReduce`.
+
+    Parameters
+    ----------
+    df:
+        Raw joined DESC MD catalog with all shear types concatenated.
+        Required columns: ``mcal_step``, ``cell_i``, ``cell_j``,
+        ``patch_x``, ``patch_y``, ``xcell``, ``ycell``, ``x``, ``y``,
+        ``snr``, ``g_1``, ``g_2``, ``ra``, ``dec``.  If ``id`` is
+        absent it is generated as ``arange(len(df))``.
+    clean:
+        When ``True``, apply strict cell bounds (no ``cell_inner_buffer``
+        padding around the inner cell).
+    geometry:
+        Cell geometry configuration.
+    shear_names:
+        Subset of :py:data:`SHEAR_NAMES` to process.  ``None`` → all five.
+
+    Returns
+    -------
+    Joined DataFrame with a ``meta_step`` column and the columns expected
+    by :meth:`~hpmcm.shear_match.ShearMatch.reduceDataFrame`.
+    """
+    if shear_names is None:
+        shear_names = SHEAR_NAMES
+    buf = 0 if clean else geometry.cell_inner_buffer
+
+    if "id" not in df.columns:
+        df = df.copy()
+        df["id"] = np.arange(len(df))
+
+    frames: list[pandas.DataFrame] = []
+    for type_ in shear_names:
+        sub = df[df["mcal_step"] == type_]
+
+        central_to_patch = (
+            np.fabs(sub["cell_i"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        ) & (
+            np.fabs(sub["cell_j"].values - geometry.patch_offset)
+            < (geometry.n_cell_in_patch / 2)
+        )
+        sub = sub[central_to_patch].copy(deep=True)
+
+        cell_idx_x = (
+            geometry.n_cell_in_patch * sub["patch_x"].values + sub["cell_j"].values
+        ).astype(int)
+        cell_idx_y = (
+            geometry.n_cell_in_patch * sub["patch_y"].values + sub["cell_i"].values
+        ).astype(int)
+
+        x_cell_coadd = sub["xcell"].values - geometry.cell_buffer
+        y_cell_coadd = sub["ycell"].values - geometry.cell_buffer
+
+        central_to_cell = (
+            (x_cell_coadd >= -buf)
+            & (x_cell_coadd < geometry.cell_inner_size + buf)
+            & (y_cell_coadd >= -buf)
+            & (y_cell_coadd < geometry.cell_inner_size + buf)
+        )
+        out = sub[central_to_cell].copy(deep=True)
+        out["x_cell_coadd"] = x_cell_coadd[central_to_cell]
+        out["y_cell_coadd"] = y_cell_coadd[central_to_cell]
+        out["x_pix"] = out["x"]
+        out["y_pix"] = out["y"]
+        out["cell_idx_x"] = cell_idx_x[central_to_cell]
+        out["cell_idx_y"] = cell_idx_y[central_to_cell]
+        out["meta_step"] = type_
+        frames.append(out)
+
+    return pandas.concat(frames, ignore_index=True)
+
+
 def splitRubinMDByTypeAndClean(
     basefile: str,
     tract: int,
