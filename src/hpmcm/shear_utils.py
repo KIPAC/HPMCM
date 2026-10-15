@@ -302,8 +302,9 @@ def prepareRubinMDForMatch(
         Raw joined Rubin MD catalog with all shear types concatenated.
         Required columns: ``metaStep``, ``cell_x``, ``cell_y``,
         ``patch`` (or ``patch_x`` / ``patch_y``), ``x``, ``y``,
-        ``tract``, ``shearObjectId``, ``snr``, ``g_1``, ``g_2``,
-        ``ra``, ``dec``.
+        ``tract``, ``shearObjectId``, ``ra``, ``dec``, and either
+        ``snr`` / ``g_1`` / ``g_2`` or their equivalents
+        ``gauss_snr`` / ``gauss_g1`` / ``gauss_g2``.
     tract:
         Tract to select.
     clean:
@@ -344,6 +345,11 @@ def prepareRubinMDForMatch(
             sub["patch_x"] = sub["patch"] % 10
             sub["patch_y"] = sub["patch"] // 10
 
+        if 'snr' not in sub.columns:
+            sub['snr'] = sub['gauss_snr']
+            sub['g_1'] = sub['gauss_g1']
+            sub['g_2'] = sub['gauss_g2']
+            
         cell_idx_x = (
             geometry.n_cell_in_patch * sub["patch_x"].values + sub["cell_x"].values
         ).astype(int)
@@ -375,6 +381,7 @@ def prepareRubinMDForMatch(
         out["cell_idx_y"] = cell_idx_y[central_to_cell]
         out["id"] = out["shearObjectId"]
         out["meta_step"] = type_
+
         frames.append(out)
 
     return pandas.concat(frames, ignore_index=True)
