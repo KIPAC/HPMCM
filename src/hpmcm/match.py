@@ -209,6 +209,30 @@ class Match:
             self.red_data[cid] = self.reduceDataFrame(self.full_data[cid])
             self.full_data[cid].set_index("id", inplace=True)
 
+    def reduceDataFrames(
+        self,
+        dataframes: list[pandas.DataFrame],
+        catalog_id: list[int],
+    ) -> None:
+        """Accept in-memory DataFrames and filter out only the columns we need.
+
+        Behaves identically to :meth:`reduceData` but takes DataFrames directly
+        instead of reading from files.
+
+        Parameters
+        ----------
+        dataframes:
+            One raw input DataFrame per catalog (same schema as the files read
+            by :meth:`reduceData`).
+        catalog_id:
+            Catalog IDs corresponding to each entry in ``dataframes``.
+        """
+        for idx, (df, cid) in enumerate(zip(dataframes, catalog_id)):
+            self.catalog_id_map[cid] = idx
+            self.full_data[cid] = df
+            self.red_data[cid] = self.reduceDataFrame(self.full_data[cid])
+            self.full_data[cid].set_index("id", inplace=True)
+
     def _buildCellData(
         self,
         id_offset: int,

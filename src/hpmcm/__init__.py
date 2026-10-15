@@ -91,6 +91,7 @@ from .output_tables import (
     ShearTable,
     buildJoinedClusterTable,
     buildJoinedObjectTable,
+    buildJoinedObjectTableFromDataFrames,
     computeColumnStats,
     reduceJoinedTable,
 )
@@ -107,6 +108,7 @@ __all__ = [
     "ClusterStatsTable",
     "buildJoinedClusterTable",
     "buildJoinedObjectTable",
+    "buildJoinedObjectTableFromDataFrames",
     "computeColumnStats",
     "reduceJoinedTable",
     "Footprint",
