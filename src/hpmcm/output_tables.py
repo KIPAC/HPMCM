@@ -96,6 +96,9 @@ class ObjectStatsTable(TableInterface):
         dist_rms=TableColumnInfo(
             float, "RMS of distance from sources to object centroid"
         ),
+        cluster_dist_rms=TableColumnInfo(
+            float, "RMS of distance from sources to parent cluster centroid"
+        ),
         ra=TableColumnInfo(float, "RA of object centroid"),
         dec=TableColumnInfo(float, "DEC of object centroid"),
         x_cent=TableColumnInfo(float, "X-value of object centroid in x_cell_coadd coords (0 at inner left edge)"),
@@ -132,6 +135,7 @@ class ObjectStatsTable(TableInterface):
         n_srcs = np.zeros((n_obj), dtype=int)
         n_uniques = np.zeros((n_obj), dtype=int)
         dist_rms = np.zeros((n_obj), dtype=float)
+        cluster_dist_rms = np.zeros((n_obj), dtype=float)
         x_cents = np.zeros((n_obj), dtype=float)
         y_cents = np.zeros((n_obj), dtype=float)
         snrs = np.zeros((n_obj), dtype=float)
@@ -148,6 +152,7 @@ class ObjectStatsTable(TableInterface):
             n_srcs[idx] = obj.n_src
             n_uniques[idx] = obj.n_unique
             dist_rms[idx] = obj.rms_dist
+            cluster_dist_rms[idx] = obj.parent_cluster.rms_dist
             x_cents[idx] = obj.x_cent
             y_cents[idx] = obj.y_cent
             snrs[idx] = obj.snr_mean
@@ -161,6 +166,7 @@ class ObjectStatsTable(TableInterface):
 
         ra, dec = cell_data.getRaDec(x_cents, y_cents)
         dist_rms *= cell_data.matcher.pixToArcsec()
+        cluster_dist_rms *= cell_data.matcher.pixToArcsec()
         x_pix = x_cents + cell_data.min_pix[0]
         y_pix = y_cents + cell_data.min_pix[1]
         # Convert centroids from x_cell (0 at outer edge) to x_cell_coadd (0 at inner edge)
@@ -173,6 +179,7 @@ class ObjectStatsTable(TableInterface):
             n_unique=n_uniques,
             n_src=n_srcs,
             dist_rms=dist_rms,
+            cluster_dist_rms=cluster_dist_rms,
             ra=ra,
             dec=dec,
             x_cent=x_cents_coadd,
