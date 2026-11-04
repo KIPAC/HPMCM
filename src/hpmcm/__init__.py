@@ -74,12 +74,14 @@ Additional features
   files.  Pass the result directly to ``splitAndReduce``.
 """
 
-from . import classify, match_utils, package_utils, shear_utils, utils, viz_utils
+from . import classify, match_utils, mst_utils, package_utils, shear_utils, utils, viz_utils
 from ._version import __version__
 from .cell import CellData, ShearCellData
 from .cluster import ClusterData, ShearClusterData
 from .footprint import Footprint, FootprintSet
 from .match import Match
+from .mst_cell import MSTCellData, MSTShearCellData
+from .mst_match import MSTShearMatch, MSTWcsMatch
 from .object import ObjectData, ShearObjectData
 from .output_tables import (
     ClusterAssocTable,
@@ -114,6 +116,10 @@ __all__ = [
     "Footprint",
     "FootprintSet",
     "Match",
+    "MSTCellData",
+    "MSTShearCellData",
+    "MSTShearMatch",
+    "MSTWcsMatch",
     "ObjectAssocTable",
     "ObjectData",
     "ObjectShearTable",
@@ -129,6 +135,7 @@ __all__ = [
     "WcsMatch",
     "classify",
     "match_utils",
+    "mst_utils",
     "package_utils",
     "shear_utils",
     "utils",
