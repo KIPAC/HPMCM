@@ -3,10 +3,26 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure, SubFigure
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
+from scipy.spatial.distance import pdist, squareform
 
 from .cell import CellData
 from .cluster import ClusterData
 from .match import Match
+
+_CATALOG_COLORS = ["C0", "C1", "C2", "C3", "C4"]
+_OBJECT_COLORS = ["tab:red", "tab:blue", "tab:green", "tab:cyan", "tab:orange"]
+
+
+def _mst_edges(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return (row, col) index arrays of the MST edges for the given positions."""
+    if len(x) < 2:
+        return np.empty(0, dtype=int), np.empty(0, dtype=int)
+    dist_mat = csr_matrix(squareform(pdist(np.column_stack([x, y]))))
+    mst = minimum_spanning_tree(dist_mat)
+    rows, cols = mst.nonzero()
+    return rows.astype(int), cols.astype(int)
 
 
 def showShearObjs(matcher: Match, i_k: tuple[int, int]) -> Figure | SubFigure:
@@ -254,3 +270,110 @@ def showObjectsV2(
     img.axes.set_ylabel("y [cell pixels]")
     assert img.axes.figure is not None
     return img.axes.figure
+
+
+def showMSTCluster(
+    cluster: ClusterData,
+    cell_data: CellData,
+) -> Figure | SubFigure:
+    """Draw a cluster using MST links instead of a pixel image.
+
+    Sources are coloured by catalog ID.  MST edges connect adjacent
+    sources in the minimum spanning tree of the cluster.  The
+    SNR-weighted cluster centroid is marked with a black cross.
+
+    Parameters
+    ----------
+    cluster:
+        Cluster to visualise.
+    cell_data:
+        Parent cell.
+
+    Returns
+    -------
+    Figure containing the plot.
+    """
+    cluster.extract(cell_data)
+    assert cluster.data is not None
+
+    x = cluster.data.x_cell.values
+    y = cluster.data.y_cell.values
+    i_cat = cluster.data.i_cat.values
+
+    fig, ax = plt.subplots()
+
+    rows, cols = _mst_edges(x, y)
+    for r, c in zip(rows, cols):
+        ax.plot([x[r], x[c]], [y[r], y[c]], color="grey", linewidth=0.8, zorder=1)
+
+    for cat_id in np.unique(i_cat):
+        m = i_cat == cat_id
+        ax.scatter(
+            x[m],
+            y[m],
+            c=_CATALOG_COLORS[int(cat_id) % len(_CATALOG_COLORS)],
+            label=f"catalog {int(cat_id)}",
+            zorder=2,
+        )
+
+    ax.scatter(cluster.x_cent, cluster.y_cent, marker="+", c="black", s=100, zorder=3)
+    ax.set_xlabel("x [cell pixels]")
+    ax.set_ylabel("y [cell pixels]")
+    ax.legend(loc="best", fontsize="small")
+    return fig
+
+
+def showMSTObjects(
+    cluster: ClusterData,
+    cell_data: CellData,
+) -> Figure | SubFigure:
+    """Draw a cluster's objects using MST links instead of a pixel image.
+
+    Intra-object MST edges are drawn as solid lines coloured by object.
+    Inter-object edges (cut by the MST splitting step) are drawn as
+    dashed grey lines.  Object centroids are marked with crosses.
+
+    Parameters
+    ----------
+    cluster:
+        Cluster to visualise.
+    cell_data:
+        Parent cell.
+
+    Returns
+    -------
+    Figure containing the plot.
+    """
+    cluster.extract(cell_data)
+    assert cluster.data is not None
+
+    x = cluster.data.x_cell.values
+    y = cluster.data.y_cell.values
+
+    source_obj = np.full(len(x), -1, dtype=int)
+    for i_obj, obj in enumerate(cluster.objects):
+        source_obj[obj.mask] = i_obj
+
+    rows, cols = _mst_edges(x, y)
+
+    fig, ax = plt.subplots()
+
+    for r, c in zip(rows, cols):
+        if source_obj[r] == source_obj[c] and source_obj[r] >= 0:
+            color = _OBJECT_COLORS[source_obj[r] % len(_OBJECT_COLORS)]
+            ax.plot([x[r], x[c]], [y[r], y[c]], color=color, linewidth=1.0, zorder=1)
+        else:
+            ax.plot(
+                [x[r], x[c]], [y[r], y[c]],
+                color="grey", linewidth=0.8, linestyle="--", alpha=0.5, zorder=1,
+            )
+
+    for i_obj, obj in enumerate(cluster.objects):
+        color = _OBJECT_COLORS[i_obj % len(_OBJECT_COLORS)]
+        ax.scatter(x[obj.mask], y[obj.mask], c=color, label=f"object {i_obj}", zorder=2)
+        ax.scatter(obj.x_cent, obj.y_cent, marker="+", c=color, s=100, zorder=3)
+
+    ax.set_xlabel("x [cell pixels]")
+    ax.set_ylabel("y [cell pixels]")
+    ax.legend(loc="best", fontsize="small")
+    return fig
