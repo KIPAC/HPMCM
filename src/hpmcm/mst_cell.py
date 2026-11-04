@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from . import match_utils, mst_utils
+from . import mst_utils
 from .cell import CellData, ShearCellData
 from .footprint import Footprint
 
@@ -72,7 +72,7 @@ class MSTCellMixin:
             i_cluster = int(comp_id) + id_offset
             cluster = self._buildClusterData(i_cluster, footprint, sources)  # type: ignore[attr-defined]
             self.cluster_dict[i_cluster] = cluster  # type: ignore[attr-defined]
-            match_utils.heirarchicalProcessCluster(cluster, self, pixel_r2_cut)  # type: ignore[arg-type]
+            mst_utils.mstProcessCluster(cluster, self, pixel_r2_cut, cut_pix)  # type: ignore[arg-type]
 
 
 class MSTCellData(MSTCellMixin, CellData):
