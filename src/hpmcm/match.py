@@ -301,7 +301,11 @@ class Match:
         return dict(cell_data=cell_data)
 
     def analysisLoop(
-        self, x_range: Iterable | None = None, y_range: Iterable | None = None
+        self,
+        x_range: Iterable | None = None,
+        y_range: Iterable | None = None,
+        write_dir: str | Path | None = None,
+        evict_cells: bool = False,
     ) -> None:
         """Does matching for all cells.
 
@@ -314,6 +318,21 @@ class Match:
 
         y_range:
             Range of cells to analysis in Y.  None -> Entire range.
+
+        write_dir:
+            When set, each cell's output tables are written as parquet
+            fragment files under this directory immediately after the cell
+            is analysed, and the ``CellData`` is then removed from
+            ``cell_dict``.  The fragments can later be read by
+            :meth:`extractStats` via its ``read_dir`` parameter.
+            Implies ``evict_cells=True``.  Defaults to ``None`` (keep all
+            cell data in memory).
+
+        evict_cells:
+            When ``True``, remove each ``CellData`` from ``cell_dict``
+            immediately after it has been analysed.  Has no effect when
+            ``write_dir`` is set (eviction is always done in that case).
+            Defaults to ``False``.
         """
         self.cell_dict.clear()
 
@@ -322,11 +341,24 @@ class Match:
         if y_range is None:
             y_range = range(int(self.n_cell[1]))
 
+        if write_dir is not None:
+            write_dir = Path(write_dir)
+            write_dir.mkdir(parents=True, exist_ok=True)
+
+        do_evict = evict_cells or (write_dir is not None)
+
         for ix in x_range:
             for iy in y_range:
                 odict = self.analyzeCell(ix, iy)
                 if odict is None:
                     continue
+                if write_dir is not None:
+                    i_cell = self.getCellIdx(ix, iy)
+                    cell_data = self.cell_dict[i_cell]
+                    self._writeCellFragments(cell_data, write_dir)
+                if do_evict:
+                    i_cell = self.getCellIdx(ix, iy)
+                    self.cell_dict.pop(i_cell, None)
             if ix == 0:
                 pass
             elif ix % 10 == 0:
@@ -338,6 +370,22 @@ class Match:
 
         sys.stdout.write(" Done!\n")
         sys.stdout.flush()
+
+    def _writeCellFragments(self, cell_data: CellData, write_dir: Path) -> None:
+        """Write per-cell output-table fragments to *write_dir* as parquet files."""
+        i = cell_data.idx
+        output_tables.ClusterAssocTable.buildFromCellData(cell_data).data.to_parquet(
+            write_dir / f"cluster_assoc_{i}.parquet"
+        )
+        output_tables.ObjectAssocTable.buildFromCellData(cell_data).data.to_parquet(
+            write_dir / f"object_assoc_{i}.parquet"
+        )
+        output_tables.ClusterStatsTable.buildFromCellData(cell_data).data.to_parquet(
+            write_dir / f"cluster_stats_{i}.parquet"
+        )
+        output_tables.ObjectStatsTable.buildFromCellData(cell_data).data.to_parquet(
+            write_dir / f"object_stats_{i}.parquet"
+        )
 
     def _getCentralIds(
         self, cell_data: CellData
@@ -362,7 +410,12 @@ class Match:
         )
         return obj_ids, clust_ids
 
-    def extractStats(self, central_only: bool = True) -> dict[str, pandas.DataFrame]:
+    def extractStats(
+        self,
+        central_only: bool = True,
+        read_dir: str | Path | None = None,
+        batch_size: int = 500,
+    ) -> dict[str, pandas.DataFrame]:
         """Extracts cluster statisistics
 
         Parameters
@@ -373,6 +426,18 @@ class Match:
             ``[0, cell_size)``.  This avoids double-counting edge objects that
             are also captured by adjacent cells.
 
+        read_dir:
+            When set, read per-cell parquet fragments written by
+            :meth:`analysisLoop` (via its ``write_dir`` parameter) instead of
+            pulling data from ``cell_dict``.  ``central_only`` has no effect
+            when reading from fragments because the filtering was already
+            applied at write time.
+
+        batch_size:
+            Number of per-cell DataFrames to accumulate before performing an
+            intermediate :func:`pandas.concat`.  Keeps the number of live
+            fragment objects bounded.  Defaults to 500.
+
         Returns
         -------
         Dict with keys:
@@ -382,10 +447,20 @@ class Match:
         ``object_stats`` (:py:class:`hpmcm.output_tables.ObjectStatsTable`).
 
         """
-        cluster_assoc_tables = []
-        object_assoc_tables = []
-        cluster_stats_tables = []
-        object_stats_tables = []
+        if read_dir is not None:
+            return self._extractStatsFromFragments(Path(read_dir), batch_size)
+
+        keys = ["cluster_assoc", "object_assoc", "cluster_stats", "object_stats"]
+        batches: dict[str, list[pandas.DataFrame]] = {k: [] for k in keys}
+        accum: dict[str, pandas.DataFrame | None] = {k: None for k in keys}
+
+        def _flush(buf: dict[str, list[pandas.DataFrame]], acc: dict[str, pandas.DataFrame | None]) -> None:
+            for k in keys:
+                if not buf[k]:
+                    continue
+                merged = pandas.concat(buf[k], ignore_index=True)
+                acc[k] = merged if acc[k] is None else pandas.concat([acc[k], merged], ignore_index=True)
+                buf[k].clear()
 
         for ix in range(int(self.n_cell[0])):
             for iy in range(int(self.n_cell[1])):
@@ -406,10 +481,14 @@ class Match:
                     cs = cs[cs["cluster_id"].isin(c_clust)]
                     os_ = os_[os_["object_id"].isin(c_obj)]
 
-                cluster_assoc_tables.append(ca)
-                object_assoc_tables.append(oa)
-                cluster_stats_tables.append(cs)
-                object_stats_tables.append(os_)
+                batches["cluster_assoc"].append(ca)
+                batches["object_assoc"].append(oa)
+                batches["cluster_stats"].append(cs)
+                batches["object_stats"].append(os_)
+
+                if len(batches["cluster_assoc"]) >= batch_size:
+                    _flush(batches, accum)
+
             if ix == 0:
                 pass
             elif ix % 10 == 0:
@@ -422,12 +501,44 @@ class Match:
         sys.stdout.write(" Done!\n")
         sys.stdout.flush()
 
-        return {
-            "cluster_assoc": pandas.concat(cluster_assoc_tables),
-            "object_assoc": pandas.concat(object_assoc_tables),
-            "cluster_stats": pandas.concat(cluster_stats_tables),
-            "object_stats": pandas.concat(object_stats_tables),
-        }
+        _flush(batches, accum)
+        return {k: accum[k] if accum[k] is not None else pandas.DataFrame() for k in keys}
+
+    def _extractStatsFromFragments(
+        self, read_dir: Path, batch_size: int
+    ) -> dict[str, pandas.DataFrame]:
+        """Concat per-cell parquet fragments written by ``analysisLoop(write_dir=...)``.
+
+        Reads in batches of *batch_size* cells to cap memory usage.
+        """
+        table_names = ["cluster_assoc", "object_assoc", "cluster_stats", "object_stats"]
+        accum: dict[str, pandas.DataFrame | None] = {k: None for k in table_names}
+        batches: dict[str, list[pandas.DataFrame]] = {k: [] for k in table_names}
+
+        def _flush() -> None:
+            for k in table_names:
+                if not batches[k]:
+                    continue
+                merged = pandas.concat(batches[k], ignore_index=True)
+                accum[k] = merged if accum[k] is None else pandas.concat([accum[k], merged], ignore_index=True)
+                batches[k].clear()
+
+        # Discover cell indices from the fragment files present on disk.
+        cell_indices = sorted(
+            int(p.stem.split("_")[-1])
+            for p in read_dir.glob("cluster_assoc_*.parquet")
+        )
+
+        for n, i_cell in enumerate(cell_indices):
+            for k in table_names:
+                fpath = read_dir / f"{k}_{i_cell}.parquet"
+                if fpath.exists():
+                    batches[k].append(pandas.read_parquet(fpath))
+            if (n + 1) % batch_size == 0:
+                _flush()
+
+        _flush()
+        return {k: accum[k] if accum[k] is not None else pandas.DataFrame() for k in table_names}
 
     def getCellXY(self, cell_idx: int) -> tuple[int, int]:
         """Inverse of getCellIdx: return (ix, iy) for a flat cell index."""
